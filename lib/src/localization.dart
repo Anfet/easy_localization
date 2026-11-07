@@ -237,7 +237,11 @@ class Localization {
     return resource;
   }
 
-  bool exists(String key) {
-    return _translations?.get(key) != null;
+  bool exists(String key, {bool includeFallback = false}) {
+    final primary = _translations?.get(key);
+    if (!includeFallback) return primary != null;
+    if (primary != null && (!_useFallbackTranslationsForEmptyResources || primary.isNotEmpty)) return true;
+    final fallback = _fallbackTranslations?.get(key);
+    return fallback != null && (!_useFallbackTranslationsForEmptyResources || fallback.isNotEmpty);
   }
 }

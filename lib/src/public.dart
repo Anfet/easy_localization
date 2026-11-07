@@ -1,12 +1,13 @@
 import 'package:flutter/widgets.dart';
 import 'package:intl/intl.dart';
 import 'localization.dart';
+import 'exceptions.dart';
 
 /// {@template tr}
 /// Main function for translate your language keys
 ///
-/// Pass [context] in a widget build to subscribe to locale changes. Without it,
-/// the result is a snapshot and does not subscribe the widget.
+/// Pass [context] to use and subscribe to its localization scope. Ordinary
+/// widgets under the root rebuild on presentation changes; retained strings are snapshots.
 /// [key] Localization key
 /// [BuildContext] The location in the tree where this widget builds
 /// [args] List of localized strings. Replaces {} left to right
@@ -42,19 +43,21 @@ String tr(
   String? gender,
 }) {
   return context != null
-      ? Localization.of(context)!.tr(key, args: args, namedArgs: namedArgs, gender: gender)
+      ? (Localization.of(context) ?? (throw const LocalizationNotFoundException())).tr(key, args: args, namedArgs: namedArgs, gender: gender)
       : Localization.instance.tr(key, args: args, namedArgs: namedArgs, gender: gender);
 }
 
-bool trExists(String key, {BuildContext? context}) {
-  return context != null ? Localization.of(context)!.exists(key) : Localization.instance.exists(key);
+bool trExists(String key, {BuildContext? context, bool includeFallback = false}) {
+  return context != null
+      ? (Localization.of(context) ?? (throw const LocalizationNotFoundException())).exists(key, includeFallback: includeFallback)
+      : Localization.instance.exists(key, includeFallback: includeFallback);
 }
 
 /// {@template plural}
 /// function translate with pluralization
 ///
-/// Pass [context] in a widget build to subscribe to locale changes. Without it,
-/// the result is a snapshot and does not subscribe the widget.
+/// Pass [context] to use and subscribe to its localization scope. Ordinary
+/// widgets under the root rebuild on presentation changes; retained strings are snapshots.
 /// [key] Localization key
 /// [value] Number value for pluralization
 /// [BuildContext] The location in the tree where this widget builds
@@ -113,6 +116,7 @@ String plural(
   NumberFormat? format,
 }) {
   return context != null
-      ? Localization.of(context)!.plural(key, value, args: args, namedArgs: namedArgs, name: name, format: format)
+      ? (Localization.of(context) ?? (throw const LocalizationNotFoundException()))
+          .plural(key, value, args: args, namedArgs: namedArgs, name: name, format: format)
       : Localization.instance.plural(key, value, args: args, namedArgs: namedArgs, name: name, format: format);
 }

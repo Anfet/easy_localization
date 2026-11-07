@@ -1,5 +1,11 @@
 # Changelog
 
+### Next major (unreleased)
+
+- Requires Dart 3.8 and Flutter 3.32. New owner config uses language plural rules and disables base-language fallback by default; legacy defaults remain available.
+- Added explicit fallback lookup and strict missing resource handling, preserved Text properties, and exposed scope errors. See the migration guide for loader contracts, receipts, diagnostics and startup changes.
+
+
 ### [3.0.9]
 
 - Added support for linked files feature

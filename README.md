@@ -148,6 +148,7 @@ class MyApp extends StatelessWidget {
 | startLocale             | false    |                           | Overrides device locale.                                                                                                                                                      |
 | saveLocale              | false    | `true`                    | Save locale in device storage.                                                                                                                                                |
 | useFallbackTranslations | false    | `false`                   | If a localization key is not found in the locale file, try to use the fallbackLocale file.                                                                                    |
+| useBaseLanguageFallback | false | `true` (legacy widget), `false` (config) | Load a base language before the configured fallback when fallback translations are enabled. |
 | useFallbackTranslationsForEmptyResources | false    | `false`                   | If translation is empty in the locale file, try to use the fallbackLocale file. Does not take effect if `useFallbackTranslations` is false.                  |
 | useOnlyLangCode         | false    | `false`                   | Trigger for using only language code for reading localization files.</br></br>Example:</br>`en.json //useOnlyLangCode: true`</br>`en-US.json //useOnlyLangCode: false`        |
 | errorWidget             | false    | `FutureErrorWidget()`     | Shows a custom error widget when an error occurs.                                                                                                                             |
@@ -217,7 +218,8 @@ Resume reads the engine list and does not force a browser language refresh or gu
 Invalid saved data and resource/storage failures throw without silently trying a
 different source or deleting the saved value. A valid start overrides old saved data.
 With `saveLocale: false`, initialize, set, reset, and delete never access preferences.
-The widget constructor retains legacy saved-before-start selection and optional
+To restore a manual selection, omit `startLocale` on subsequent launches. The stored `locale` key and existing language/script/country forms remain compatible; no storage migration is needed.
+The widget constructor retains legacy saved-before-start selection and optional or unsupported
 fallback; `ensureInitialized` below belongs to that legacy startup path.
 
 Commands return a receipt synchronously: `ready` confirms data and persistence
@@ -230,7 +232,7 @@ owner is no longer needed. Global access before readiness or after disposal thro
 `StateError`. Reusing the same config object reuses initialization; another config
 requires disposing the current owner first.
 
-Call `EasyLocalization.ensureInitialized()` in your main before runApp.
+For the legacy widget constructor, call `EasyLocalization.ensureInitialized()` before runApp. The standalone `initialize` path above does not need this call.
 
 ```dart
 void main() async{
@@ -251,7 +253,7 @@ Easy localization uses extension methods [BuildContext] for access to locale.
 
 It's the easiest way change locale or get parameters 😉.
 
-ℹ️ No breaking changes, you can use old the static method `EasyLocalization.of(context)`
+The nullable `EasyLocalization.of(context)` remains available; context extensions throw `LocalizationNotFoundException` when their own scope is absent. Use `await context.setLocale(locale)` instead of the deprecated synchronous setter and handle errors.
 
 Example:
 
@@ -290,7 +292,7 @@ You can use extension methods of [String] or [Text] widget, you can also use `tr
 Text(context.tr('title'))
 ```
 
-In a widget build, pass `context` to subscribe to locale changes, including in const subtrees. Calls without context return a snapshot of the current translation and do not subscribe the widget; use them outside the UI or refresh the value explicitly.
+Ordinary widgets inside the localization root rebuild when the presentation changes, including retained const subtrees. Passing `context` also subscribes to its local scope. Strings stored in a view model or computed outside build are snapshots and must be recomputed.
 
 
 ```dart
@@ -414,7 +416,7 @@ var money = plural('money_named_args', 10.23, namedArgs: {'name': 'Jane'}, name:
 ### ⚙️ Configuring Plural Rules with `ignorePluralRules`
 
 In some languages, pluralization is simple and only involves using zero, one, two, and other forms, without needing to handle the `few` or `many` categories.  
-By default, `easy_localization` ignores the `few` and `many` plural forms and uses just the zero, one, two, and other forms.
+`EasyLocalizationConfig` uses language rules by default. The legacy widget constructor defaults to exact zero, one, two and other forms.
 
 If you want to enable the handling of the `few` and `many` plural categories for specific languages, you can configure the `ignorePluralRules` flag to `false` in the `EasyLocalization` initialization.
 
@@ -423,9 +425,9 @@ Here’s how to configure it:
 ```dart
 EasyLocalization(
   ignorePluralRules: false, // Set this line to false to enable 'few' and 'many' plural categories
-  supportedLocales: [Locale('en', 'US'), Locale('de', 'DE')],
+  supportedLocales: [Locale('ru')],
   path: 'assets/translations',
-  fallbackLocale: Locale('en', 'US'),
+  fallbackLocale: Locale('ru'),
   child: MyApp()
 )
 ```
@@ -792,3 +794,22 @@ final refreshedDocument = await EasyLocalization.instance.translator(document.lo
 ```
 
 The requested locale must be in `supportedLocales`. A translator remains usable after the owner is disposed.
+
+
+## Compatibility and migration to the next major
+
+The minimum SDKs are Dart 3.8 and Flutter 3.32. The new `EasyLocalizationConfig` uses language plural rules by default (`ignorePluralRules: false`); legacy `EasyLocalization`, `Localization.load` and `Localization.snapshot` retain `true`. Set `true` explicitly on the new path for dictionaries that depend on exact zero/one/two; set `false` on legacy Russian examples to use language rules. For example Russian 21/22/5 use one/few/many; the current fractional rounding rules still apply.
+
+`fallbackLocale` selects a supported startup locale; it does not enable key fallback. Enable `useFallbackTranslations` separately. New owners disable `useBaseLanguageFallback` by default; the legacy constructor enables it. When enabled for a region, strict owners load primary, then one language-and-script base, then configured fallback. A custom loader must return null only for confirmed missing resources, return `{}` for a successful empty resource, and throw for failures. A missing optional base is skipped; missing primary or configured fallback throws before commit. RootBundle loader throws on missing assets, so opt in only when the base asset exists or a custom loader reports confirmed absence. Legacy loading retains its historical all-null and base FlutterError handling. Duplicate normalized resources are loaded once per operation.
+
+`trExists(key)` checks primary strings only. `includeFallback: true` also checks already loaded fallback strings; with `useFallbackTranslationsForEmptyResources: true`, empty strings do not count. Non-string values never count. This does not load resources or resolve links/plurals. `Text.tr` and `Text.plural` preserve Text properties; translate each `TextSpan` string with `String.tr` for rich text.
+
+For a Russian-only application, `supportedLocales: [Locale('ru')]` and `fallbackLocale: Locale('ru')` are sufficient. No English locale is required. Context calls require their own scope and throw `LocalizationNotFoundException`; global calls before readiness or after disposal throw `StateError`. A missing key in a ready dictionary still returns the key and invokes the warning callback if set.
+
+| Consumer migration | Action |
+| --- | --- |
+| Neo-MK / FitPlus UI | After installing the owner, remove UI context passing, completers, delays, reassemble calls and duplicate current UI locale state where they only coordinate localization. |
+| Business and network | Keep server/guest language as business data, and choose the network-to-asset fallback policy explicitly. Use `translator(locale)` for a document in another language. |
+| Portal operations | Propagate errors from awaited locale changes to the pending action; do not report success from `finally`. |
+
+This fork already has an `AssetLoader` constructor with `fileLoader` and `linkedFileResolver`; it differs from the published portal API. The removed `easy_logger`/`logger` integration is replaced by optional `onVerbose`, `onWarning`, and `onError` callbacks, silent by default. Await `ready` and handle exceptions; inspect `applied` separately before treating a change as visible. `busy` can remain set after `ready` until presentation reaches a terminal outcome.

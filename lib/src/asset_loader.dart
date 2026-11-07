@@ -23,6 +23,9 @@ abstract class AssetLoader {
 
   const AssetLoader({required this.linkedFileResolver, required this.fileLoader});
 
+  /// Return null only for a confirmed missing resource. An empty map is a
+  /// successful empty resource; loading and parsing failures must throw.
+  /// Strict owners require primary and configured fallback resources.
   Future<Map<String, dynamic>?> load(String path, Locale locale);
 }
 

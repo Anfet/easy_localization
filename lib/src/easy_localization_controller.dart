@@ -41,6 +41,7 @@ class EasyLocalizationController extends ChangeNotifier {
   final AssetLoader assetLoader;
   final String path;
   final bool useFallbackTranslations;
+  final bool useBaseLanguageFallback;
   final bool saveLocale;
   final bool useOnlyLangCode;
   final bool strictErrors;
@@ -52,6 +53,7 @@ class EasyLocalizationController extends ChangeNotifier {
   EasyLocalizationController({
     required List<Locale> supportedLocales,
     required this.useFallbackTranslations,
+    this.useBaseLanguageFallback = true,
     required this.saveLocale,
     required this.assetLoader,
     required this.path,
@@ -230,15 +232,52 @@ class EasyLocalizationController extends ChangeNotifier {
   }
 
   Future<_LocaleResources> _loadResources(Locale target) async {
-    final data = Map<String, dynamic>.from(await loadTranslationData(target));
+    final loads = <Locale, Future<Map<String, dynamic>?>>{};
+    Locale normalized(Locale locale) =>
+        useOnlyLangCode ? Locale.fromSubtags(languageCode: locale.languageCode, scriptCode: locale.scriptCode) : locale;
+    Future<Map<String, dynamic>?> load(Locale locale) => loads.putIfAbsent(
+        normalized(locale),
+        () => _combineAssetLoaders(
+              path: path,
+              locale: locale,
+              assetLoader: assetLoader,
+              useOnlyLangCode: useOnlyLangCode,
+              extraAssetLoaders: extraAssetLoaders,
+            ));
+    Future<Map<String, dynamic>> requiredResource(Locale locale, String layer) async {
+      final result = await load(locale);
+      if (strictErrors && result == null) throw StateError('Missing $layer translations for $locale');
+      return Map<String, dynamic>.from(result ?? const {});
+    }
+
+    final data = await requiredResource(target, 'primary');
     Translations? fallback;
-    if (useFallbackTranslations && _fallbackLocale != null) {
-      Map<String, dynamic>? baseLangData;
-      if (target.countryCode != null && target.countryCode!.isNotEmpty) {
-        baseLangData = await loadBaseLangTranslationData(Locale(target.languageCode));
+    final configured = _fallbackLocale;
+    if (useFallbackTranslations && configured != null) {
+      Map<String, dynamic>? base;
+      if (useBaseLanguageFallback && target.countryCode != null && target.countryCode!.isNotEmpty) {
+        final baseLocale =
+            strictErrors ? Locale.fromSubtags(languageCode: target.languageCode, scriptCode: target.scriptCode) : Locale(target.languageCode);
+        if (strictErrors) {
+          base = await load(baseLocale);
+        } else {
+          try {
+            base = await load(baseLocale);
+          } on FlutterError catch (error) {
+            final callbackErrors = Zone.current[#easyLocalizationCallbackErrors] as List<AsyncError>?;
+            if (callbackErrors?.isNotEmpty ?? false) rethrow;
+            try {
+              final callbackZone = Zone.current[#easyLocalizationCallbackZone] as Zone? ?? Zone.current;
+              callbackZone.run(() => EasyLocalization.onWarning?.call(error.message));
+            } catch (error, stackTrace) {
+              (Zone.current[#easyLocalizationCallbackErrors] as List<AsyncError>?)?.add(AsyncError(error, stackTrace));
+              rethrow;
+            }
+          }
+        }
       }
-      final fallbackData = Map<String, dynamic>.from(await loadTranslationData(_fallbackLocale!));
-      if (baseLangData != null) fallbackData.addAllRecursive(baseLangData);
+      final fallbackData = await requiredResource(configured, 'fallback');
+      if (base != null) fallbackData.addAllRecursive(base);
       fallback = Translations(fallbackData);
     }
     return _LocaleResources(target, Translations(data), fallback);
@@ -269,15 +308,17 @@ class EasyLocalizationController extends ChangeNotifier {
     return null;
   }
 
-  Future<Map<String, dynamic>> loadTranslationData(Locale locale) async => _combineAssetLoaders(
+  Future<Map<String, dynamic>> loadTranslationData(Locale locale) async =>
+      (await _combineAssetLoaders(
         path: path,
         locale: locale,
         assetLoader: assetLoader,
         useOnlyLangCode: useOnlyLangCode,
         extraAssetLoaders: extraAssetLoaders,
-      );
+      )) ??
+      {};
 
-  Future<Map<String, dynamic>> _combineAssetLoaders({
+  Future<Map<String, dynamic>?> _combineAssetLoaders({
     required String path,
     required Locale locale,
     required AssetLoader assetLoader,
@@ -296,15 +337,17 @@ class EasyLocalizationController extends ChangeNotifier {
       loaderFutures.add(loader.load(path, desiredLocale));
     }
 
+    var present = false;
     await Future.wait(loaderFutures).then((List<Map<String, dynamic>?> value) {
       for (final Map<String, dynamic>? map in value) {
         if (map != null) {
+          present = true;
           result.addAllRecursive(map);
         }
       }
     });
 
-    return result;
+    return present ? result : null;
   }
 
   Locale get locale => _locale;

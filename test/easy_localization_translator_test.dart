@@ -126,6 +126,7 @@ void main() {
     expect(document.tr('fallback'), 'fallback');
     expect(document.tr('empty'), 'filled');
     expect(document.exists('fallback'), isFalse);
+    expect(document.exists('fallback', includeFallback: true), isTrue);
     expect(document.plural('count', 2), 'few');
     expect(owner.locale, const Locale('en'));
     expect(owner.state.value, same(state));

@@ -7,8 +7,8 @@ import 'easy_localization_app.dart';
 import 'public.dart' as ez;
 
 /// Text widget extension method for access to [tr()] and [plural()]
-/// Pass context in a widget build to subscribe to locale changes. Without
-/// context, the result is a snapshot and does not subscribe the widget.
+/// Pass context to use and subscribe to its localization scope. Ordinary widgets
+/// under the root rebuild on presentation changes; retained strings are snapshots.
 /// Example :
 /// ```dart
 /// Text('title').tr(context: context)
@@ -18,7 +18,7 @@ extension TextTranslateExtension on Text {
   /// {@macro tr}
   Text tr({List<String>? args, BuildContext? context, Map<String, String>? namedArgs, String? gender}) => Text(
       ez.tr(
-        data ?? '',
+        data ?? (throw ArgumentError('Text.rich cannot be translated; translate each TextSpan string instead')),
         context: context,
         args: args,
         namedArgs: namedArgs,
@@ -32,10 +32,16 @@ extension TextTranslateExtension on Text {
       locale: locale,
       softWrap: softWrap,
       overflow: overflow,
+      // Preserve the legacy property when no TextScaler was supplied.
+      // ignore: deprecated_member_use
       textScaleFactor: textScaleFactor,
+      textScaler: textScaler,
       maxLines: maxLines,
       semanticsLabel: semanticsLabel,
-      textWidthBasis: textWidthBasis);
+      semanticsIdentifier: semanticsIdentifier,
+      textWidthBasis: textWidthBasis,
+      textHeightBehavior: textHeightBehavior,
+      selectionColor: selectionColor);
 
   /// {@macro plural}
   Text plural(
@@ -48,7 +54,7 @@ extension TextTranslateExtension on Text {
   }) =>
       Text(
           ez.plural(
-            data ?? '',
+            data ?? (throw ArgumentError('Text.rich cannot be translated; translate each TextSpan string instead')),
             value,
             context: context,
             args: args,
@@ -64,15 +70,21 @@ extension TextTranslateExtension on Text {
           locale: locale,
           softWrap: softWrap,
           overflow: overflow,
+          // Preserve the legacy property when no TextScaler was supplied.
+          // ignore: deprecated_member_use
           textScaleFactor: textScaleFactor,
+          textScaler: textScaler,
           maxLines: maxLines,
           semanticsLabel: semanticsLabel,
-          textWidthBasis: textWidthBasis);
+          semanticsIdentifier: semanticsIdentifier,
+          textWidthBasis: textWidthBasis,
+          textHeightBehavior: textHeightBehavior,
+          selectionColor: selectionColor);
 }
 
 /// Strings extension method for access to [tr()] and [plural()]
-/// Pass context in a widget build to subscribe to locale changes. Without
-/// context, the result is a snapshot and does not subscribe the widget.
+/// Pass context to use and subscribe to its localization scope. Ordinary widgets
+/// under the root rebuild on presentation changes; retained strings are snapshots.
 /// Example :
 /// ```dart
 /// 'title'.tr(context: context)
@@ -88,7 +100,7 @@ extension StringTranslateExtension on String {
   }) =>
       ez.tr(this, context: context, args: args, namedArgs: namedArgs, gender: gender);
 
-  bool trExists({BuildContext? context}) => ez.trExists(this, context: context);
+  bool trExists({BuildContext? context, bool includeFallback = false}) => ez.trExists(this, context: context, includeFallback: includeFallback);
 
   /// {@macro plural}
   String plural(
@@ -125,29 +137,29 @@ extension StringTranslateExtension on String {
 /// ```
 extension BuildContextEasyLocalizationExtension on BuildContext {
   /// Get current locale
-  Locale get locale => EasyLocalization.of(this)!.locale;
+  Locale get locale => (EasyLocalization.of(this) ?? (throw const LocalizationNotFoundException())).locale;
 
   /// Change app locale
   /// Waits for loading and the assigned save. Superseded requests do not apply.
   /// Load and save failures complete with an error; a save failure keeps the
   /// applied locale. Widget translations update on the next frame.
-  Future<void> setLocale(Locale val) async => EasyLocalization.of(this)!.setLocale(val);
+  Future<void> setLocale(Locale val) async => (EasyLocalization.of(this) ?? (throw const LocalizationNotFoundException())).setLocale(val);
 
   /// Reloads the current locale after the asset loader's data has changed.
   /// Waits for acceptance; the current load failure completes with an error.
   /// A later locale change or reload supersedes it. Widgets update next frame.
-  Future<void> reloadTranslations() => EasyLocalization.of(this)!.reloadTranslations();
+  Future<void> reloadTranslations() => (EasyLocalization.of(this) ?? (throw const LocalizationNotFoundException())).reloadTranslations();
 
   /// Old Change app locale
   @Deprecated('This is the func used in the old version of EasyLocalization. The modern func is `setLocale(val)` . '
       'This feature was deprecated after v3.0.0')
-  set locale(Locale val) => EasyLocalization.of(this)!.setLocale(val);
+  set locale(Locale val) => (EasyLocalization.of(this) ?? (throw const LocalizationNotFoundException())).setLocale(val);
 
   /// Get List of supported locales.
-  List<Locale> get supportedLocales => EasyLocalization.of(this)!.supportedLocales;
+  List<Locale> get supportedLocales => (EasyLocalization.of(this) ?? (throw const LocalizationNotFoundException())).supportedLocales;
 
   /// Get fallback locale
-  Locale? get fallbackLocale => EasyLocalization.of(this)!.fallbackLocale;
+  Locale? get fallbackLocale => (EasyLocalization.of(this) ?? (throw const LocalizationNotFoundException())).fallbackLocale;
 
   /// {@macro flutter.widgets.widgetsApp.localizationsDelegates}
   /// return
@@ -159,17 +171,17 @@ extension BuildContextEasyLocalizationExtension on BuildContext {
   ///     GlobalCupertinoLocalizations.delegate
   ///   ],
   /// ```
-  List<LocalizationsDelegate> get localizationDelegates => EasyLocalization.of(this)!.delegates;
+  List<LocalizationsDelegate> get localizationDelegates => (EasyLocalization.of(this) ?? (throw const LocalizationNotFoundException())).delegates;
 
   /// Clears a saved locale from device storage
-  Future<void> deleteSaveLocale() => EasyLocalization.of(this)!.deleteSaveLocale();
+  Future<void> deleteSaveLocale() => (EasyLocalization.of(this) ?? (throw const LocalizationNotFoundException())).deleteSaveLocale();
 
   /// Getting device locale from platform
-  Locale get deviceLocale => EasyLocalization.of(this)!.deviceLocale;
-  Locale? get savedLocale => EasyLocalization.of(this)!.savedLocale;
+  Locale get deviceLocale => (EasyLocalization.of(this) ?? (throw const LocalizationNotFoundException())).deviceLocale;
+  Locale? get savedLocale => (EasyLocalization.of(this) ?? (throw const LocalizationNotFoundException())).savedLocale;
 
   /// Follow the platform locale and remove the saved selection.
-  Future<void> resetLocale() => EasyLocalization.of(this)!.resetLocale();
+  Future<void> resetLocale() => (EasyLocalization.of(this) ?? (throw const LocalizationNotFoundException())).resetLocale();
 
   /// An extension method for translating your language keys.
   /// Subscribes the widget on current [Localization] that provided from context.
@@ -220,14 +232,14 @@ extension BuildContextEasyLocalizationExtension on BuildContext {
     );
   }
 
-  bool trExists(String key) {
+  bool trExists(String key, {bool includeFallback = false}) {
     final localization = Localization.of(this);
 
     if (localization == null) {
       throw const LocalizationNotFoundException();
     }
 
-    return localization.exists(key);
+    return localization.exists(key, includeFallback: includeFallback);
   }
 
   String plural(

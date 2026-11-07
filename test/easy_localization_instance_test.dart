@@ -113,6 +113,23 @@ void main() {
     SharedPreferences.resetStatic();
   });
 
+  test('config defaults use language rules and translator inherits them', () async {
+    final input = EasyLocalizationConfig(
+        supportedLocales: const [Locale('ru')],
+        fallbackLocale: const Locale('ru'),
+        startLocale: const Locale('ru'),
+        path: 'unused',
+        assetLoader: loader,
+        saveLocale: false);
+    expect(input.ignorePluralRules, isFalse);
+    expect(input.useBaseLanguageFallback, isFalse);
+    final owner = await EasyLocalization.initialize(input);
+    expect(owner.dataTranslator.plural('count', 21), 'one');
+    expect(owner.dataTranslator.plural('count', 22), 'few');
+    expect((await owner.translator(const Locale('ru'))).plural('count', 22), 'few');
+    expect(EasyLocalization(supportedLocales: const [Locale('ru')], path: 'unused', child: const SizedBox()).ignorePluralRules, isTrue);
+  });
+
   test('ready before runApp exposes data, plural, mode and state without a frame', () async {
     expect(() => EasyLocalization.instance, throwsStateError);
     expect(() => tr('value'), throwsStateError);

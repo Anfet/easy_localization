@@ -13,7 +13,7 @@ enum LocalizationErrorStage { resources, persistence, flutterDelegates }
 /// [fallbackLocale] and [startLocale] must belong exactly to [supportedLocales].
 /// Startup chooses start, then saved (when [saveLocale]), then the system locale
 /// or the required fallback. A selected source's failure never tries another.
-/// The translation defaults match the legacy widget constructor.
+/// Translation defaults follow language plural rules and disable base fallback.
 @immutable
 class EasyLocalizationConfig {
   final List<Locale> supportedLocales;
@@ -25,6 +25,7 @@ class EasyLocalizationConfig {
   final List<LocalizationsDelegate<dynamic>> additionalDelegates;
   final bool useOnlyLangCode;
   final bool useFallbackTranslations;
+  final bool useBaseLanguageFallback;
   final bool useFallbackTranslationsForEmptyResources;
   final bool ignorePluralRules;
   final bool saveLocale;
@@ -42,8 +43,9 @@ class EasyLocalizationConfig {
     List<LocalizationsDelegate<dynamic>> additionalDelegates = const [],
     this.useOnlyLangCode = false,
     this.useFallbackTranslations = false,
+    this.useBaseLanguageFallback = false,
     this.useFallbackTranslationsForEmptyResources = false,
-    this.ignorePluralRules = true,
+    this.ignorePluralRules = false,
     this.saveLocale = true,
   })  : supportedLocales = List.unmodifiable(supportedLocales),
         extraAssetLoaders = List.unmodifiable(extraAssetLoaders),
@@ -70,6 +72,7 @@ class EasyLocalizationConfig {
         identical(assetLoader, widget.assetLoader) &&
         useOnlyLangCode == widget.useOnlyLangCode &&
         useFallbackTranslations == widget.useFallbackTranslations &&
+        useBaseLanguageFallback == widget.useBaseLanguageFallback &&
         useFallbackTranslationsForEmptyResources == widget.useFallbackTranslationsForEmptyResources &&
         ignorePluralRules == widget.ignorePluralRules &&
         saveLocale == widget.saveLocale &&
@@ -265,6 +268,7 @@ class EasyLocalizationInstance with WidgetsBindingObserver {
         forceSystemMode: explicit == null,
         strictErrors: true,
         useFallbackTranslations: config.useFallbackTranslations,
+        useBaseLanguageFallback: config.useBaseLanguageFallback,
         saveLocale: config.saveLocale,
         assetLoader: config.assetLoader,
         extraAssetLoaders: config.extraAssetLoaders,

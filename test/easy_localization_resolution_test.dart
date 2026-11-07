@@ -5,6 +5,21 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/intl.dart';
 
 void main() {
+  test('exists can inspect usable primary and fallback strings without diagnostics', () {
+    for (final skipEmpty in [false, true]) {
+      final snapshot = Localization.snapshot(const Locale('en'),
+          translations: Translations({'empty': '', 'nonString': 42, 'emptyWithFallback': ''}),
+          fallbackTranslations: Translations({'missing': 'F', 'emptyWithFallback': 'F', 'fallbackEmpty': '', 'nonString': false}),
+          useFallbackTranslationsForEmptyResources: skipEmpty);
+      expect(snapshot.exists('missing'), isFalse);
+      expect(snapshot.exists('missing', includeFallback: true), isTrue);
+      expect(snapshot.exists('empty', includeFallback: true), !skipEmpty);
+      expect(snapshot.exists('emptyWithFallback', includeFallback: true), isTrue);
+      expect(snapshot.exists('fallbackEmpty', includeFallback: true), !skipEmpty);
+      expect(snapshot.exists('nonString', includeFallback: true), isFalse);
+    }
+  });
+
   test('nested lookup returns only complete string leaves and permits fallback', () {
     final translations = Translations({
       'title': 'Parent',

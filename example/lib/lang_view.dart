@@ -36,27 +36,14 @@ class LanguageView extends StatelessWidget {
                 ),
               ),
             ),
-            _SwitchListTileMenuItem(
-                title: 'عربي',
-                subtitle: 'عربي',
-                locale:
-                    context.supportedLocales[1] //BuildContext extension method
+            _SwitchListTileMenuItem(title: 'عربي', subtitle: 'عربي', locale: context.supportedLocales[1] //BuildContext extension method
                 ),
             _Divider(),
-            _SwitchListTileMenuItem(
-                title: 'English',
-                subtitle: 'English',
-                locale: context.supportedLocales[0]),
+            _SwitchListTileMenuItem(title: 'English', subtitle: 'English', locale: context.supportedLocales[0]),
             _Divider(),
-            _SwitchListTileMenuItem(
-                title: 'German',
-                subtitle: 'German',
-                locale: context.supportedLocales[2]),
+            _SwitchListTileMenuItem(title: 'German', subtitle: 'German', locale: context.supportedLocales[2]),
             _Divider(),
-            _SwitchListTileMenuItem(
-                title: 'Русский',
-                subtitle: 'Русский',
-                locale: context.supportedLocales[3]),
+            _SwitchListTileMenuItem(title: 'Русский', subtitle: 'Русский', locale: context.supportedLocales[3]),
             _Divider(),
           ],
         ),
@@ -100,8 +87,7 @@ class _SwitchListTileMenuItem extends StatelessWidget {
     return Container(
       margin: EdgeInsets.only(left: 10, right: 10, top: 5),
       decoration: BoxDecoration(
-        border:
-            isSelected(context) ? Border.all(color: Colors.blueAccent) : null,
+        border: isSelected(context) ? Border.all(color: Colors.blueAccent) : null,
       ),
       child: ListTile(
           dense: true,
@@ -114,8 +100,12 @@ class _SwitchListTileMenuItem extends StatelessWidget {
           ),
           onTap: () async {
             log(locale.toString(), name: toString());
-            await context.setLocale(locale); //BuildContext extension method
-            Navigator.pop(context);
+            try {
+              await context.setLocale(locale);
+              if (context.mounted) Navigator.pop(context);
+            } catch (error) {
+              if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Language change failed: $error')));
+            }
           }),
     );
   }

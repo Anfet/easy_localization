@@ -16,7 +16,8 @@ void main() async {
     // startLocale: Locale('de', 'DE'),
     // saveLocale: false,
     // useOnlyLangCode: true,
-    // ignorePluralRules: false,
+    // ignorePluralRules: true, // Keep exact zero/one/two dictionary behavior.
+    // useBaseLanguageFallback: true, // Requires base assets or a loader that returns null for confirmed absence.
 
     // optional assetLoader default used is RootBundleAssetLoader which uses flutter's assetloader
     // install easy_localization_loader for enable custom loaders

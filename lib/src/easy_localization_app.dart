@@ -46,6 +46,7 @@ class EasyLocalization extends StatefulWidget {
         startLocale = instance.config.startLocale,
         useOnlyLangCode = instance.config.useOnlyLangCode,
         useFallbackTranslations = instance.config.useFallbackTranslations,
+        useBaseLanguageFallback = instance.config.useBaseLanguageFallback,
         useFallbackTranslationsForEmptyResources = instance.config.useFallbackTranslationsForEmptyResources,
         ignorePluralRules = instance.config.ignorePluralRules,
         assetLoader = instance.config.assetLoader,
@@ -86,6 +87,9 @@ class EasyLocalization extends StatefulWidget {
   /// useFallbackTranslations: true
   /// ```
   final bool useFallbackTranslations;
+
+  /// Loads a base-language resource before the configured fallback.
+  final bool useBaseLanguageFallback;
 
   /// If a localization key is empty in the locale file, try to use the fallbackLocale file.
   /// Does not take effect if [useFallbackTranslations] is false.
@@ -172,6 +176,7 @@ class EasyLocalization extends StatefulWidget {
     this.startLocale,
     this.useOnlyLangCode = false,
     this.useFallbackTranslations = false,
+    this.useBaseLanguageFallback = true,
     this.useFallbackTranslationsForEmptyResources = false,
     this.ignorePluralRules = true,
     this.assetLoader = const RootBundleAssetLoader(
@@ -270,6 +275,7 @@ class _EasyLocalizationState extends State<EasyLocalization> with WidgetsBinding
         extraAssetLoaders: widget.extraAssetLoaders,
         useOnlyLangCode: widget.useOnlyLangCode,
         useFallbackTranslations: widget.useFallbackTranslations,
+        useBaseLanguageFallback: widget.useBaseLanguageFallback,
         path: widget.path,
         onLoadError: (FlutterError e) {
           if (mounted && localizationController.translations == null) {
@@ -290,6 +296,7 @@ class _EasyLocalizationState extends State<EasyLocalization> with WidgetsBinding
         additionalDelegates: widget.additionalDelegates,
         useOnlyLangCode: widget.useOnlyLangCode,
         useFallbackTranslations: widget.useFallbackTranslations,
+        useBaseLanguageFallback: widget.useBaseLanguageFallback,
         useFallbackTranslationsForEmptyResources: widget.useFallbackTranslationsForEmptyResources,
         ignorePluralRules: widget.ignorePluralRules,
         saveLocale: widget.saveLocale,
