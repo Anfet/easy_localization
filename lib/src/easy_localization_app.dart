@@ -2,13 +2,15 @@ import 'dart:async';
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:easy_localization/src/easy_localization_controller.dart';
-import 'package:easy_logger/easy_logger.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'localization.dart';
 
 part 'utils.dart';
+
+/// Receives a diagnostic message and its optional original stack trace.
+typedef LocalizationLogCallback = void Function(String message, {StackTrace? stackTrace});
 
 ///  EasyLocalization
 ///  example:
@@ -147,7 +149,7 @@ class EasyLocalization extends StatefulWidget {
   })  : assert(supportedLocales.isNotEmpty),
         assert(path.isNotEmpty),
         super(key: key) {
-    EasyLocalization.logger.debug('Start');
+    EasyLocalization.onVerbose?.call('Start');
   }
 
   @override
@@ -162,8 +164,10 @@ class EasyLocalization extends StatefulWidget {
   /// start.
   static Future<void> ensureInitialized() async => await EasyLocalizationController.initEasyLocation();
 
-  /// Customizable logger
-  static EasyLogger logger = EasyLogger(name: '🌎 Easy Localization');
+  /// Optional diagnostic handlers, invoked synchronously in the current zone.
+  static LocalizationLogCallback? onVerbose;
+  static LocalizationLogCallback? onWarning;
+  static LocalizationLogCallback? onError;
 }
 
 class _EasyLocalizationState extends State<EasyLocalization> {
@@ -173,7 +177,7 @@ class _EasyLocalizationState extends State<EasyLocalization> {
 
   @override
   void initState() {
-    EasyLocalization.logger.debug('Init state');
+    EasyLocalization.onVerbose?.call('Init state');
     localizationController = EasyLocalizationController(
       saveLocale: widget.saveLocale,
       fallbackLocale: widget.fallbackLocale,
@@ -205,11 +209,9 @@ class _EasyLocalizationState extends State<EasyLocalization> {
 
   @override
   Widget build(BuildContext context) {
-    EasyLocalization.logger.debug('Build');
+    EasyLocalization.onVerbose?.call('Build');
     if (translationsLoadError != null) {
-      return widget.errorWidget != null
-          ? widget.errorWidget!(translationsLoadError)
-          : ErrorWidget(translationsLoadError!);
+      return widget.errorWidget != null ? widget.errorWidget!(translationsLoadError) : ErrorWidget(translationsLoadError!);
     }
     return _EasyLocalizationProvider(
       widget,
@@ -257,7 +259,7 @@ class _EasyLocalizationProvider extends InheritedWidget {
       : currentLocale = _localeState.locale,
         _translationsLoaded = _localeState.translations != null,
         super(key: key, child: parent.child) {
-    EasyLocalization.logger.debug('Init provider');
+    EasyLocalization.onVerbose?.call('Init provider');
   }
 
   /// Get current locale
@@ -294,8 +296,7 @@ class _EasyLocalizationProvider extends InheritedWidget {
     return oldWidget.currentLocale != locale || oldWidget._translationsLoaded != _translationsLoaded;
   }
 
-  static _EasyLocalizationProvider? of(BuildContext context) =>
-      context.dependOnInheritedWidgetOfExactType<_EasyLocalizationProvider>();
+  static _EasyLocalizationProvider? of(BuildContext context) => context.dependOnInheritedWidgetOfExactType<_EasyLocalizationProvider>();
 }
 
 class _EasyLocalizationDelegate extends LocalizationsDelegate<Localization> {
@@ -313,7 +314,7 @@ class _EasyLocalizationDelegate extends LocalizationsDelegate<Localization> {
     this.localizationController,
     this.supportedLocales,
   }) {
-    EasyLocalization.logger.debug('Init Localization Delegate');
+    EasyLocalization.onVerbose?.call('Init Localization Delegate');
   }
 
   @override
@@ -321,7 +322,7 @@ class _EasyLocalizationDelegate extends LocalizationsDelegate<Localization> {
 
   @override
   Future<Localization> load(Locale value) async {
-    EasyLocalization.logger.debug('Load Localization Delegate');
+    EasyLocalization.onVerbose?.call('Load Localization Delegate');
     if (localizationController!.translations == null) {
       await localizationController!.loadTranslations();
     }

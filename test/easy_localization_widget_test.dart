@@ -3,7 +3,6 @@ import 'dart:io';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:easy_localization/src/exceptions.dart';
 import 'package:easy_localization/src/localization.dart';
-import 'package:easy_logger/easy_logger.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -72,10 +71,6 @@ class MyLocalizedWidget extends StatelessWidget {
 
 void main() async {
   SharedPreferences.setMockInitialValues({});
-  EasyLocalization.logger.enableLevels = <LevelMessages>[
-    LevelMessages.error,
-    LevelMessages.warning,
-  ];
   await EasyLocalization.ensureInitialized();
 
   testWidgets(
@@ -775,8 +770,7 @@ void main() async {
           await tester.pumpAndSettle();
 
           expect(
-            initialTranslationValue != _contextTranslationValue &&
-                _contextTranslationValue == expectedArTranslateTextWidgetValue,
+            initialTranslationValue != _contextTranslationValue && _contextTranslationValue == expectedArTranslateTextWidgetValue,
             true,
           );
           expect(

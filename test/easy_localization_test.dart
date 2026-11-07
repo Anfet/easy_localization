@@ -3,16 +3,20 @@ import 'dart:developer';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:easy_localization/src/easy_localization_controller.dart';
 import 'package:easy_localization/src/localization.dart';
-import 'package:easy_logger/easy_logger.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'easy_localization_utils_test.dart';
 import 'utils/test_asset_loaders.dart';
 
 void main() {
   group('localization', () {
+    final printLog = <String>[];
+    setUp(() {
+      printLog.clear();
+      EasyLocalization.onWarning = (message, {stackTrace}) => printLog.add(message);
+    });
+    tearDown(() => EasyLocalization.onWarning = null);
     var r1 = EasyLocalizationController(
         forceLocale: const Locale('en'),
         path: 'path/en.json',
@@ -36,11 +40,6 @@ void main() {
         saveLocale: false,
         assetLoader: const JsonAssetLoader());
     setUpAll(() async {
-      EasyLocalization.logger.enableLevels = <LevelMessages>[
-        LevelMessages.error,
-        LevelMessages.warning,
-      ];
-
       await r1.loadTranslations();
       await r2.loadTranslations();
       Localization.load(const Locale('en'), translations: r1.translations);
@@ -61,9 +60,7 @@ void main() {
     });
 
     test('load() with fallback succeeds', () async {
-      expect(
-          Localization.load(const Locale('en'), translations: r1.translations, fallbackTranslations: r2.translations),
-          true);
+      expect(Localization.load(const Locale('en'), translations: r1.translations, fallbackTranslations: r2.translations), true);
     });
 
     test('merge fallbackLocale with locale without country code succeeds', () async {
@@ -86,8 +83,7 @@ void main() {
       expect(const Locale('ar'), 'ar'.toLocale());
       expect(const Locale('ar', 'DZ'), 'ar_DZ'.toLocale());
       expect(const Locale.fromSubtags(languageCode: 'ar', scriptCode: 'Arab'), 'ar_Arab'.toLocale());
-      expect(
-          const Locale.fromSubtags(languageCode: 'ar', scriptCode: 'Arab', countryCode: 'DZ'), 'ar_Arab_DZ'.toLocale());
+      expect(const Locale.fromSubtags(languageCode: 'ar', scriptCode: 'Arab', countryCode: 'DZ'), 'ar_Arab_DZ'.toLocale());
     });
 
     test('load() Failed assertion', () async {
@@ -248,8 +244,7 @@ void main() {
 
       setUpAll(() async {
         await r.loadTranslations();
-        Localization.load(const Locale('en'),
-            translations: r.translations, fallbackTranslations: r.fallbackTranslations);
+        Localization.load(const Locale('en'), translations: r.translations, fallbackTranslations: r.fallbackTranslations);
       });
       test('finds and returns resource', () {
         expect(Localization.instance.tr('test'), 'test');
@@ -303,9 +298,7 @@ void main() {
       });
 
       test('can resolve nested named arguments', () {
-        expect(
-            Localization.instance.tr('nestedNamedArguments',
-                namedArgs: {'firstArg': 'this', 'secondArg': 'named argument', 'thirdArg': '!'}),
+        expect(Localization.instance.tr('nestedNamedArguments', namedArgs: {'firstArg': 'this', 'secondArg': 'named argument', 'thirdArg': '!'}),
             'this is a nested named argument!');
       });
 
@@ -313,31 +306,31 @@ void main() {
         expect(Localization.instance.tr('test_missing'), 'test_missing');
       });
 
-      test('reports missing resource', overridePrint(() {
-        printLog = [];
+      test('reports missing resource', () {
+        printLog.clear();
         expect(Localization.instance.tr('test_missing'), 'test_missing');
         final logIterator = printLog.iterator;
         logIterator.moveNext();
         expect(logIterator.current, contains('Localization key [test_missing] not found'));
         logIterator.moveNext();
         expect(logIterator.current, contains('Fallback localization key [test_missing] not found'));
-      }));
+      });
 
-      test('uses fallback translations', overridePrint(() {
-        printLog = [];
+      test('uses fallback translations', () {
+        printLog.clear();
         expect(Localization.instance.tr('test_missing_fallback'), 'fallback!');
-      }));
+      });
 
-      test('reports missing resource with fallback', overridePrint(() {
-        printLog = [];
+      test('reports missing resource with fallback', () {
+        printLog.clear();
         expect(Localization.instance.tr('test_missing_fallback'), 'fallback!');
         expect(printLog.first, contains('Localization key [test_missing_fallback] not found'));
-      }));
+      });
 
-      test('uses empty translation, not using fallback', overridePrint(() {
-        printLog = [];
+      test('uses empty translation, not using fallback', () {
+        printLog.clear();
         expect(Localization.instance.tr('test_empty_fallback'), '');
-      }));
+      });
 
       test('returns resource and replaces argument', () {
         expect(
@@ -425,26 +418,26 @@ void main() {
         );
       });
 
-      test('uses fallback translations for empty resource', overridePrint(() {
-        printLog = [];
+      test('uses fallback translations for empty resource', () {
+        printLog.clear();
         expect(Localization.instance.tr('test_empty_fallback'), 'fallback!');
-      }));
+      });
 
-      test('reports empty resource with fallback', overridePrint(() {
-        printLog = [];
+      test('reports empty resource with fallback', () {
+        printLog.clear();
         expect(Localization.instance.tr('test_empty_fallback'), 'fallback!');
         expect(printLog.first, contains('Localization key [test_empty_fallback] not found'));
-      }));
+      });
 
-      test('reports empty resource', overridePrint(() {
-        printLog = [];
+      test('reports empty resource', () {
+        printLog.clear();
         expect(Localization.instance.tr('test_empty'), 'test_empty');
         final logIterator = printLog.iterator;
         logIterator.moveNext();
         expect(logIterator.current, contains('Localization key [test_empty] not found'));
         logIterator.moveNext();
         expect(logIterator.current, contains('Fallback localization key [test_empty] not found'));
-      }));
+      });
     });
 
     group('plural', () {
@@ -463,8 +456,7 @@ void main() {
 
       setUpAll(() async {
         await r.loadTranslations();
-        Localization.load(const Locale('fb'),
-            translations: r.translations, fallbackTranslations: r.fallbackTranslations);
+        Localization.load(const Locale('fb'), translations: r.translations, fallbackTranslations: r.fallbackTranslations);
       });
 
       test('zero', () {
@@ -494,23 +486,23 @@ void main() {
         expect(Localization.instance.plural('hat_other', 1), 'other hats');
       });
 
-      test('two as fallback and fallback translations priority', overridePrint(() {
-        printLog = [];
+      test('two as fallback and fallback translations priority', () {
+        printLog.clear();
         expect(
           Localization.instance.plural('test_fallback_plurals', 2),
           'fallback two',
         );
         expect(printLog, isEmpty);
-      }));
+      });
 
-      test('two as fallback and fallback translations priority', overridePrint(() {
-        printLog = [];
+      test('two as fallback and fallback translations priority', () {
+        printLog.clear();
         expect(
           Localization.instance.plural('test_empty_fallback_plurals', 2),
           '',
         );
         expect(printLog, isEmpty);
-      }));
+      });
 
       test('with number format', () {
         expect(Localization.instance.plural('day', 3, format: NumberFormat.currency()), 'USD3.00 other days');
@@ -581,26 +573,26 @@ void main() {
         );
       });
 
-      test('two as fallback for empty resource and fallback translations priority', overridePrint(() {
-        printLog = [];
+      test('two as fallback for empty resource and fallback translations priority', () {
+        printLog.clear();
         expect(
           Localization.instance.plural('test_empty_fallback_plurals', 2),
           'fallback two',
         );
         expect(printLog, isEmpty);
-      }));
+      });
 
-      test('reports empty plural resource with fallback', overridePrint(() {
-        printLog = [];
+      test('reports empty plural resource with fallback', () {
+        printLog.clear();
         expect(
           Localization.instance.plural('test_empty_fallback_plurals', -1),
           'fallback other',
         );
         expect(printLog.first, contains('Localization key [test_empty_fallback_plurals.other] not found'));
-      }));
+      });
 
-      test('reports empty plural resource', overridePrint(() {
-        printLog = [];
+      test('reports empty plural resource', () {
+        printLog.clear();
         expect(
           Localization.instance.plural('test_empty_plurals', -1),
           'test_empty_plurals.other',
@@ -610,7 +602,7 @@ void main() {
         expect(logIterator.current, contains('Localization key [test_empty_plurals.other] not found'));
         logIterator.moveNext();
         expect(logIterator.current, contains('Fallback localization key [test_empty_plurals.other] not found'));
-      }));
+      });
     });
 
     group('extensions', () {

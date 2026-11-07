@@ -1,7 +1,6 @@
 import 'dart:io';
 
 import 'package:easy_localization/easy_localization.dart';
-import 'package:easy_logger/easy_logger.dart';
 import 'package:flutter/material.dart';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -41,16 +40,7 @@ class MyWidget extends StatelessWidget {
 }
 
 void main() async {
-  EasyLocalization.logger.enableLevels = <LevelMessages>[
-    LevelMessages.error,
-    LevelMessages.warning,
-  ];
-
   SharedPreferences.setMockInitialValues({});
-  EasyLocalization.logger.enableLevels = <LevelMessages>[
-    LevelMessages.error,
-    LevelMessages.warning,
-  ];
 
   await EasyLocalization.ensureInitialized();
 

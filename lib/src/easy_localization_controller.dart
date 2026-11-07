@@ -1,7 +1,8 @@
+import 'dart:async';
+
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-import 'package:intl/intl_standalone.dart'
-    if (dart.library.html) 'package:intl/intl_browser.dart';
+import 'package:intl/intl_standalone.dart' if (dart.library.html) 'package:intl/intl_browser.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'translations.dart';
@@ -44,11 +45,11 @@ class EasyLocalizationController extends ChangeNotifier {
       _locale = forceLocale;
     } else if ((!saveLocale || _savedLocale == null) && startLocale != null) {
       _locale = _getFallbackLocale(supportedLocales, startLocale);
-      EasyLocalization.logger('Start locale loaded ${_locale.toString()}');
+      EasyLocalization.onVerbose?.call('Start locale loaded ${_locale.toString()}');
     }
     // If saved locale then get
     else if (saveLocale && _savedLocale != null) {
-      EasyLocalization.logger('Saved locale loaded ${_savedLocale.toString()}');
+      EasyLocalization.onVerbose?.call('Saved locale loaded ${_savedLocale.toString()}');
       _locale = selectLocaleFrom(
         supportedLocales,
         _savedLocale!,
@@ -82,9 +83,7 @@ class EasyLocalizationController extends ChangeNotifier {
   }
 
   //Get fallback Locale
-  static Locale _getFallbackLocale(
-      List<Locale> supportedLocales, Locale? fallbackLocale,
-      {final Locale? deviceLocale}) {
+  static Locale _getFallbackLocale(List<Locale> supportedLocales, Locale? fallbackLocale, {final Locale? deviceLocale}) {
     if (deviceLocale != null) {
       // a locale that matches the language code of the device locale is
       // preferred over the fallback locale
@@ -104,47 +103,60 @@ class EasyLocalizationController extends ChangeNotifier {
   }
 
   Future loadTranslations() async {
-    Map<String, dynamic> data;
-    try {
-      data = Map.from(await loadTranslationData(_locale));
-      _translations = Translations(data);
-      if (useFallbackTranslations && _fallbackLocale != null) {
-        Map<String, dynamic>? baseLangData;
-        if (_locale.countryCode != null && _locale.countryCode!.isNotEmpty) {
-          baseLangData =
-              await loadBaseLangTranslationData(Locale(locale.languageCode));
-        }
-        data = Map.from(await loadTranslationData(_fallbackLocale!));
-        if (baseLangData != null) {
-          try {
-            data.addAll(baseLangData);
-          } on UnsupportedError {
-            data = Map.of(data)..addAll(baseLangData);
+    // Remember callback failures separately so they are not reported as resource errors.
+    final callbackErrors = <Object>[];
+    final callbackZone = Zone.current;
+    return runZoned(() async {
+      Map<String, dynamic> data;
+      try {
+        data = Map.from(await loadTranslationData(_locale));
+        _translations = Translations(data);
+        if (useFallbackTranslations && _fallbackLocale != null) {
+          Map<String, dynamic>? baseLangData;
+          if (_locale.countryCode != null && _locale.countryCode!.isNotEmpty) {
+            baseLangData = await loadBaseLangTranslationData(Locale(locale.languageCode));
           }
+          data = Map.from(await loadTranslationData(_fallbackLocale!));
+          if (baseLangData != null) {
+            try {
+              data.addAll(baseLangData);
+            } on UnsupportedError {
+              data = Map.of(data)..addAll(baseLangData);
+            }
+          }
+          _fallbackTranslations = Translations(data);
         }
-        _fallbackTranslations = Translations(data);
+        notifyListeners();
+      } catch (e, stackTrace) {
+        if (callbackErrors.any((error) => identical(error, e))) rethrow;
+        try {
+          callbackZone.run(() => EasyLocalization.onError?.call(e.toString(), stackTrace: stackTrace));
+        } finally {
+          callbackZone.run(() => onLoadError(e is FlutterError ? e : FlutterError(e.toString())));
+        }
       }
-      notifyListeners();
-    } on FlutterError catch (e) {
-      onLoadError(e);
-    } catch (e) {
-      onLoadError(FlutterError(e.toString()));
-    }
+    }, zoneValues: {#easyLocalizationCallbackErrors: callbackErrors, #easyLocalizationCallbackZone: callbackZone});
   }
 
-  Future<Map<String, dynamic>?> loadBaseLangTranslationData(
-      Locale locale) async {
+  Future<Map<String, dynamic>?> loadBaseLangTranslationData(Locale locale) async {
     try {
       return await loadTranslationData(Locale(locale.languageCode));
     } on FlutterError catch (e) {
+      final callbackErrors = Zone.current[#easyLocalizationCallbackErrors] as List<Object>?;
+      if (callbackErrors?.any((error) => identical(error, e)) ?? false) rethrow;
       // Disregard asset not found FlutterError when attempting to load base language fallback
-      EasyLocalization.logger.warning(e.message);
+      try {
+        final callbackZone = Zone.current[#easyLocalizationCallbackZone] as Zone? ?? Zone.current;
+        callbackZone.run(() => EasyLocalization.onWarning?.call(e.message));
+      } catch (error) {
+        (Zone.current[#easyLocalizationCallbackErrors] as List<Object>?)?.add(error);
+        rethrow;
+      }
     }
     return null;
   }
 
-  Future<Map<String, dynamic>> loadTranslationData(Locale locale) async =>
-      _combineAssetLoaders(
+  Future<Map<String, dynamic>> loadTranslationData(Locale locale) async => _combineAssetLoaders(
         path: path,
         locale: locale,
         assetLoader: assetLoader,
@@ -162,14 +174,10 @@ class EasyLocalizationController extends ChangeNotifier {
     final result = <String, dynamic>{};
     final loaderFutures = <Future<Map<String, dynamic>?>>[];
 
-    // need scriptCode, it might be better to use ignoreCountryCode as the variable name of useOnlyLangCode 
-    final Locale desiredLocale =
-        useOnlyLangCode ? Locale.fromSubtags(languageCode: locale.languageCode, scriptCode: locale.scriptCode) : locale;
+    // need scriptCode, it might be better to use ignoreCountryCode as the variable name of useOnlyLangCode
+    final Locale desiredLocale = useOnlyLangCode ? Locale.fromSubtags(languageCode: locale.languageCode, scriptCode: locale.scriptCode) : locale;
 
-    List<AssetLoader> loaders = [
-      assetLoader,
-      if (extraAssetLoaders != null) ...extraAssetLoaders
-    ];
+    List<AssetLoader> loaders = [assetLoader, if (extraAssetLoaders != null) ...extraAssetLoaders];
 
     for (final loader in loaders) {
       loaderFutures.add(loader.load(path, desiredLocale));
@@ -192,7 +200,7 @@ class EasyLocalizationController extends ChangeNotifier {
     _locale = l;
     await loadTranslations();
     notifyListeners();
-    EasyLocalization.logger('Locale $locale changed');
+    EasyLocalization.onVerbose?.call('Locale $locale changed');
     await _saveLocale(_locale);
   }
 
@@ -200,7 +208,7 @@ class EasyLocalizationController extends ChangeNotifier {
     if (!saveLocale) return;
     final preferences = await SharedPreferences.getInstance();
     await preferences.setString('locale', locale.toString());
-    EasyLocalization.logger('Locale $locale saved');
+    EasyLocalization.onVerbose?.call('Locale $locale saved');
   }
 
   static Future<void> initEasyLocation() async {
@@ -209,14 +217,14 @@ class EasyLocalizationController extends ChangeNotifier {
     _savedLocale = strLocale?.toLocale();
     final foundPlatformLocale = await findSystemLocale();
     _deviceLocale = foundPlatformLocale.toLocale();
-    EasyLocalization.logger.debug('Localization initialized');
+    EasyLocalization.onVerbose?.call('Localization initialized');
   }
 
   Future<void> deleteSaveLocale() async {
     _savedLocale = null;
     final preferences = await SharedPreferences.getInstance();
     await preferences.remove('locale');
-    EasyLocalization.logger('Saved locale deleted');
+    EasyLocalization.onVerbose?.call('Saved locale deleted');
   }
 
   Locale get deviceLocale => _deviceLocale;
@@ -225,7 +233,8 @@ class EasyLocalizationController extends ChangeNotifier {
   Future<void> resetLocale() async {
     final locale = selectLocaleFrom(_supportedLocales!, deviceLocale, fallbackLocale: _fallbackLocale);
 
-    EasyLocalization.logger('Reset locale to $locale while the platform locale is $_deviceLocale and the fallback locale is $_fallbackLocale');
+    EasyLocalization.onVerbose
+        ?.call('Reset locale to $locale while the platform locale is $_deviceLocale and the fallback locale is $_fallbackLocale');
     await setLocale(locale);
   }
 }
@@ -239,9 +248,7 @@ extension LocaleExtension on Locale {
     if (languageCode != locale.languageCode) {
       return false;
     }
-    if (countryCode != null &&
-        countryCode!.isNotEmpty &&
-        countryCode != locale.countryCode) {
+    if (countryCode != null && countryCode!.isNotEmpty && countryCode != locale.countryCode) {
       return false;
     }
     if (scriptCode != null && scriptCode != locale.scriptCode) {

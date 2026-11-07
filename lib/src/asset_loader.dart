@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:ui';
 import 'package:easy_localization/easy_localization.dart';
@@ -53,7 +54,13 @@ class RootBundleAssetLoader extends AssetLoader {
   @override
   Future<Map<String, dynamic>?> load(String path, Locale locale) async {
     var localePath = getLocalePath(path, locale);
-    EasyLocalization.logger.debug('Load asset from $path');
+    try {
+      final callbackZone = Zone.current[#easyLocalizationCallbackZone] as Zone? ?? Zone.current;
+      callbackZone.run(() => EasyLocalization.onVerbose?.call('Load asset from $path'));
+    } catch (error) {
+      (Zone.current[#easyLocalizationCallbackErrors] as List<Object>?)?.add(error);
+      rethrow;
+    }
 
     Map<String, dynamic> baseJson = json.decode(await fileLoader.loadString(localePath));
     return await linkedFileResolver.resolveLinkedFiles(

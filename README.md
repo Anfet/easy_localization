@@ -34,7 +34,7 @@ Easy and Fast internationalization for your Flutter Apps
 - ❤️ Extension methods on `Text` and `BuildContext`
 - 💻 Code generation for localization files and keys.
 - 🛡️ Null safety
-- 🖨️ Customizable logger.
+- 🖨️ Configurable diagnostic callbacks.
 
 ## Getting Started
 
@@ -587,48 +587,32 @@ If you are not using the default translations folder path (assets/translations) 
 | --translations-dir           | -t    | assets/translations   | Folder containing localization files                                        |
 | --source-dir                 | -s    | lib                   | Folder containing the app code files                                        |
 
-## 🖨️ Logger
+## Diagnostic callbacks
 
-[Easy Localization] logger based on [Easy Logger]
-
-You can customize logger for you project
-
-### Show only lost keys message
-
-Lost translations keys logged like warning messages. Change [Easy Logger] level for display only errors and warnings.
+Diagnostics are silent by default. Set any of the three independent callbacks before
+`ensureInitialized()` to receive messages, including initialization messages:
 
 ```dart
-EasyLocalization.logger.enableLevels = [LevelMessages.error, LevelMessages.warning];
+WidgetsFlutterBinding.ensureInitialized();
+EasyLocalization.onVerbose = (message, {stackTrace}) { /* send to your logger */ };
+EasyLocalization.onWarning = (message, {stackTrace}) { /* send to your logger */ };
+EasyLocalization.onError = (message, {stackTrace}) { /* send to your logger */ };
+await EasyLocalization.ensureInitialized();
 ```
 
-### Logger off
+Each callback runs synchronously in the current zone. Resource errors include their
+original stack trace. Set a callback to `null` to disable that category. The application
+controls filtering, formatting and output, and is responsible for handling exceptions
+in its callbacks; exceptions propagate to the caller.
 
-For disable logger, change Build Modes in [Easy Logger] to empty List;
+This replaces the incompatible `EasyLocalization.logger` API:
 
-```dart
-EasyLocalization.logger.enableBuildModes = [];
-```
-
-### Catching logger messages
-
-For catching logger messages you need override default printer function.
-
-```dart
-EasyLogPrinter customLogPrinter = (
-  Object object, {
-  String name,
-  StackTrace stackTrace,
-  LevelMessages level,
-}) {
-  ///Your function
-  print('$name: ${object.toString()}');
-};
-
-/// override printer to custom
-EasyLocalization.logger.printer = customLogPrinter;
-```
-
-Read more about [Easy Logger](https://github.com/aissat/easy_localization/blob/master/packages/easy_logger/README.md)
+| Previous API | Migration |
+| --- | --- |
+| `logger` | Set `onVerbose`, `onWarning` and/or `onError`. |
+| `enableLevels` | Set only the callbacks for levels you need. Debug and info use `onVerbose`. |
+| `enableBuildModes` | Apply build-mode filtering in your application. |
+| `printer` | Forward each callback to your own logging function. |
 
 ## ➕ Extensions helpers
 
