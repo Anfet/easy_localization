@@ -55,10 +55,11 @@ class RootBundleAssetLoader extends AssetLoader {
   Future<Map<String, dynamic>?> load(String path, Locale locale) async {
     var localePath = getLocalePath(path, locale);
     try {
-      final callbackZone = Zone.current[#easyLocalizationCallbackZone] as Zone? ?? Zone.current;
+      final callerZone = Zone.current[#easyLocalizationCallbackZone] as Zone?;
+      final callbackZone = callerZone != null && Zone.current.parent == callerZone ? callerZone : Zone.current;
       callbackZone.run(() => EasyLocalization.onVerbose?.call('Load asset from $path'));
-    } catch (error) {
-      (Zone.current[#easyLocalizationCallbackErrors] as List<Object>?)?.add(error);
+    } catch (error, stackTrace) {
+      (Zone.current[#easyLocalizationCallbackErrors] as List<AsyncError>?)?.add(AsyncError(error, stackTrace));
       rethrow;
     }
 

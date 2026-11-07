@@ -104,7 +104,7 @@ class EasyLocalizationController extends ChangeNotifier {
 
   Future loadTranslations() async {
     // Remember callback failures separately so they are not reported as resource errors.
-    final callbackErrors = <Object>[];
+    final callbackErrors = <AsyncError>[];
     final callbackZone = Zone.current;
     return runZoned(() async {
       Map<String, dynamic> data;
@@ -128,7 +128,10 @@ class EasyLocalizationController extends ChangeNotifier {
         }
         notifyListeners();
       } catch (e, stackTrace) {
-        if (callbackErrors.any((error) => identical(error, e))) rethrow;
+        if (callbackErrors.isNotEmpty) {
+          final callbackError = callbackErrors.first;
+          return Future.error(callbackError.error, callbackError.stackTrace);
+        }
         try {
           callbackZone.run(() => EasyLocalization.onError?.call(e.toString(), stackTrace: stackTrace));
         } finally {
@@ -142,14 +145,14 @@ class EasyLocalizationController extends ChangeNotifier {
     try {
       return await loadTranslationData(Locale(locale.languageCode));
     } on FlutterError catch (e) {
-      final callbackErrors = Zone.current[#easyLocalizationCallbackErrors] as List<Object>?;
-      if (callbackErrors?.any((error) => identical(error, e)) ?? false) rethrow;
+      final callbackErrors = Zone.current[#easyLocalizationCallbackErrors] as List<AsyncError>?;
+      if (callbackErrors?.isNotEmpty ?? false) rethrow;
       // Disregard asset not found FlutterError when attempting to load base language fallback
       try {
         final callbackZone = Zone.current[#easyLocalizationCallbackZone] as Zone? ?? Zone.current;
         callbackZone.run(() => EasyLocalization.onWarning?.call(e.message));
-      } catch (error) {
-        (Zone.current[#easyLocalizationCallbackErrors] as List<Object>?)?.add(error);
+      } catch (error, stackTrace) {
+        (Zone.current[#easyLocalizationCallbackErrors] as List<AsyncError>?)?.add(AsyncError(error, stackTrace));
         rethrow;
       }
     }

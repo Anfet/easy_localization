@@ -31,6 +31,19 @@ class MissingBaseLoader extends AssetLoader {
   }
 }
 
+class NestedZoneLoader extends AssetLoader {
+  NestedZoneLoader(this.onZone)
+      : super(linkedFileResolver: const JsonLinkedFileResolver(fileLoader: RootBundleFileLoader()), fileLoader: const RootBundleFileLoader());
+
+  final void Function(Zone) onZone;
+
+  @override
+  Future<Map<String, dynamic>?> load(String path, Locale locale) => runZoned(() {
+        onZone(Zone.current);
+        return RootBundleAssetLoader.fromRootBundle().load(path, locale);
+      });
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() => SharedPreferences.setMockInitialValues({}));
@@ -40,7 +53,8 @@ void main() {
     EasyLocalization.onError = null;
   });
 
-  EasyLocalizationController controller(AssetLoader loader, void Function(FlutterError) onLoadError) => EasyLocalizationController(
+  EasyLocalizationController controller(AssetLoader loader, void Function(FlutterError) onLoadError, {List<AssetLoader>? extraLoaders}) =>
+      EasyLocalizationController(
         forceLocale: const Locale('en'),
         supportedLocales: const [Locale('en')],
         path: 'path',
@@ -48,6 +62,7 @@ void main() {
         useFallbackTranslations: false,
         saveLocale: false,
         assetLoader: loader,
+        extraAssetLoaders: extraLoaders,
         onLoadError: onLoadError,
       );
 
@@ -101,6 +116,37 @@ void main() {
     EasyLocalization.onVerbose = null;
     Localization.instance.tr('still absent');
     expect(warnings.last, contains('still absent'));
+  });
+
+  test('callback failure wins over an earlier resource failure', () async {
+    final callbackError = StateError('callback failed');
+    var errors = 0;
+    var loadErrors = 0;
+    EasyLocalization.onError = (message, {stackTrace}) => errors++;
+    EasyLocalization.onVerbose = (message, {stackTrace}) => throw callbackError;
+    final loaded = controller(FailingLoader(StateError('resource failed'), StackTrace.current), (_) => loadErrors++,
+        extraLoaders: [RootBundleAssetLoader.fromRootBundle()]);
+    await expectLater(loaded.loadTranslations(), throwsA(same(callbackError)));
+    expect(errors, 0);
+    expect(loadErrors, 0);
+  });
+
+  test('verbose callback runs in the nested loader zone', () async {
+    Zone? loaderZone;
+    Zone? callbackZone;
+    final callbackError = StateError('callback failed');
+    var errors = 0;
+    var loadErrors = 0;
+    EasyLocalization.onError = (message, {stackTrace}) => errors++;
+    EasyLocalization.onVerbose = (message, {stackTrace}) {
+      callbackZone = Zone.current;
+      throw callbackError;
+    };
+    await expectLater(
+        controller(NestedZoneLoader((zone) => loaderZone = zone), (_) => loadErrors++).loadTranslations(), throwsA(same(callbackError)));
+    expect(callbackZone, same(loaderZone));
+    expect(errors, 0);
+    expect(loadErrors, 0);
   });
 
   test('throwing error callback propagates and still calls onLoadError once', () async {
