@@ -1,7 +1,9 @@
+import 'dart:convert';
 import 'dart:developer';
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:easy_localization/src/easy_localization_controller.dart';
+import 'package:easy_localization/src/file_loaders/file_loader.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -11,6 +13,124 @@ void main() async {
   TestWidgetsFlutterBinding.ensureInitialized();
   SharedPreferences.setMockInitialValues({});
   await EasyLocalization.ensureInitialized();
+
+  group('Linked resolver contracts', () {
+    test('resolves independent and diamond references and restores ancestors', () async {
+      final files = _Files({
+        'i18n/en/common.json': {'value': 'shared'},
+        'i18n/en/left.json': {'common': ':/common.json'},
+        'i18n/en/right.json': {'common': ':/common.json'},
+      });
+      final resolver = JsonLinkedFileResolver(fileLoader: files);
+      final ancestors = <String>{'ancestor'};
+      final result = await resolver.resolveLinkedFiles(
+        basePath: 'i18n',
+        languageCode: 'en',
+        visited: ancestors,
+        baseJson: {'one': ':/common.json', 'two': ':/common.json', 'left': ':/left.json', 'right': ':/right.json'},
+      );
+      expect(result, {
+        'one': {'value': 'shared'},
+        'two': {'value': 'shared'},
+        'left': {
+          'common': {'value': 'shared'}
+        },
+        'right': {
+          'common': {'value': 'shared'}
+        },
+      });
+      expect(ancestors, {'ancestor'});
+    });
+
+    test('detects a cycle and restores the active stack after an error', () async {
+      final files = _Files({
+        'i18n/en/a.json': {'next': ':/b.json'},
+        'i18n/en/b.json': {'next': ':/a.json'}
+      });
+      final ancestors = <String>{'ancestor'};
+      await expectLater(
+        JsonLinkedFileResolver(fileLoader: files).resolveLinkedFiles(
+          basePath: 'i18n',
+          languageCode: 'en',
+          baseJson: {'next': ':/a.json'},
+          visited: ancestors,
+        ),
+        throwsA(isA<StateError>().having((e) => e.toString(), 'message', contains('Cyclic linked files'))),
+      );
+      expect(ancestors, {'ancestor'});
+    });
+
+    test('allows 32 file transitions, but rejects the next; maps do not increase depth', () async {
+      final files = _Files({
+        for (var i = 1; i <= 33; i++)
+          'i18n/en/$i.json': i == 33
+              ? {'value': 'end'}
+              : {
+                  'map': {'next': ':/${i + 1}.json'}
+                }
+      });
+      final resolver = JsonLinkedFileResolver(fileLoader: files);
+      await expectLater(resolver.resolveLinkedFiles(basePath: 'i18n', languageCode: 'en', baseJson: {'next': ':/2.json'}), completes);
+      await expectLater(
+        resolver.resolveLinkedFiles(basePath: 'i18n', languageCode: 'en', baseJson: {'next': ':/1.json'}),
+        throwsA(isA<StateError>().having((e) => e.toString(), 'message', contains('Maximum linked files depth (32)'))),
+      );
+    });
+
+    test('uses exact locale paths throughout nested links and does not fall back', () async {
+      final locales = <Locale>[
+        const Locale('en'),
+        const Locale('en', 'US'),
+        const Locale.fromSubtags(languageCode: 'zh', scriptCode: 'Hans'),
+        const Locale.fromSubtags(languageCode: 'zh', scriptCode: 'Hant'),
+        const Locale.fromSubtags(languageCode: 'zh', scriptCode: 'Hans', countryCode: 'CN'),
+      ];
+      final names = ['en', 'en-US', 'zh-Hans', 'zh-Hant', 'zh-Hans-CN'];
+      final files = _Files({
+        for (final name in names) 'i18n/$name.json': {'link': ':/first.json'},
+        for (final name in names) 'i18n/$name/first.json': {'nested': ':/second.json'},
+        for (final name in names) 'i18n/$name/second.json': {'locale': name},
+      });
+      final loader = RootBundleAssetLoader(fileLoader: files, linkedFileResolver: JsonLinkedFileResolver(fileLoader: files));
+      for (var i = 0; i < locales.length; i++) {
+        expect(await loader.load('i18n', locales[i]), {
+          'link': {
+            'nested': {'locale': names[i]}
+          }
+        });
+      }
+      files.contents.remove('i18n/zh-Hant/second.json');
+      await expectLater(loader.load('i18n', locales[3]), throwsA(isA<StateError>()));
+      expect(files.paths.last, 'i18n/zh-Hant/second.json');
+    });
+
+    test('legacy overrides receive loader calls and direct API keeps legacy path', () async {
+      final files = _Files({
+        'i18n/en.json': {},
+        'i18n/en-US.json': {},
+        'i18n/en-US/item.json': {'ok': true}
+      });
+      final legacy = _LegacyResolver(files);
+      final jsonLegacy = _LegacyJsonResolver(files);
+      for (final resolver in [legacy, jsonLegacy]) {
+        final loader = RootBundleAssetLoader(fileLoader: files, linkedFileResolver: resolver);
+        await loader.load('i18n', const Locale('en'));
+        await loader.load('i18n', const Locale('en', 'US'));
+      }
+      expect(legacy.calls, 2);
+      expect(jsonLegacy.calls, 2);
+      expect(
+          await JsonLinkedFileResolver(fileLoader: files).resolveLinkedFiles(
+            basePath: 'i18n',
+            languageCode: 'en',
+            countryCode: 'US',
+            baseJson: {'item': ':/item.json'},
+          ),
+          {
+            'item': {'ok': true}
+          });
+    });
+  });
 
   group('Asset Loader - Linked Translation Files', () {
     group('RootBundleAssetLoader with linked files', () {
@@ -216,4 +336,53 @@ void main() async {
       });
     });
   });
+}
+
+class _Files implements FileLoader {
+  _Files(this.contents);
+  final Map<String, Map<String, dynamic>> contents;
+  final List<String> paths = [];
+
+  @override
+  Future<String> loadString(String path) async {
+    paths.add(path);
+    final content = contents[path];
+    if (content == null) throw StateError('Missing $path');
+    return json.encode(content);
+  }
+}
+
+class _LegacyResolver extends LinkedFileResolver {
+  _LegacyResolver(FileLoader files) : super(fileLoader: files);
+  int calls = 0;
+
+  @override
+  Future<Map<String, dynamic>> resolveLinkedFiles(
+      {required String basePath,
+      required String languageCode,
+      required Map<String, dynamic> baseJson,
+      Set<String>? visited,
+      int depth = 0,
+      String? countryCode}) async {
+    calls++;
+    return baseJson;
+  }
+}
+
+class _LegacyJsonResolver extends JsonLinkedFileResolver {
+  _LegacyJsonResolver(FileLoader files) : super(fileLoader: files);
+  int calls = 0;
+
+  @override
+  Future<Map<String, dynamic>> resolveLinkedFiles(
+      {required String basePath,
+      required String languageCode,
+      required Map<String, dynamic> baseJson,
+      Set<String>? visited,
+      int depth = 0,
+      String? countryCode}) {
+    calls++;
+    return super.resolveLinkedFiles(
+        basePath: basePath, languageCode: languageCode, baseJson: baseJson, visited: visited, depth: depth, countryCode: countryCode);
+  }
 }

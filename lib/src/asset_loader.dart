@@ -64,9 +64,10 @@ class RootBundleAssetLoader extends AssetLoader {
     }
 
     Map<String, dynamic> baseJson = json.decode(await fileLoader.loadString(localePath));
-    return await linkedFileResolver.resolveLinkedFiles(
+    return await linkedFileResolver.resolveLinkedFilesForLocale(
       basePath: path,
       languageCode: locale.languageCode,
+      scriptCode: locale.scriptCode,
       countryCode: locale.countryCode,
       baseJson: baseJson,
     );

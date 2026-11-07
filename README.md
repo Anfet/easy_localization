@@ -435,6 +435,15 @@ assets
         └── notifications.json  
 ```
 
+The built-in JSON resolver uses `language[-Script][-COUNTRY]/file.json`: for example,
+`en/errors.json`, `en-US/errors.json`, `zh-Hans/errors.json`, `zh-Hant/errors.json`, and
+`zh-Hans-CN/errors.json`. A missing script-specific file is an error; another script is not used as a fallback.
+The same file may be linked from separate branches, while cycles and chains deeper than 32 links are errors.
+
+Custom `LinkedFileResolver` implementations with an existing `resolveLinkedFiles` override continue to work.
+To handle script-specific locales in a custom resolver, override `resolveLinkedFilesForLocale` and use its
+`scriptCode` argument. Existing direct calls to `resolveLinkedFiles` retain their previous paths.
+
 Each linked file must contain a valid object of translation keys (of the file type you are using [Other file types](#-loading-translations-from-other-resources)).  
 
 Don't forget to add your linked files (or linked files folder, here assets/translations/en-US/), to your pubspec.yaml : [See installation](#-installation).

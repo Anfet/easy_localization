@@ -20,6 +20,28 @@ abstract class LinkedFileResolver {
     String? countryCode,
   });
 
+  /// Resolves links for a locale, including its optional script code.
+  ///
+  /// Existing resolvers continue to receive calls through [resolveLinkedFiles].
+  /// Override this method to handle [scriptCode] in a custom resolver.
+  Future<Map<String, dynamic>> resolveLinkedFilesForLocale({
+    required String basePath,
+    required String languageCode,
+    required Map<String, dynamic> baseJson,
+    String? scriptCode,
+    String? countryCode,
+    Set<String>? visited,
+    int depth = 0,
+  }) =>
+      resolveLinkedFiles(
+        basePath: basePath,
+        languageCode: languageCode,
+        baseJson: baseJson,
+        countryCode: countryCode,
+        visited: visited,
+        depth: depth,
+      );
+
   String getLinkedLocalePath(String basePath, String filePath, String languageCode, {String? countryCode}) {
     if (countryCode != null) {
       return '$basePath/$languageCode-$countryCode/$filePath';
@@ -40,6 +62,55 @@ class JsonLinkedFileResolver extends LinkedFileResolver {
     Set<String>? visited,
     int depth = 0,
     String? countryCode,
+  }) =>
+      _resolveLinkedFiles(
+        basePath: basePath,
+        languageCode: languageCode,
+        baseJson: baseJson,
+        countryCode: countryCode,
+        visited: visited,
+        depth: depth,
+      );
+
+  @override
+  Future<Map<String, dynamic>> resolveLinkedFilesForLocale({
+    required String basePath,
+    required String languageCode,
+    required Map<String, dynamic> baseJson,
+    String? scriptCode,
+    String? countryCode,
+    Set<String>? visited,
+    int depth = 0,
+  }) {
+    if (scriptCode == null || scriptCode.isEmpty) {
+      return resolveLinkedFiles(
+        basePath: basePath,
+        languageCode: languageCode,
+        baseJson: baseJson,
+        countryCode: countryCode,
+        visited: visited,
+        depth: depth,
+      );
+    }
+    return _resolveLinkedFiles(
+      basePath: basePath,
+      languageCode: languageCode,
+      baseJson: baseJson,
+      scriptCode: scriptCode,
+      countryCode: countryCode,
+      visited: visited,
+      depth: depth,
+    );
+  }
+
+  Future<Map<String, dynamic>> _resolveLinkedFiles({
+    required String basePath,
+    required String languageCode,
+    required Map<String, dynamic> baseJson,
+    String? scriptCode,
+    String? countryCode,
+    Set<String>? visited,
+    int depth = 0,
   }) async {
     visited ??= <String>{};
 
@@ -55,21 +126,23 @@ class JsonLinkedFileResolver extends LinkedFileResolver {
 
       if (value is String && value.startsWith(':/')) {
         final rawPath = value.substring(2).trim();
-        final linkedAssetPath = getLinkedLocalePath(basePath, rawPath, languageCode, countryCode: countryCode);
+        final linkedAssetPath = scriptCode == null
+            ? getLinkedLocalePath(basePath, rawPath, languageCode, countryCode: countryCode)
+            : '$basePath/$languageCode-$scriptCode${countryCode == null ? '' : '-$countryCode'}/$rawPath';
 
         if (visited.contains(linkedAssetPath)) {
           throw StateError('Cyclic linked files detected at "$linkedAssetPath" (key: "$key").');
         }
 
+        visited.add(linkedAssetPath);
         try {
           final linkedContent = await fileLoader.loadString(linkedAssetPath);
           final Map<String, dynamic> linkedJson = json.decode(linkedContent) as Map<String, dynamic>;
 
-          visited.add(linkedAssetPath);
-
-          final resolved = await resolveLinkedFiles(
+          final resolved = await _resolveLinkedFiles(
             basePath: basePath,
             languageCode: languageCode,
+            scriptCode: scriptCode,
             baseJson: linkedJson,
             visited: visited,
             depth: depth + 1,
@@ -80,11 +153,14 @@ class JsonLinkedFileResolver extends LinkedFileResolver {
           throw StateError(
             'Error resolving linked file "$linkedAssetPath" for key "$key": $e',
           );
+        } finally {
+          visited.remove(linkedAssetPath);
         }
       } else if (value is Map<String, dynamic>) {
-        fullJson[key] = await resolveLinkedFiles(
+        fullJson[key] = await _resolveLinkedFiles(
           basePath: basePath,
           languageCode: languageCode,
+          scriptCode: scriptCode,
           baseJson: value,
           visited: visited,
           depth: depth,
