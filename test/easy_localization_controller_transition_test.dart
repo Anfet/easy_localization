@@ -19,8 +19,24 @@ class Store extends SharedPreferencesStorePlatform {
   final operations = <String>[];
   final gates = <Completer<bool>>[];
   bool fail = false;
+  bool failRead = false;
+  Completer<void>? readGate;
+  Completer<void>? readStarted;
   @override
-  Future<Map<String, Object>> getAll() async => Map.of(data);
+  Future<Map<String, Object>> getAll() async {
+    final snapshot = Map<String, Object>.of(data);
+    readStarted?.complete();
+    readStarted = null;
+    final gate = readGate;
+    readGate = null;
+    if (gate != null) await gate.future;
+    if (failRead) {
+      failRead = false;
+      throw StateError('read failed');
+    }
+    return snapshot;
+  }
+
   @override
   Future<bool> setValue(String valueType, String key, Object value) async {
     operations.add('set:$value');
@@ -159,6 +175,117 @@ void main() {
     expect(c.locale, const Locale('de'));
     c.dispose();
   });
+  test('onError starting a newer choice suppresses the old load error', () async {
+    final loader = Loader();
+    var loadErrors = 0;
+    final c = controller(loader, onError: (_) {
+      loadErrors++;
+    });
+    late Future<void> next;
+    EasyLocalization.onError = (message, {stackTrace}) {
+      next = c.setLocale(const Locale('fr'));
+    };
+    final initial = c.loadTranslations();
+    loader.pending['en']!.completeError(StateError('initial'));
+    await initial;
+    expect(loadErrors, 0);
+    loader.complete('fr');
+    await next;
+    expect(c.locale, const Locale('fr'));
+    expect(c.translations?.get('value'), 'fr');
+    c.dispose();
+  });
+
+  test('onError exception propagates even when it starts a newer choice', () async {
+    final loader = Loader();
+    var loadErrors = 0;
+    final c = controller(loader, onError: (_) {
+      loadErrors++;
+    });
+    final callbackError = StateError('callback');
+    late Future<void> next;
+    EasyLocalization.onError = (message, {stackTrace}) {
+      next = c.setLocale(const Locale('fr'));
+      throw callbackError;
+    };
+    final initial = c.loadTranslations();
+    loader.pending['en']!.completeError(StateError('initial'));
+    await expectLater(initial, throwsA(same(callbackError)));
+    expect(loadErrors, 0);
+    loader.complete('fr');
+    await next;
+    expect(c.locale, const Locale('fr'));
+    c.dispose();
+  });
+
+  test('onError disposing controller suppresses the old load error', () async {
+    final loader = Loader();
+    var loadErrors = 0;
+    final c = controller(loader, onError: (_) {
+      loadErrors++;
+    });
+    EasyLocalization.onError = (message, {stackTrace}) {
+      c.dispose();
+    };
+    final initial = c.loadTranslations();
+    loader.pending['en']!.completeError(StateError('initial'));
+    await initial;
+    expect(loadErrors, 0);
+  });
+
+  test('initialization orders delayed reads with subsequent save and delete, and recovers from read failure', () async {
+    final loader = Loader();
+    final c = controller(loader, save: true);
+    final initial = c.loadTranslations();
+    loader.complete('en');
+    await initial;
+    store.data['flutter.locale'] = 'en';
+    final read = Completer<void>();
+    final started = Completer<void>();
+    store.readGate = read;
+    store.readStarted = started;
+    final initializing = EasyLocalizationController.initEasyLocation();
+    await started.future;
+    final accepted = Completer<void>();
+    c.addListener(() {
+      if (!accepted.isCompleted) accepted.complete();
+    });
+    final save = c.setLocale(const Locale('de'));
+    loader.complete('de');
+    await accepted.future;
+    expect(store.operations, isEmpty);
+    read.complete();
+    await initializing;
+    await save;
+    expect(c.savedLocale, const Locale('de'));
+    await EasyLocalizationController.initEasyLocation();
+    expect(c.savedLocale, const Locale('de'));
+    final secondRead = Completer<void>();
+    final secondStarted = Completer<void>();
+    store.readGate = secondRead;
+    store.readStarted = secondStarted;
+    final initializingAgain = EasyLocalizationController.initEasyLocation();
+    await secondStarted.future;
+    final delete = c.deleteSaveLocale();
+    secondRead.complete();
+    await initializingAgain;
+    await delete;
+    expect(c.savedLocale, isNull);
+    await EasyLocalizationController.initEasyLocation();
+    expect(c.savedLocale, isNull);
+    final recovery = c.setLocale(const Locale('fr'));
+    loader.complete('fr');
+    await recovery;
+    store.failRead = true;
+    await expectLater(EasyLocalizationController.initEasyLocation(), throwsStateError);
+    expect(c.savedLocale, const Locale('fr'));
+    final deletionAfterFailure = c.deleteSaveLocale();
+    await deletionAfterFailure;
+    await EasyLocalizationController.initEasyLocation();
+    expect(c.savedLocale, isNull);
+    c.dispose();
+  });
+
   test('disabled persistence leaves confirmed locale and storage unchanged', () async {
     final loader = Loader();
     final c = controller(loader);

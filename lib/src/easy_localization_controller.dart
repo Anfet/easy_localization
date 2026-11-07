@@ -14,6 +14,7 @@ class EasyLocalizationController extends ChangeNotifier {
   int _request = 0;
   bool _disposed = false;
   bool _loading = false;
+  Future<void>? _activeTransition;
   static late Locale _deviceLocale;
 
   late Locale _locale;
@@ -107,11 +108,19 @@ class EasyLocalizationController extends ChangeNotifier {
     }
   }
 
-  Future<void> loadTranslations() => _loadLocale(_locale, initial: true);
+  Future<void> loadTranslations() async {
+    final transition = _activeTransition;
+    await _loadLocale(_locale, initial: true);
+    if (_translations == null && transition != null) {
+      // The explicit caller receives its own error; the delegate keeps its initial-error behavior.
+      await transition.then<void>((_) {}, onError: (Object _, StackTrace __) {});
+    }
+  }
 
   Future<void> _loadLocale(Locale target, {bool initial = false}) async {
-    final request = ++_request;
-    _loading = true;
+    final supersededInitial = initial && _loading && _activeTransition != null;
+    final request = supersededInitial ? _request - 1 : ++_request;
+    if (!supersededInitial) _loading = true;
     final callbackErrors = <AsyncError>[];
     final callbackZone = Zone.current;
     return runZoned(() async {
@@ -141,8 +150,9 @@ class EasyLocalizationController extends ChangeNotifier {
         try {
           callbackZone.run(() => EasyLocalization.onError?.call(error.toString(), stackTrace: stackTrace));
         } finally {
-          callbackZone.run(() => onLoadError(failure));
+          if (!_disposed && request == _request) callbackZone.run(() => onLoadError(failure));
         }
+        if (_disposed || request != _request) return;
         if (!initial) return Future.error(failure, stackTrace);
         return;
       }
@@ -236,7 +246,13 @@ class EasyLocalizationController extends ChangeNotifier {
       }
       return;
     }
-    await _loadLocale(locale);
+    final transition = _loadLocale(locale);
+    _activeTransition = transition;
+    try {
+      await transition;
+    } finally {
+      if (identical(_activeTransition, transition)) _activeTransition = null;
+    }
   }
 
   static Future<void> _enqueueStorage(Future<void> Function() operation) {
@@ -273,17 +289,15 @@ class EasyLocalizationController extends ChangeNotifier {
     });
   }
 
-  static Future<void> initEasyLocation() async {
-    final pendingStorage = _storageQueue;
-    if (pendingStorage != null) await pendingStorage;
-    final preferences = await SharedPreferences.getInstance();
-    await preferences.reload();
-    final strLocale = preferences.getString('locale');
-    final foundPlatformLocale = await findSystemLocale();
-    _savedLocale = strLocale?.toLocale();
-    _deviceLocale = foundPlatformLocale.toLocale();
-    EasyLocalization.onVerbose?.call('Localization initialized');
-  }
+  static Future<void> initEasyLocation() => _enqueueStorage(() async {
+        final preferences = await SharedPreferences.getInstance();
+        await preferences.reload();
+        final strLocale = preferences.getString('locale');
+        final foundPlatformLocale = await findSystemLocale();
+        _savedLocale = strLocale?.toLocale();
+        _deviceLocale = foundPlatformLocale.toLocale();
+        EasyLocalization.onVerbose?.call('Localization initialized');
+      });
 
   Future<void> deleteSaveLocale() => _enqueueStorage(() async {
         SharedPreferences? preferences;

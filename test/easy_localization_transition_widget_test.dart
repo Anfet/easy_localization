@@ -25,6 +25,48 @@ class Store extends SharedPreferencesStorePlatform {
 }
 
 void main() {
+  for (final initialFirst in [true, false]) {
+    testWidgets('explicit choice before delegate load survives ${initialFirst ? 'initial' : 'selected'} resource completing first', (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      await EasyLocalization.ensureInitialized();
+      final loader = Loader();
+      Future<void>? selection;
+      late BuildContext context;
+      await tester.pumpWidget(EasyLocalization(
+        supportedLocales: const [Locale('en'), Locale('de')],
+        startLocale: const Locale('en'),
+        path: 'unused',
+        assetLoader: loader,
+        child: Builder(builder: (c) {
+          selection ??= c.setLocale(const Locale('de'));
+          return MaterialApp(
+              locale: c.locale,
+              supportedLocales: c.supportedLocales,
+              localizationsDelegates: c.localizationDelegates,
+              home: Builder(builder: (c) {
+                context = c;
+                return Text(c.tr('value'));
+              }));
+        }),
+      ));
+      if (initialFirst) {
+        loader.requests['en']!.complete({'value': 'English'});
+        await tester.pump();
+        loader.requests['de']!.complete({'value': 'Deutsch'});
+      } else {
+        loader.requests['de']!.complete({'value': 'Deutsch'});
+        await tester.pump();
+        loader.requests['en']!.complete({'value': 'English'});
+      }
+      await selection;
+      await tester.pumpAndSettle();
+      expect(context.locale, const Locale('de'));
+      expect(context.savedLocale, const Locale('de'));
+      expect(find.text('Deutsch'), findsOneWidget);
+      expect((await SharedPreferences.getInstance()).getString('locale'), 'de');
+    });
+  }
+
   testWidgets('initial load failure displays error widget', (tester) async {
     SharedPreferences.setMockInitialValues({});
     await EasyLocalization.ensureInitialized();
