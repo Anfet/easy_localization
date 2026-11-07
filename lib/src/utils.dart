@@ -68,7 +68,7 @@ extension MapExtension<K> on Map<K, dynamic> {
       final oldValue = this[entry.key];
       final newValue = entry.value;
 
-      if (oldValue is Map<K, dynamic> && newValue is Map<K, dynamic>) {
+      if (oldValue is Map && newValue is Map) {
         oldValue.addAllRecursive(newValue);
 
         continue;
@@ -81,6 +81,9 @@ extension MapExtension<K> on Map<K, dynamic> {
   dynamic _copyContainer(dynamic value) {
     if (value is Map<K, dynamic>) {
       return <K, dynamic>{}..addAllRecursive(value);
+    }
+    if (value is Map) {
+      return <dynamic, dynamic>{}..addAllRecursive(value);
     }
     if (value is List) return value.map(_copyContainer).toList();
     return value;

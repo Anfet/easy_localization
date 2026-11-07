@@ -33,6 +33,31 @@ EasyLocalizationController controller(ResourceLoader main, ResourceLoader extra,
     );
 
 void main() {
+  test('dynamically typed nested maps merge and remain independent of their sources', () async {
+    final firstSection = <dynamic, dynamic>{'first': 'one', 'shared': 'old', 'unread': 'original'};
+    final listEntry = <dynamic, dynamic>{'value': 'original'};
+    final secondSection = <dynamic, dynamic>{'second': 'two', 'shared': 'new'};
+    final first = <String, dynamic>{
+      'section': firstSection,
+      'list': [listEntry]
+    };
+    final second = <String, dynamic>{'section': secondSection};
+    final subject = controller(ResourceLoader({'de_AT': first}), ResourceLoader({'de_AT': second}));
+    addTearDown(subject.dispose);
+    final result = await subject.loadTranslationData(const Locale('de', 'AT'));
+    expect(result['section'], {'first': 'one', 'shared': 'new', 'unread': 'original', 'second': 'two'});
+    expect(firstSection, {'first': 'one', 'shared': 'old', 'unread': 'original'});
+    expect(secondSection, {'second': 'two', 'shared': 'new'});
+    expect(listEntry, {'value': 'original'});
+    await subject.loadTranslations();
+    firstSection['unread'] = 'changed';
+    secondSection['shared'] = 'changed';
+    listEntry['value'] = 'changed';
+    expect(subject.translations?.get('section.unread'), 'original');
+    expect(subject.translations?.get('section.shared'), 'new');
+    expect((result['list'] as List).first['value'], 'original');
+  });
+
   test('nested const loaders merge into owned maps and lists', () async {
     const first = <String, dynamic>{
       'section': {'first': 'one', 'shared': 'old'},
