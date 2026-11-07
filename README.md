@@ -193,6 +193,19 @@ After updating the data used by your `AssetLoader`, call `await context.reloadTr
 
 
 
+For an initial loading failure, an `errorWidget` can retry using the same provider:
+
+```dart
+errorWidget: (error) => MaterialApp(
+  home: Builder(
+    builder: (context) => TextButton(
+      onPressed: () => context.reloadTranslations(),
+      child: const Text('Retry'),
+    ),
+  ),
+),
+```
+
 ### 🔥 Translate `context.tr()`
 
 Main function for translate your language keys

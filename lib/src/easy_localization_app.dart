@@ -208,7 +208,11 @@ class _EasyLocalizationState extends State<EasyLocalization> with WidgetsBinding
     // causes localization to rebuild with new language
     localizationController!.addListener(() {
       _signalResourceChange();
-      if (mounted) setState(() {});
+      if (mounted) {
+        setState(() {
+          if (localizationController?.translations != null) translationsLoadError = null;
+        });
+      }
     });
     super.initState();
   }
@@ -247,9 +251,6 @@ class _EasyLocalizationState extends State<EasyLocalization> with WidgetsBinding
   @override
   Widget build(BuildContext context) {
     EasyLocalization.onVerbose?.call('Build');
-    if (translationsLoadError != null) {
-      return widget.errorWidget != null ? widget.errorWidget!(translationsLoadError) : ErrorWidget(translationsLoadError!);
-    }
     return _EasyLocalizationProvider(
       widget,
       localizationController!,
@@ -260,6 +261,11 @@ class _EasyLocalizationState extends State<EasyLocalization> with WidgetsBinding
         useFallbackTranslationsForEmptyResources: widget.useFallbackTranslationsForEmptyResources,
         ignorePluralRules: widget.ignorePluralRules,
       ),
+      child: translationsLoadError == null
+          ? widget.child
+          : widget.errorWidget != null
+              ? widget.errorWidget!(translationsLoadError)
+              : ErrorWidget(translationsLoadError!),
     );
   }
 }
@@ -295,12 +301,12 @@ class _EasyLocalizationProvider extends InheritedWidget {
 
   // _EasyLocalizationDelegate get delegate => parent.delegate;
 
-  _EasyLocalizationProvider(this.parent, this._localeState, {Key? key, required this.delegate})
+  _EasyLocalizationProvider(this.parent, this._localeState, {Key? key, required this.delegate, required Widget child})
       : currentLocale = _localeState.locale,
         _translationsLoaded = _localeState.translations != null,
         _translations = _localeState.translations,
         _fallbackTranslations = _localeState.fallbackTranslations,
-        super(key: key, child: parent.child) {
+        super(key: key, child: child) {
     EasyLocalization.onVerbose?.call('Init provider');
   }
 
