@@ -49,10 +49,7 @@ ArgParser _generateArgParser(GenerateOptions? generateOptions) {
       callback: (String? x) => generateOptions!.sourceDir = x,
       help: 'Folder containing localization files');
 
-  parser.addOption('source-file',
-      abbr: 's',
-      callback: (String? x) => generateOptions!.sourceFile = x,
-      help: 'File to use for localization');
+  parser.addOption('source-file', abbr: 's', callback: (String? x) => generateOptions!.sourceFile = x, help: 'File to use for localization');
 
   parser.addOption('output-dir',
       abbr: 'O',
@@ -61,10 +58,7 @@ ArgParser _generateArgParser(GenerateOptions? generateOptions) {
       help: 'Output folder stores for the generated file');
 
   parser.addOption('output-file',
-      abbr: 'o',
-      defaultsTo: 'codegen_loader.g.dart',
-      callback: (String? x) => generateOptions!.outputFile = x,
-      help: 'Output file name');
+      abbr: 'o', defaultsTo: 'codegen_loader.g.dart', callback: (String? x) => generateOptions!.outputFile = x, help: 'Output file name');
 
   parser.addOption('format',
       abbr: 'f',
@@ -104,8 +98,7 @@ void handleLangFiles(GenerateOptions options) async {
   final source = Directory.fromUri(Uri.parse(options.sourceDir!));
   final output = Directory.fromUri(Uri.parse(options.outputDir!));
   final sourcePath = Directory(path.join(current.path, source.path));
-  final outputPath =
-      Directory(path.join(current.path, output.path, options.outputFile));
+  final outputPath = Directory(path.join(current.path, output.path, options.outputFile));
 
   if (!await sourcePath.exists()) {
     stderr.writeln('Source path does not exist');
@@ -121,8 +114,8 @@ void handleLangFiles(GenerateOptions options) async {
     }
     files = [sourceFile];
   } else {
-    //filtering format
-    files = files.where((f) => f.path.contains('.json')).toList();
+    files = files.where((f) => f is File && path.extension(f.path) == '.json').toList()
+      ..sort((a, b) => path.basename(a.path).compareTo(path.basename(b.path)));
   }
 
   if (files.isNotEmpty) {
@@ -136,13 +129,11 @@ Future<List<FileSystemEntity>> dirContents(Directory dir) {
   var files = <FileSystemEntity>[];
   var completer = Completer<List<FileSystemEntity>>();
   var lister = dir.list(recursive: false);
-  lister.listen((file) => files.add(file),
-      onDone: () => completer.complete(files));
+  lister.listen((file) => files.add(file), onDone: () => completer.complete(files));
   return completer.future;
 }
 
-void generateFile(List<FileSystemEntity> files, Directory outputPath,
-    GenerateOptions options) async {
+void generateFile(List<FileSystemEntity> files, Directory outputPath, GenerateOptions options) async {
   var generatedFile = File(outputPath.path);
   if (!generatedFile.existsSync()) {
     generatedFile.createSync(recursive: true);
@@ -170,8 +161,7 @@ void generateFile(List<FileSystemEntity> files, Directory outputPath,
   stdout.writeln('All done! File generated in ${outputPath.path}');
 }
 
-Future _writeKeys(StringBuffer classBuilder, List<FileSystemEntity> files,
-    bool? skipUnnecessaryKeys) async {
+Future _writeKeys(StringBuffer classBuilder, List<FileSystemEntity> files, bool? skipUnnecessaryKeys) async {
   var file = '''
 // DO NOT EDIT. This is code generated via package:easy_localization/generate.dart
 
@@ -182,46 +172,39 @@ abstract class LocaleKeys {
 
   final fileData = File(files.first.path);
 
-  Map<String, dynamic> translations =
-      json.decode(await fileData.readAsString());
+  Map<String, dynamic> translations = json.decode(await fileData.readAsString());
 
   file += _resolve(translations, skipUnnecessaryKeys);
 
   classBuilder.writeln(file);
 }
 
-String _resolve(Map<String, dynamic> translations, bool? skipUnnecessaryKeys,
-    [String? accKey]) {
+String _resolve(Map<String, dynamic> translations, bool? skipUnnecessaryKeys, [String? accKey]) {
   var fileContent = '';
 
   final sortedKeys = translations.keys.toList();
 
   final canIgnoreKeys = skipUnnecessaryKeys == true;
 
-  bool containsPreservedKeywords(Map<String, dynamic> map) =>
-      map.keys.any((element) => _preservedKeywords.contains(element));
+  bool containsPreservedKeywords(Map<String, dynamic> map) => map.keys.any((element) => _preservedKeywords.contains(element));
 
   for (var key in sortedKeys) {
     var ignoreKey = false;
     if (translations[key] is Map) {
       // If key does not contain keys for plural(), gender() etc. and option is enabled -> ignore it
-      ignoreKey = !containsPreservedKeywords(
-              translations[key] as Map<String, dynamic>) &&
-          canIgnoreKeys;
+      ignoreKey = !containsPreservedKeywords(translations[key] as Map<String, dynamic>) && canIgnoreKeys;
 
       var nextAccKey = key;
       if (accKey != null) {
         nextAccKey = '$accKey.$key';
       }
 
-      fileContent +=
-          _resolve(translations[key], skipUnnecessaryKeys, nextAccKey);
+      fileContent += _resolve(translations[key], skipUnnecessaryKeys, nextAccKey);
     }
 
     if (!_preservedKeywords.contains(key)) {
       accKey != null && !ignoreKey
-          ? fileContent +=
-              '  static const ${accKey.replaceAll('.', '_')}_$key = \'$accKey.$key\';\n'
+          ? fileContent += '  static const ${accKey.replaceAll('.', '_')}_$key = \'$accKey.$key\';\n'
           : !ignoreKey
               ? fileContent += '  static const $key = \'$key\';\n'
               : null;
@@ -231,8 +214,7 @@ String _resolve(Map<String, dynamic> translations, bool? skipUnnecessaryKeys,
   return fileContent;
 }
 
-Future _writeJson(
-    StringBuffer classBuilder, List<FileSystemEntity> files) async {
+Future _writeJson(StringBuffer classBuilder, List<FileSystemEntity> files) async {
   var gFile = '''
 // DO NOT EDIT. This is code generated via package:easy_localization/generate.dart
 
@@ -240,10 +222,14 @@ Future _writeJson(
 
 import 'dart:ui';
 
-import 'package:easy_localization/easy_localization.dart' show AssetLoader;
+import 'package:easy_localization/easy_localization.dart'
+    show AssetLoader, JsonLinkedFileResolver, RootBundleFileLoader;
 
 class CodegenLoader extends AssetLoader{
-  const CodegenLoader();
+  const CodegenLoader() : super(
+    fileLoader: const RootBundleFileLoader(),
+    linkedFileResolver: const JsonLinkedFileResolver(fileLoader: RootBundleFileLoader()),
+  );
 
   @override
   Future<Map<String, dynamic>?> load(String path, Locale locale) {
@@ -255,19 +241,17 @@ class CodegenLoader extends AssetLoader{
   final listLocales = [];
 
   for (var file in files) {
-    final localeName =
-        path.basename(file.path).replaceFirst('.json', '').replaceAll('-', '_');
+    final localeName = path.basename(file.path).replaceFirst('.json', '').replaceAll('-', '_');
     listLocales.add('"$localeName": _$localeName');
     final fileData = File(file.path);
 
     Map<String, dynamic>? data = json.decode(await fileData.readAsString());
 
-    final mapString = const JsonEncoder.withIndent('  ').convert(data);
+    final mapString = const JsonEncoder.withIndent('  ').convert(data).replaceAll(r'$', r'\$');
     gFile += 'static const Map<String,dynamic> _$localeName = $mapString;\n';
   }
 
-  gFile +=
-      'static const Map<String, Map<String,dynamic>> mapLocales = {${listLocales.join(', ')}};';
+  gFile += 'static const Map<String, Map<String,dynamic>> mapLocales = {${listLocales.join(', ')}};';
   classBuilder.writeln(gFile);
 }
 

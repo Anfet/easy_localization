@@ -515,7 +515,7 @@ Code generation supports only json files, for more information run in terminal `
 | ---------------------------- | ----- | --------------------- | --------------------------------------------------------------------------- |
 | --help                       | -h    |                       | Help info                                                                   |
 | --source-dir                 | -S    | resources/langs       | Folder containing localization files                                        |
-| --source-file                | -s    | First file            | File to use for localization                                                |
+| --source-file                | -s    | First JSON by name    | File to use for localization                                                |
 | --output-dir                 | -O    | lib/generated         | Output folder stores for the generated file                                 |
 | --output-file                | -o    | codegen_loader.g.dart | Output file name                                                            |
 | --format                     | -f    | json                  | Support json or keys formats                                                |
@@ -567,6 +567,11 @@ If you want to add localization support from other modules and packages you can 
 ### 🔑 Localization keys
 
 If you have many localization keys and are confused, key generation will help you. The code editor will automatically prompt keys
+
+Keys are generated from a single JSON file, never combined across languages. By default, the first regular `.json` file
+in ordinal filename order is used. Pass `--source-file` to choose a complete fallback language file when another file
+does not contain every key. JSON loader generation uses all regular `.json` files in the same filename order unless a
+source file is specified.
 
 Steps:
 1. Open your terminal in the folder's path containing your project 
