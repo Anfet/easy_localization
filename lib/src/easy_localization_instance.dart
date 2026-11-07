@@ -202,9 +202,11 @@ class EasyLocalizationInstance with WidgetsBindingObserver {
     if (state == AppLifecycleState.resumed) didChangeLocales(null);
   }
 
-  Future<void> _applySystemLocales(List<Locale> locales) async {
+  Future<void> _applySystemLocales(List<Locale> locales) => _reportSystemTransition(_controller.updateDeviceLocales(locales));
+
+  Future<void> _reportSystemTransition(Future<void> transition) async {
     try {
-      await _controller.updateDeviceLocales(locales);
+      await transition;
     } on FlutterError {
       // The controller has already reported this load failure.
     } catch (error, stackTrace) {
@@ -345,6 +347,7 @@ class EasyLocalizationInstance with WidgetsBindingObserver {
         _publish();
       }
     } finally {
+      if (!_disposed && _controller.strictErrors) _reportSystemTransition(_controller.replaySystemLocale());
       if (pending.applied.isCompleted) _pending.remove(pending);
       final active = _active;
       if (!_disposed && (identical(active, pending) || (active != null && active.ready.isCompleted && active.applied.isCompleted))) {
@@ -366,6 +369,12 @@ class EasyLocalizationInstance with WidgetsBindingObserver {
       active.committed = true;
       _committedRevision = active.revision;
     } else {
+      if (_controller.strictErrors) {
+        for (final pending in _pending.toList()) {
+          if (pending.committed && !pending.applied.isCompleted) pending.applied.complete(LocalizationApplyOutcome.superseded);
+          if (pending.ready.isCompleted && pending.applied.isCompleted) _pending.remove(pending);
+        }
+      }
       _committedRevision = ++_revision;
       _active = null;
     }

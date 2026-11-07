@@ -17,6 +17,7 @@ class EasyLocalizationController extends ChangeNotifier {
   bool _disposed = false;
   bool _loading = false;
   bool _systemBootstrap = false;
+  Completer<void>? _bootstrapChanged;
   bool _systemMode = false;
   Locale? _requestedLocale;
   bool _requestedSystem = false;
@@ -140,18 +141,24 @@ class EasyLocalizationController extends ChangeNotifier {
     final initial = _loadLocale(_locale, initial: true);
     _activeTransition = initial;
     Future<void> current = initial;
-    while (true) {
-      try {
-        await current;
-      } catch (_) {
-        if (identical(current, _activeTransition)) rethrow;
+    try {
+      while (true) {
+        final changed = Completer<void>();
+        _bootstrapChanged = changed;
+        try {
+          await Future.any<void>([current, changed.future]);
+        } catch (_) {
+          if (identical(current, _activeTransition)) rethrow;
+        }
+        final active = _activeTransition;
+        if (active == null || identical(current, active)) break;
+        current = active;
       }
-      final active = _activeTransition;
-      if (active == null || identical(current, active)) break;
-      current = active;
+    } finally {
+      _bootstrapChanged = null;
+      _systemBootstrap = false;
+      if (identical(_activeTransition, current)) _activeTransition = null;
     }
-    _systemBootstrap = false;
-    if (identical(_activeTransition, current)) _activeTransition = null;
   }
 
   Future<void> loadTranslations() => _loadLocale(_locale, initial: true);
@@ -502,11 +509,9 @@ class EasyLocalizationController extends ChangeNotifier {
     if (identical(_activeTransition, transition)) _activeTransition = null;
     if (identical(_userTransition, userTransition)) {
       _userTransition = null;
-      if (!_disposed && request == _request && _systemMode && systemTarget != _locale) {
+      if (!strictErrors && !_disposed && request == _request && _systemMode && systemTarget != _locale) {
         try {
-          await (strictErrors
-              ? updateDeviceLocales(_observedDeviceLocales ?? WidgetsBinding.instance.platformDispatcher.locales)
-              : updateDeviceLocale(deviceLocale));
+          await updateDeviceLocale(deviceLocale);
         } catch (error, stackTrace) {
           if (failure == null) {
             failure = error;
@@ -519,6 +524,8 @@ class EasyLocalizationController extends ChangeNotifier {
     }
     if (failure != null) return Future.error(failure, failureStack ?? StackTrace.current);
   }
+
+  Future<void> replaySystemLocale() => updateDeviceLocales(_observedDeviceLocales ?? WidgetsBinding.instance.platformDispatcher.locales);
 
   Future<void> updateDeviceLocales(List<Locale> locales) async {
     if (_disposed) return;
@@ -535,6 +542,8 @@ class EasyLocalizationController extends ChangeNotifier {
     if (_loading && (_requestedSystem || _systemBootstrap) && _requestedLocale == target) return _activeTransition;
     final transition = _loadLocale(target, system: true);
     _activeTransition = transition;
+    final changed = _bootstrapChanged;
+    if (changed != null && !changed.isCompleted) changed.complete();
     try {
       await transition;
     } finally {

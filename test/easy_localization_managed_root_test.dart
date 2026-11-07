@@ -21,6 +21,39 @@ void main() {
         additionalDelegates: [if (delegate != null) delegate, if (delegate != null) _DuplicateDelegate()],
       ));
 
+  testWidgets('reset presentation remains independent of subsequent system replay', (tester) async {
+    for (final failReplay in [false, true]) {
+      final loader = _Loader();
+      tester.binding.platformDispatcher.localesTestValue = const [Locale('de')];
+      final instance = await owner(loader);
+      try {
+        await tester.pumpWidget(EasyLocalization.withInstance(instance: instance, child: const _App(home: _Leaf(label: 'home'))));
+        await tester.pumpAndSettle();
+        final resetGate = Completer<Map<String, dynamic>>();
+        final replayGate = Completer<Map<String, dynamic>>();
+        loader.gates['de'] = resetGate;
+        loader.gates['ar'] = replayGate;
+        final reset = instance.resetLocale();
+        tester.binding.platformDispatcher.localesTestValue = const [Locale('ar')];
+        resetGate.complete({'value': 'reset'});
+        expect(await reset.ready, LocalizationDataOutcome.committed);
+        if (failReplay) {
+          replayGate.completeError(FlutterError('replay failure'));
+        } else {
+          replayGate.complete({'value': 'replay'});
+        }
+        await tester.pumpAndSettle();
+        expect(await reset.applied, failReplay ? LocalizationApplyOutcome.applied : LocalizationApplyOutcome.superseded);
+        expect(instance.state.value.committedRevision, failReplay ? reset.revision : greaterThan(reset.revision));
+        expect(instance.locale, failReplay ? const Locale('de') : const Locale('ar'));
+      } finally {
+        await tester.pumpWidget(const SizedBox());
+        instance.dispose();
+        tester.binding.platformDispatcher.clearLocalesTestValue();
+      }
+    }
+  });
+
   testWidgets('system updates reach presentation and survive detach and remount', (tester) async {
     final loader = _Loader();
     tester.binding.platformDispatcher.localesTestValue = const [Locale('en')];
@@ -357,10 +390,14 @@ class _Loader extends AssetLoader {
   _Loader() : super(fileLoader: const RootBundleFileLoader(), linkedFileResolver: const JsonLinkedFileResolver(fileLoader: RootBundleFileLoader()));
   int loads = 0;
   bool fail = false;
+  final gates = <String, Completer<Map<String, dynamic>>>{};
   @override
   Future<Map<String, dynamic>> load(String path, Locale locale) async {
     if (fail) throw StateError('resources failed');
-    return {'value': '${locale.languageCode}-${++loads}'};
+    final count = ++loads;
+    final gate = gates[locale.languageCode];
+    if (gate != null) return gate.future;
+    return {'value': '${locale.languageCode}-$count'};
   }
 }
 

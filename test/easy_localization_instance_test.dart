@@ -176,10 +176,13 @@ void main() {
     loader.gates['ru'] = [latest];
     binding.platformDispatcher.localesTestValue = const [Locale('de')];
     final pending = EasyLocalization.initialize(config(save: false));
-    final failed = expectLater(pending, throwsStateError);
+    var completed = false;
+    final failed = expectLater(pending, throwsStateError).then((_) => completed = true);
     binding.platformDispatcher.localesTestValue = const [Locale('ru')];
     latest.completeError(StateError('latest failed'));
-    first.complete({'value': 'stale'});
+    await Future<void>.delayed(Duration.zero);
+    if (!completed) first.complete({'value': 'stale'});
+    expect(completed, isTrue, reason: 'latest failure must not wait for the stale loader');
     await failed;
     final count = loader.calls.length;
     binding.platformDispatcher.localesTestValue = const [Locale('de')];
@@ -187,6 +190,7 @@ void main() {
     expect(loader.calls.length, count);
     final owner = await EasyLocalization.initialize(config(save: false));
     expect(owner.locale, const Locale('de'));
+    if (!first.isCompleted) first.complete({'value': 'stale'});
   });
 
   test('explicit choice supersedes slow system load and reset follows latest list', () async {
@@ -205,6 +209,47 @@ void main() {
     owner.didChangeAppLifecycleState(AppLifecycleState.resumed);
     await Future<void>.delayed(Duration.zero);
     expect(owner.locale, const Locale('de'));
+  });
+
+  test('reset receipt stays independent of later system replay success and failure', () async {
+    for (final failReplay in [false, true]) {
+      binding.platformDispatcher.localesTestValue = const [Locale('de')];
+      final owner = await EasyLocalization.initialize(config(start: const Locale('ru'), save: false));
+      final resetGate = Completer<Map<String, dynamic>?>();
+      final replayGate = Completer<Map<String, dynamic>?>();
+      loader.gates['de'] = [resetGate];
+      loader.gates['ru'] = [replayGate];
+      final revisions = <int>[];
+      void record() => revisions.add(owner.state.value.committedRevision);
+      owner.state.addListener(record);
+      final reset = owner.resetLocale();
+      binding.platformDispatcher.localesTestValue = const [Locale('fr'), Locale('ru')];
+      var ready = false;
+      reset.ready.then((_) => ready = true, onError: (Object _) => ready = true);
+      resetGate.complete({'value': 'reset'});
+      await Future<void>.delayed(Duration.zero);
+      if (!ready) replayGate.complete({'value': 'cleanup'});
+      expect(ready, isTrue, reason: 'reset must finish before replay');
+      expect(await reset.ready, LocalizationDataOutcome.committed);
+      expect(await reset.applied, LocalizationApplyOutcome.detached);
+      expect(owner.state.value.committedRevision, reset.revision);
+      if (failReplay) {
+        replayGate.completeError(FlutterError('replay failure'));
+      } else {
+        replayGate.complete({'value': 'replay'});
+      }
+      await Future<void>.delayed(Duration.zero);
+      expect(revisions, contains(reset.revision));
+      if (failReplay) {
+        expect(owner.locale, const Locale('de'));
+        expect(owner.state.value.committedRevision, reset.revision);
+      } else {
+        expect(owner.locale, const Locale('ru'));
+        expect(owner.state.value.committedRevision, greaterThan(reset.revision));
+      }
+      owner.state.removeListener(record);
+      owner.dispose();
+    }
   });
 
   test('startup matrix chooses only start, saved, supported system or required fallback', () async {
