@@ -77,6 +77,7 @@ void main() {
         startLocale: const Locale('en'),
         path: 'unused',
         assetLoader: loader,
+        additionalDelegates: [delegate],
         useFallbackTranslations: true,
         useFallbackTranslationsForEmptyResources: true,
         ignorePluralRules: rules,
