@@ -1,9 +1,30 @@
 # Changelog
 
-### Next major (unreleased)
+### [4.0.0] - Unreleased
 
-- Requires Dart 3.8 and Flutter 3.32. New owner config uses language plural rules and disables base-language fallback by default; legacy defaults remain available.
-- Added explicit fallback lookup and strict missing resource handling, preserved Text properties, and exposed scope errors. See the migration guide for loader contracts, receipts, diagnostics and startup changes.
+#### Breaking changes
+
+- Requires Dart 3.8 and Flutter 3.32.
+- Removed the `EasyLocalization.logger` / `easy_logger` integration. Configure the optional `onVerbose`, `onWarning`, and `onError` callbacks instead; diagnostics are silent by default.
+- The new `EasyLocalizationConfig` owner uses language plural rules and disables base-language fallback by default. Legacy constructors and loading APIs retain their historical defaults.
+- The new owner requires a supported `fallbackLocale`, applies stricter resource error handling, and reports missing scope access with `LocalizationNotFoundException`.
+
+#### Added
+
+- Added `EasyLocalization.initialize` for localization before the widget tree, with a single owner shared by global translation calls and the root widget.
+- Added awaitable locale commands with separate resource/storage (`ready`) and presentation (`applied`) outcomes, plus `reloadTranslations` for changed loader data.
+- Added explicit fallback lookup through `trExists(includeFallback: true)` and strict missing-resource errors for the new owner.
+- Added `--strict` to the audit command, returning a non-zero exit code when static missing translation keys are found.
+- Added browser locale detection for Flutter Web compiled to JavaScript/WASM.
+
+#### Improved
+
+- Locale startup, persistence, reset, and system-language updates now follow one owner and preserve the current presentation when a transition fails or is superseded.
+- Translation updates preserve ordinary widget state, including retained subtrees; linked and fallback translations are resolved consistently in nested and plural lookups.
+- Code generation handles escaped JSON strings and produces deterministic locale source ordering.
+- `Text.tr` and `Text.plural` preserve the original `Text` properties.
+
+See [Compatibility and migration](README.md#compatibility-and-migration-to-400) for SDK requirements, changed defaults, loader contracts, and migration steps.
 
 
 ### [3.0.9]
