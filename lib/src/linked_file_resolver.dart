@@ -139,15 +139,24 @@ class JsonLinkedFileResolver extends LinkedFileResolver {
           final linkedContent = await fileLoader.loadString(linkedAssetPath);
           final Map<String, dynamic> linkedJson = json.decode(linkedContent) as Map<String, dynamic>;
 
-          final resolved = await _resolveLinkedFiles(
-            basePath: basePath,
-            languageCode: languageCode,
-            scriptCode: scriptCode,
-            baseJson: linkedJson,
-            visited: visited,
-            depth: depth + 1,
-            countryCode: countryCode,
-          );
+          final resolved = scriptCode == null
+              ? await resolveLinkedFiles(
+                  basePath: basePath,
+                  languageCode: languageCode,
+                  baseJson: linkedJson,
+                  visited: visited,
+                  depth: depth + 1,
+                  countryCode: countryCode,
+                )
+              : await _resolveLinkedFiles(
+                  basePath: basePath,
+                  languageCode: languageCode,
+                  scriptCode: scriptCode,
+                  baseJson: linkedJson,
+                  visited: visited,
+                  depth: depth + 1,
+                  countryCode: countryCode,
+                );
           fullJson[key] = resolved;
         } catch (e) {
           throw StateError(
@@ -157,15 +166,24 @@ class JsonLinkedFileResolver extends LinkedFileResolver {
           visited.remove(linkedAssetPath);
         }
       } else if (value is Map<String, dynamic>) {
-        fullJson[key] = await _resolveLinkedFiles(
-          basePath: basePath,
-          languageCode: languageCode,
-          scriptCode: scriptCode,
-          baseJson: value,
-          visited: visited,
-          depth: depth,
-          countryCode: countryCode,
-        );
+        fullJson[key] = scriptCode == null
+            ? await resolveLinkedFiles(
+                basePath: basePath,
+                languageCode: languageCode,
+                baseJson: value,
+                visited: visited,
+                depth: depth,
+                countryCode: countryCode,
+              )
+            : await _resolveLinkedFiles(
+                basePath: basePath,
+                languageCode: languageCode,
+                scriptCode: scriptCode,
+                baseJson: value,
+                visited: visited,
+                depth: depth,
+                countryCode: countryCode,
+              );
       }
     }
 

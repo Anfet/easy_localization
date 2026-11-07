@@ -104,6 +104,38 @@ void main() async {
       expect(files.paths.last, 'i18n/zh-Hant/second.json');
     });
 
+    test('legacy JSON override transforms nested maps and linked files through loader and direct API', () async {
+      final files = _Files({
+        'i18n/en.json': {
+          'nested': {'value': 'map'},
+          'linked': ':/item.json'
+        },
+        'i18n/en/item.json': {'value': 'file'},
+      });
+      final resolver = _TransformingLegacyJsonResolver(files);
+      final loader = RootBundleAssetLoader(fileLoader: files, linkedFileResolver: resolver);
+      final expected = {
+        'nested': {'value': 'map', 'transformed': true},
+        'linked': {'value': 'file', 'transformed': true},
+        'transformed': true,
+      };
+
+      expect(await loader.load('i18n', const Locale('en')), expected);
+      expect(resolver.calls, 3);
+      resolver.calls = 0;
+      expect(
+          await resolver.resolveLinkedFiles(
+            basePath: 'i18n',
+            languageCode: 'en',
+            baseJson: {
+              'nested': {'value': 'map'},
+              'linked': ':/item.json'
+            },
+          ),
+          expected);
+      expect(resolver.calls, 3);
+    });
+
     test('legacy overrides receive loader calls and direct API keeps legacy path', () async {
       final files = _Files({
         'i18n/en.json': {},
@@ -384,5 +416,25 @@ class _LegacyJsonResolver extends JsonLinkedFileResolver {
     calls++;
     return super.resolveLinkedFiles(
         basePath: basePath, languageCode: languageCode, baseJson: baseJson, visited: visited, depth: depth, countryCode: countryCode);
+  }
+}
+
+class _TransformingLegacyJsonResolver extends JsonLinkedFileResolver {
+  _TransformingLegacyJsonResolver(FileLoader files) : super(fileLoader: files);
+  int calls = 0;
+
+  @override
+  Future<Map<String, dynamic>> resolveLinkedFiles(
+      {required String basePath,
+      required String languageCode,
+      required Map<String, dynamic> baseJson,
+      Set<String>? visited,
+      int depth = 0,
+      String? countryCode}) async {
+    calls++;
+    final resolved = await super.resolveLinkedFiles(
+        basePath: basePath, languageCode: languageCode, baseJson: baseJson, visited: visited, depth: depth, countryCode: countryCode);
+    resolved['transformed'] = true;
+    return resolved;
   }
 }
