@@ -605,6 +605,12 @@ If you are not using the default translations folder path (assets/translations) 
 | ---------------------------- | ----- | --------------------- | --------------------------------------------------------------------------- |
 | --translations-dir           | -t    | assets/translations   | Folder containing localization files                                        |
 | --source-dir                 | -s    | lib                   | Folder containing the app code files                                        |
+| --strict                     |       | false                 | Exit with code 2 when a static key is missing                               |
+
+For CI, run `flutter pub run easy_localization:audit --strict`. Exit code 0 means the audit completed without confirmed missing keys (or strict mode is off); 2 means strict mode found a missing static key; 1 means the audit could not complete, such as an invalid option, unreadable input, invalid JSON, or no JSON locales. The report and warnings go to stdout; errors go to stderr.
+
+The audit uses a limited pattern scanner. Interpolated keys are reported as unverified, and calls such as `tr(variable)` are not extracted, so a successful audit does not prove all dynamic keys are present.
+
 
 ## Diagnostic callbacks
 

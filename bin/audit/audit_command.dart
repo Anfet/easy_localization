@@ -5,28 +5,17 @@ import 'package:path/path.dart';
 import 'package:easy_localization/src/file_loaders/io_file_loader.dart';
 
 class AuditCommand {
-  Future<void> run({required String transDir, required String srcDir}) async {
-    try {
-      final translationDir = Directory(transDir);
-      final sourceDir = Directory(srcDir);
-
-      if (!translationDir.existsSync()) {
-        stderr.writeln('Error: Translation directory "$transDir" does not exist.');
-        return;
-      }
-
-      if (!sourceDir.existsSync()) {
-        stderr.writeln('Error: Source directory "$srcDir" does not exist.');
-        return;
-      }
-
-      final allTranslations = await _loadTranslations(translationDir);
-      final usedKeys = _scanSourceForKeys(sourceDir);
-
-      _report(allTranslations, usedKeys);
-    } catch (e) {
-      stderr.writeln('Error during audit: $e');
+  /// Audits the source and returns whether any locale has confirmed missing keys.
+  /// File system, JSON and linked-file errors propagate to the CLI caller.
+  Future<bool> run({required String transDir, required String srcDir}) async {
+    final translationDir = Directory(transDir);
+    final sourceDir = Directory(srcDir);
+    final allTranslations = await _loadTranslations(translationDir);
+    if (allTranslations.isEmpty) {
+      throw StateError('No JSON locales found in "$transDir".');
     }
+    final usedKeys = _scanSourceForKeys(sourceDir);
+    return _report(allTranslations, usedKeys);
   }
 
   /// Walks [translationsDir], reads every `.json`, flattens nested maps
@@ -41,24 +30,20 @@ class AuditCommand {
     for (var file in translationsDir.listSync().whereType<File>()) {
       if (!file.path.endsWith('.json')) continue;
 
-      try {
-        final local = basenameWithoutExtension(file.path);
-        final langCode = local.split('-').first;
-        final hasCountryCode = local.split('-').length > 1;
-        final countryCode = hasCountryCode ? local.split('-').last : null;
-        final jsonMap = json.decode(file.readAsStringSync()) as Map<String, dynamic>;
+      final local = basenameWithoutExtension(file.path);
+      final langCode = local.split('-').first;
+      final hasCountryCode = local.split('-').length > 1;
+      final countryCode = hasCountryCode ? local.split('-').last : null;
+      final jsonMap = json.decode(file.readAsStringSync()) as Map<String, dynamic>;
 
-        // Process linked files if present using the shared resolver
-        final resolvedJson = await linkedFileResolver.resolveLinkedFiles(
-          basePath: translationsDir.path,
-          languageCode: langCode,
-          baseJson: jsonMap,
-          countryCode: countryCode,
-        );
-        result[local] = _flatten(resolvedJson);
-      } catch (e) {
-        stderr.writeln('Error reading ${file.path}: $e');
-      }
+      // Process linked files if present using the shared resolver
+      final resolvedJson = await linkedFileResolver.resolveLinkedFiles(
+        basePath: translationsDir.path,
+        languageCode: langCode,
+        baseJson: jsonMap,
+        countryCode: countryCode,
+      );
+      result[local] = _flatten(resolvedJson);
     }
     return result;
   }
@@ -111,58 +96,56 @@ class AuditCommand {
     final used = <String>{};
 
     for (var file in srcDir.listSync(recursive: true).whereType<File>().where((f) => f.path.endsWith('.dart'))) {
-      try {
-        final content = file.readAsStringSync();
-        for (var pattern in keyPatterns) {
-          final matches = pattern.allMatches(content);
-          for (var match in matches) {
-            if (match.groupCount > 0) {
-              String key = match.group(1)!;
-              if (pattern.pattern.contains('LocaleKeys')) {
-                key = key.replaceAll('_', '.');
-              }
-              used.add(key);
+      final content = file.readAsStringSync();
+      for (var pattern in keyPatterns) {
+        final matches = pattern.allMatches(content);
+        for (var match in matches) {
+          if (match.groupCount > 0) {
+            String key = match.group(1)!;
+            if (pattern.pattern.contains('LocaleKeys')) {
+              key = key.replaceAll('_', '.');
             }
+            used.add(key);
           }
         }
-      } catch (e) {
-        stderr.writeln('Error reading ${file.path}: $e');
       }
     }
-
     return used;
   }
 
-  void _report(Map<String, Set<String>> allTranslations, Set<String> usedKeys) {
-    stderr.writeln('=== Keys Audit ===');
+  bool _report(Map<String, Set<String>> allTranslations, Set<String> usedKeys) {
+    var hasMissing = false;
+    stdout.writeln('=== Keys Audit ===');
 
     for (var lang in allTranslations.keys) {
       final keysInFile = allTranslations[lang]!;
       final missing = usedKeys.difference(keysInFile);
-      final missingWithVariables = missing.where((key) => key.contains('\$')).toList();
+      final missingWithVariables = usedKeys.where((key) => key.contains('\$')).toList();
       final missingWithoutVariables = missing.where((key) => !key.contains('\$')).toList();
 
-      stderr.writeln('\nLanguage: $lang');
+      stdout.writeln('\nLanguage: $lang');
       if (missingWithVariables.isEmpty && missingWithoutVariables.isEmpty) {
-        stderr.writeln('  ✅ all good!');
+        stdout.writeln('  ✅ No missing static keys found (dynamic calls may not be checked).');
       }
 
       if (missingWithoutVariables.isNotEmpty) {
-        stderr.writeln('  🔴 Missing (${missingWithoutVariables.length}):');
+        hasMissing = true;
+        stdout.writeln('  🔴 Missing (${missingWithoutVariables.length}):');
         for (var key in missingWithoutVariables) {
-          stderr.writeln('    – $key');
+          stdout.writeln('    – $key');
         }
 
-        stderr.writeln('\n');
+        stdout.writeln('\n');
       }
 
       if (missingWithVariables.isNotEmpty) {
-        stderr.writeln('  🟡 Missing with variables (${missingWithVariables.length}):');
-        stderr.writeln('    These keys may not be missing as they contain variables that cannot be verified.');
+        stdout.writeln('  🟡 Unverified keys with variables (${missingWithVariables.length}):');
+        stdout.writeln('    These keys contain variables and cannot be verified.');
         for (var key in missingWithVariables) {
-          stderr.writeln('    – $key');
+          stdout.writeln('    – $key');
         }
       }
     }
+    return hasMissing;
   }
 }
