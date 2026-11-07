@@ -168,6 +168,8 @@ class Localization {
         throw ArgumentError.value(value, 'howMany', 'Invalid plural argument');
     }
 
+    res = _replaceLinks(res);
+
     final formattedValue = format == null ? '$value' : format.format(value);
 
     if (name != null) {
