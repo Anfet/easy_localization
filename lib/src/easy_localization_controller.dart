@@ -110,7 +110,7 @@ class EasyLocalizationController extends ChangeNotifier {
 
   Future<void> loadTranslations() => _loadLocale(_locale, initial: true);
 
-  Future<void> _loadLocale(Locale target, {bool initial = false}) async {
+  Future<void> _loadLocale(Locale target, {bool initial = false, bool refresh = false}) async {
     final supersededInitial = initial && _loading && _activeTransition != null;
     final request = supersededInitial ? _request - 1 : ++_request;
     if (!supersededInitial) _loading = true;
@@ -154,9 +154,9 @@ class EasyLocalizationController extends ChangeNotifier {
       _locale = resources.locale;
       _translations = resources.translations;
       _fallbackTranslations = resources.fallbackTranslations;
-      final saving = initial ? Future<void>.value() : _saveLocale(target);
+      final saving = initial || refresh ? Future<void>.value() : _saveLocale(target);
       notifyListeners();
-      if (!initial) EasyLocalization.onVerbose?.call('Locale $target changed');
+      if (!initial && !refresh) EasyLocalization.onVerbose?.call('Locale $target changed');
       await saving;
     }, zoneValues: {#easyLocalizationCallbackErrors: callbackErrors, #easyLocalizationCallbackZone: callbackZone});
   }
@@ -240,6 +240,20 @@ class EasyLocalizationController extends ChangeNotifier {
       return;
     }
     final transition = _loadLocale(locale);
+    _activeTransition = transition;
+    try {
+      await transition;
+    } finally {
+      if (identical(_activeTransition, transition)) _activeTransition = null;
+    }
+  }
+
+  /// Reloads the displayed locale after the asset loader's data has changed.
+  /// The future completes after acceptance, or with an error if the current
+  /// load fails. A later request supersedes this one. Widgets update next frame.
+  Future<void> reloadTranslations() async {
+    if (_disposed) return;
+    final transition = _loadLocale(_locale, refresh: true);
     _activeTransition = transition;
     try {
       await transition;

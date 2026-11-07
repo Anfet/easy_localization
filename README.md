@@ -189,6 +189,9 @@ print(context.locale.toString());
 
 `setLocale` waits for translations and its assigned storage operation. A newer choice can supersede an outstanding load; the superseded future completes after that load without applying it. Loading and storage failures complete the future with an error. A storage failure leaves the new language active. Widgets display the change after the next frame.
 
+After updating the data used by your `AssetLoader`, call `await context.reloadTranslations()` to reload the current language and its fallback. Update any cache owned by your loader before calling it. The future waits for the resources to be accepted, and completes with an error if the current load fails; the previous translations remain available. A later language change or reload supersedes an outstanding reload. Widgets display the new translations on the next frame.
+
+
 
 ### 🔥 Translate `context.tr()`
 

@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'localization.dart';
+import 'translations.dart';
 
 part 'utils.dart';
 
@@ -244,6 +245,8 @@ class _EasyLocalizationProvider extends InheritedWidget {
   final Locale? currentLocale;
   final _EasyLocalizationDelegate delegate;
   final bool _translationsLoaded;
+  final Translations? _translations;
+  final Translations? _fallbackTranslations;
 
   /// {@macro flutter.widgets.widgetsApp.localizationsDelegates}
   ///
@@ -270,6 +273,8 @@ class _EasyLocalizationProvider extends InheritedWidget {
   _EasyLocalizationProvider(this.parent, this._localeState, {Key? key, required this.delegate})
       : currentLocale = _localeState.locale,
         _translationsLoaded = _localeState.translations != null,
+        _translations = _localeState.translations,
+        _fallbackTranslations = _localeState.fallbackTranslations,
         super(key: key, child: parent.child) {
     EasyLocalization.onVerbose?.call('Init provider');
   }
@@ -288,6 +293,9 @@ class _EasyLocalizationProvider extends InheritedWidget {
     await _localeState.setLocale(locale);
   }
 
+  /// Reloads resources for the currently displayed locale.
+  Future<void> reloadTranslations() => _localeState.reloadTranslations();
+
   /// Clears a saved locale from device storage
   Future<void> deleteSaveLocale() async {
     await _localeState.deleteSaveLocale();
@@ -302,7 +310,10 @@ class _EasyLocalizationProvider extends InheritedWidget {
 
   @override
   bool updateShouldNotify(_EasyLocalizationProvider oldWidget) {
-    return oldWidget.currentLocale != locale || oldWidget._translationsLoaded != _translationsLoaded;
+    return oldWidget.currentLocale != currentLocale ||
+        oldWidget._translationsLoaded != _translationsLoaded ||
+        !identical(oldWidget._translations, _translations) ||
+        !identical(oldWidget._fallbackTranslations, _fallbackTranslations);
   }
 
   static _EasyLocalizationProvider? of(BuildContext context) => context.dependOnInheritedWidgetOfExactType<_EasyLocalizationProvider>();
@@ -314,6 +325,8 @@ class _EasyLocalizationDelegate extends LocalizationsDelegate<Localization> {
   final Future<void> Function() waitForResourceChange;
   final bool useFallbackTranslationsForEmptyResources;
   final bool ignorePluralRules;
+  final Translations? _translations;
+  final Translations? _fallbackTranslations;
 
   ///  * use only the lang code to generate i18n file path like en.json or ar.json
   // final bool useOnlyLangCode;
@@ -324,7 +337,8 @@ class _EasyLocalizationDelegate extends LocalizationsDelegate<Localization> {
     this.ignorePluralRules = true,
     this.localizationController,
     this.supportedLocales,
-  }) {
+  })  : _translations = localizationController?.translations,
+        _fallbackTranslations = localizationController?.fallbackTranslations {
     EasyLocalization.onVerbose?.call('Init Localization Delegate');
   }
 
@@ -354,5 +368,6 @@ class _EasyLocalizationDelegate extends LocalizationsDelegate<Localization> {
   }
 
   @override
-  bool shouldReload(LocalizationsDelegate<Localization> old) => false;
+  bool shouldReload(_EasyLocalizationDelegate old) =>
+      !identical(old._translations, _translations) || !identical(old._fallbackTranslations, _fallbackTranslations);
 }
