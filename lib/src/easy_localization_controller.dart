@@ -3,7 +3,9 @@ import 'dart:async';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart' show DiagnosticsProperty;
 import 'package:flutter/material.dart';
-import 'package:intl/intl_standalone.dart' if (dart.library.html) 'package:intl/intl_browser.dart';
+import 'package:intl/intl_standalone.dart'
+    if (dart.library.html) 'package:intl/intl_browser.dart'
+    if (dart.library.js_interop) 'package:intl/intl_browser.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'translations.dart';
