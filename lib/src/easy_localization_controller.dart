@@ -253,14 +253,15 @@ class EasyLocalizationController extends ChangeNotifier {
   Future<void> _saveLocale(Locale locale) async {
     if (!saveLocale) return;
     await _enqueueStorage(() async {
-      final preferences = await SharedPreferences.getInstance();
+      SharedPreferences? preferences;
       try {
+        preferences = await SharedPreferences.getInstance();
         if (!await preferences.setString('locale', locale.toString())) {
           throw StateError('Failed to save locale');
         }
       } catch (error, stackTrace) {
         try {
-          await preferences.reload();
+          await preferences?.reload();
         } catch (_) {
           // Preserve the original storage failure.
         }
@@ -285,12 +286,13 @@ class EasyLocalizationController extends ChangeNotifier {
   }
 
   Future<void> deleteSaveLocale() => _enqueueStorage(() async {
-        final preferences = await SharedPreferences.getInstance();
+        SharedPreferences? preferences;
         try {
+          preferences = await SharedPreferences.getInstance();
           if (!await preferences.remove('locale')) throw StateError('Failed to delete saved locale');
         } catch (error, stackTrace) {
           try {
-            await preferences.reload();
+            await preferences?.reload();
           } catch (_) {
             // Preserve the original storage failure.
           }
