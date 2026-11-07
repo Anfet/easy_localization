@@ -129,6 +129,16 @@ class EasyLocalizationInstance {
   Localization get dataTranslator => _data ?? (throw StateError('Call EasyLocalization.initialize before accessing translations'));
   ValueListenable<LocalizationState> get state => _state;
 
+  /// Loads a fresh, independent translator without changing the current locale.
+  /// A started load and its result remain usable after this owner is disposed.
+  Future<Localization> translator(Locale locale) {
+    _checkLive();
+    final config = _config;
+    if (!config.supportedLocales.contains(locale)) throw ArgumentError.value(locale, 'locale', 'Must be supported');
+    return _controller.loadSnapshot(locale,
+        useFallbackForEmpty: config.useFallbackTranslationsForEmptyResources, ignorePluralRules: config.ignorePluralRules);
+  }
+
   /// Reserves a revision synchronously; unsupported locales throw immediately.
   LocalizationChange setLocale(Locale locale) {
     _checkLive();

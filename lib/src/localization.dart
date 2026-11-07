@@ -8,6 +8,9 @@ class Localization {
   Translations? _translations, _fallbackTranslations;
   late Locale _locale;
 
+  /// The locale captured by this translation snapshot.
+  Locale get locale => _locale;
+
   final RegExp _replaceArgRegex = RegExp('{}');
   final RegExp _linkKeyMatcher = RegExp(r'(?:@(?:\.[a-z]+)?:(?:[\w\-_|.]+|\([\w\-_|.]+\)))');
   final RegExp _linkKeyPrefixMatcher = RegExp(r'^@(?:\.([a-z]+))?:');

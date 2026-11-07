@@ -124,18 +124,7 @@ class EasyLocalizationController extends ChangeNotifier {
     return runZoned(() async {
       late _LocaleResources resources;
       try {
-        final data = Map<String, dynamic>.from(await loadTranslationData(target));
-        Translations? fallback;
-        if (useFallbackTranslations && _fallbackLocale != null) {
-          Map<String, dynamic>? baseLangData;
-          if (target.countryCode != null && target.countryCode!.isNotEmpty) {
-            baseLangData = await loadBaseLangTranslationData(Locale(target.languageCode));
-          }
-          final fallbackData = Map<String, dynamic>.from(await loadTranslationData(_fallbackLocale!));
-          if (baseLangData != null) fallbackData.addAllRecursive(baseLangData);
-          fallback = Translations(fallbackData);
-        }
-        resources = _LocaleResources(target, Translations(data), fallback);
+        resources = await _loadResources(target);
       } catch (error, stackTrace) {
         if (callbackErrors.isNotEmpty) {
           final callbackError = callbackErrors.first;
@@ -171,6 +160,31 @@ class EasyLocalizationController extends ChangeNotifier {
       if (!initial && !refresh) EasyLocalization.onVerbose?.call('Locale $target changed');
       await saving;
     }, zoneValues: {#easyLocalizationCallbackErrors: callbackErrors, #easyLocalizationCallbackZone: callbackZone});
+  }
+
+  /// Loads an independent snapshot without changing controller state.
+  Future<Localization> loadSnapshot(Locale locale, {required bool useFallbackForEmpty, required bool ignorePluralRules}) async {
+    final resources = await _loadResources(locale);
+    return Localization.snapshot(locale,
+        translations: resources.translations,
+        fallbackTranslations: resources.fallbackTranslations,
+        useFallbackTranslationsForEmptyResources: useFallbackForEmpty,
+        ignorePluralRules: ignorePluralRules);
+  }
+
+  Future<_LocaleResources> _loadResources(Locale target) async {
+    final data = Map<String, dynamic>.from(await loadTranslationData(target));
+    Translations? fallback;
+    if (useFallbackTranslations && _fallbackLocale != null) {
+      Map<String, dynamic>? baseLangData;
+      if (target.countryCode != null && target.countryCode!.isNotEmpty) {
+        baseLangData = await loadBaseLangTranslationData(Locale(target.languageCode));
+      }
+      final fallbackData = Map<String, dynamic>.from(await loadTranslationData(_fallbackLocale!));
+      if (baseLangData != null) fallbackData.addAllRecursive(baseLangData);
+      fallback = Translations(fallbackData);
+    }
+    return _LocaleResources(target, Translations(data), fallback);
   }
 
   @override

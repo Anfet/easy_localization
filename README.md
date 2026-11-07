@@ -776,3 +776,18 @@ We need your support. Projects like this can not be successful without support f
 
 ![contributors](https://contributors-img.firebaseapp.com/image?repo=aissat/easy_localization)
 <a href="https://github.com/aissat/easy_localization/graphs/contributors"></a>
+
+### Translating a document in another language
+
+An independent translator keeps its language and resources while the interface changes:
+
+```dart
+final document = await EasyLocalization.instance.translator(const Locale('ru'));
+final title = document.tr('invoice.title');
+final items = document.plural('invoice.items', 3);
+
+// Load again when the document should use the latest resources.
+final refreshedDocument = await EasyLocalization.instance.translator(document.locale);
+```
+
+The requested locale must be in `supportedLocales`. A translator remains usable after the owner is disposed.
