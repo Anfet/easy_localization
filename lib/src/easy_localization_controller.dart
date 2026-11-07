@@ -23,7 +23,7 @@ class EasyLocalizationController extends ChangeNotifier {
   int? _deferredReloadRequest;
   int? _acceptedRequest;
   int? _refreshRequest;
-  static late Locale _deviceLocale;
+  static Locale? _deviceLocale;
 
   late Locale _locale;
   Locale? _fallbackLocale;
@@ -58,7 +58,7 @@ class EasyLocalizationController extends ChangeNotifier {
     if (forceLocale != null) {
       _locale = forceLocale;
     } else if ((!saveLocale || _savedLocale == null) && startLocale != null) {
-      _locale = _getFallbackLocale(supportedLocales, startLocale);
+      _locale = selectLocaleFrom(supportedLocales, startLocale, fallbackLocale: fallbackLocale);
       EasyLocalization.onVerbose?.call('Start locale loaded ${_locale.toString()}');
     }
     // If saved locale then get
@@ -74,7 +74,7 @@ class EasyLocalizationController extends ChangeNotifier {
       // From Device Locale
       _locale = selectLocaleFrom(
         supportedLocales,
-        _deviceLocale,
+        deviceLocale,
         fallbackLocale: fallbackLocale,
       );
     }
@@ -86,35 +86,17 @@ class EasyLocalizationController extends ChangeNotifier {
     Locale deviceLocale, {
     Locale? fallbackLocale,
   }) {
-    final selectedLocale = supportedLocales.firstWhere(
-      (locale) => locale.supports(deviceLocale),
-      orElse: () => _getFallbackLocale(
-        supportedLocales,
-        fallbackLocale,
-        deviceLocale: deviceLocale,
-      ),
-    );
-    return selectedLocale;
-  }
-
-  //Get fallback Locale
-  static Locale _getFallbackLocale(List<Locale> supportedLocales, Locale? fallbackLocale, {final Locale? deviceLocale}) {
-    if (deviceLocale != null) {
-      // a locale that matches the language code of the device locale is
-      // preferred over the fallback locale
-      final deviceLanguage = deviceLocale.languageCode;
-      for (Locale locale in supportedLocales) {
-        if (locale.languageCode == deviceLanguage) {
-          return locale;
-        }
-      }
+    for (final locale in supportedLocales) {
+      if (locale == deviceLocale) return locale;
     }
-    //If fallbackLocale not set then return first from supportedLocales
-    if (fallbackLocale != null) {
-      return fallbackLocale;
-    } else {
-      return supportedLocales.first;
+    for (final locale in supportedLocales) {
+      if (locale.supports(deviceLocale)) return locale;
     }
+    for (final locale in supportedLocales) {
+      if (locale.languageCode == deviceLocale.languageCode) return locale;
+    }
+    if (fallbackLocale != null && supportedLocales.contains(fallbackLocale)) return fallbackLocale;
+    return supportedLocales.first;
   }
 
   Future<void> loadTranslations() => _loadLocale(_locale, initial: true);
@@ -370,7 +352,7 @@ class EasyLocalizationController extends ChangeNotifier {
         EasyLocalization.onVerbose?.call('Saved locale deleted');
       });
 
-  Locale get deviceLocale => _deviceLocale;
+  Locale get deviceLocale => _deviceLocale ?? WidgetsBinding.instance.platformDispatcher.locale;
   Locale? get savedLocale => _savedLocale;
 
   /// Returns to following the system locale and removes the saved selection.
