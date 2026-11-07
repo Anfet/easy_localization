@@ -19,6 +19,10 @@ class EasyLocalizationController extends ChangeNotifier {
   bool _systemMode = false;
   Object? _userTransition;
   Future<void>? _activeTransition;
+  Future<void>? _deferredReload;
+  int? _deferredReloadRequest;
+  int? _acceptedRequest;
+  int? _refreshRequest;
   static late Locale _deviceLocale;
 
   late Locale _locale;
@@ -159,6 +163,7 @@ class EasyLocalizationController extends ChangeNotifier {
       _locale = resources.locale;
       _translations = resources.translations;
       _fallbackTranslations = resources.fallbackTranslations;
+      _acceptedRequest = request;
       if (!initial && !refresh) _systemMode = system || reset;
       final saving = initial || refresh || system
           ? Future<void>.value()
@@ -239,7 +244,8 @@ class EasyLocalizationController extends ChangeNotifier {
   /// Applies a locale after its resources load and waits for its storage operation.
   /// A superseded request completes after its own loading without applying it.
   /// Loading or storage errors complete this future with an error; storage errors
-  /// leave the applied locale in place. Widgets update on a subsequent frame.
+  /// leave the applied locale in place. Choosing it again retries a failed save.
+  /// Widgets update on a subsequent frame.
   Future<void> setLocale(Locale locale) async {
     if (_disposed) return;
     if (locale == _locale && _translations != null && !_systemMode) {
@@ -247,6 +253,7 @@ class EasyLocalizationController extends ChangeNotifier {
         _request++;
         _loading = false;
       }
+      if (saveLocale && _savedLocale != locale) await _saveLocale(locale);
       return;
     }
     final userTransition = Object();
@@ -258,16 +265,47 @@ class EasyLocalizationController extends ChangeNotifier {
 
   /// Reloads the displayed locale after the asset loader's data has changed.
   /// The future completes after acceptance, or with an error if the current
-  /// load fails. A later request supersedes this one. Widgets update next frame.
+  /// load fails. An active language load finishes first; a later request can
+  /// supersede the refresh. Widgets update next frame.
   Future<void> reloadTranslations() async {
     if (_disposed) return;
+    final active = _activeTransition;
+    if (_loading && active != null && _refreshRequest != _request) {
+      final request = _request;
+      final pendingReload = _deferredReload;
+      if (_deferredReloadRequest == request && pendingReload != null) return pendingReload;
+      final deferred = _reloadAfterTransition(active, request);
+      _deferredReloadRequest = request;
+      _deferredReload = deferred;
+      try {
+        await deferred;
+      } finally {
+        if (identical(_deferredReload, deferred)) {
+          _deferredReload = null;
+          _deferredReloadRequest = null;
+        }
+      }
+      return;
+    }
     final transition = _loadLocale(_locale, refresh: true);
+    _refreshRequest = _request;
     _activeTransition = transition;
     try {
       await transition;
     } finally {
       if (identical(_activeTransition, transition)) _activeTransition = null;
     }
+  }
+
+  Future<void> _reloadAfterTransition(Future<void> transition, int request) async {
+    try {
+      await transition;
+    } catch (error, stackTrace) {
+      if (_disposed || request != _request) return;
+      if (_acceptedRequest != request) return Future.error(error, stackTrace);
+    }
+    if (_disposed || request != _request || _acceptedRequest != request) return;
+    await reloadTranslations();
   }
 
   static Future<void> _enqueueStorage(Future<void> Function() operation) {

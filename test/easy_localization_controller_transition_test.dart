@@ -19,6 +19,7 @@ class Store extends SharedPreferencesStorePlatform {
   final operations = <String>[];
   final gates = <Completer<bool>>[];
   bool fail = false;
+  bool throwWrite = false;
   bool failRead = false;
   Completer<void>? readGate;
   Completer<void>? readStarted;
@@ -40,6 +41,10 @@ class Store extends SharedPreferencesStorePlatform {
   @override
   Future<bool> setValue(String valueType, String key, Object value) async {
     operations.add('set:$value');
+    if (throwWrite) {
+      throwWrite = false;
+      throw StateError('write failed');
+    }
     if (gates.isNotEmpty && !await gates.removeAt(0).future) return false;
     if (fail) {
       fail = false;
@@ -88,6 +93,106 @@ void main() {
       useOnlyLangCode: false,
       onLoadError: onError ?? (_) {},
       forceLocale: const Locale('en'));
+
+  test('deferred reload follows the accepted selection and combines callers', () async {
+    final loader = Loader();
+    final c = controller(loader);
+    final initial = c.loadTranslations();
+    loader.complete('en');
+    await initial;
+    final choice = c.setLocale(const Locale('de'));
+    final first = c.reloadTranslations();
+    final second = c.reloadTranslations();
+    final load = loader.pending.remove('de')!;
+    load.complete({'value': 'selected'});
+    await choice;
+    await Future<void>.delayed(Duration.zero);
+    loader.complete('de');
+    await Future.wait([first, second]);
+    expect(c.locale, const Locale('de'));
+    expect(c.translations?.get('value'), 'de');
+    c.dispose();
+  });
+
+  test('new selection and disposal invalidate deferred reload', () async {
+    final loader = Loader();
+    final c = controller(loader);
+    final initial = c.loadTranslations();
+    loader.complete('en');
+    await initial;
+    final old = c.setLocale(const Locale('de'));
+    final reload = c.reloadTranslations();
+    final latest = c.setLocale(const Locale('fr'));
+    loader.complete('fr');
+    await latest;
+    loader.complete('de');
+    await Future.wait([old, reload]);
+    expect(c.locale, const Locale('fr'));
+    loader.pending.remove('de');
+    final pending = c.setLocale(const Locale('de'));
+    final disposedReload = c.reloadTranslations();
+    c.dispose();
+    loader.complete('de');
+    await Future.wait([pending, disposedReload]);
+  });
+
+  test('deferred reload forwards load failure without repeating diagnostics', () async {
+    final loader = Loader();
+    var errors = 0;
+    final c = controller(loader, onError: (_) => errors++);
+    final initial = c.loadTranslations();
+    loader.complete('en');
+    await initial;
+    final choice = c.setLocale(const Locale('de'));
+    final reload = c.reloadTranslations();
+    final choiceFailure = expectLater(choice, throwsA(isA<FlutterError>()));
+    final reloadFailure = expectLater(reload, throwsA(isA<FlutterError>()));
+    loader.pending['de']!.completeError(StateError('failed'));
+    await Future.wait([choiceFailure, reloadFailure]);
+    expect(errors, 1);
+    expect(c.locale, const Locale('en'));
+    c.dispose();
+  });
+
+  test('storage failure permits deferred refresh and explicit retry', () async {
+    final loader = Loader();
+    final c = controller(loader, save: true);
+    final initial = c.loadTranslations();
+    loader.complete('en');
+    await initial;
+    store.fail = true;
+    final choice = c.setLocale(const Locale('de'));
+    final reload = c.reloadTranslations();
+    final failure = expectLater(choice, throwsStateError);
+    final load = loader.pending.remove('de')!;
+    load.complete({'value': 'selected'});
+    await failure;
+    await Future<void>.delayed(Duration.zero);
+    loader.complete('de');
+    await reload;
+    expect(c.translations?.get('value'), 'de');
+    await c.setLocale(const Locale('de'));
+    expect(c.savedLocale, const Locale('de'));
+    await c.setLocale(const Locale('de'));
+    expect(store.operations, ['set:de', 'set:de']);
+    c.dispose();
+  });
+
+  test('thrown storage failure can be retried without loading again', () async {
+    final loader = Loader();
+    final c = controller(loader, save: true);
+    final initial = c.loadTranslations();
+    loader.complete('en');
+    await initial;
+    store.throwWrite = true;
+    final choice = c.setLocale(const Locale('de'));
+    loader.complete('de');
+    await expectLater(choice, throwsStateError);
+    await c.setLocale(const Locale('de'));
+    expect(c.savedLocale, const Locale('de'));
+    expect(store.operations, ['set:de', 'set:de']);
+    c.dispose();
+  });
 
   test('superseded initial load completes independently of selection and storage', () async {
     final loader = Loader();
