@@ -89,6 +89,39 @@ void main() {
       onLoadError: onError ?? (_) {},
       forceLocale: const Locale('en'));
 
+  test('superseded initial load completes independently of selection and storage', () async {
+    final loader = Loader();
+    final c = controller(loader, save: true);
+    final gate = Completer<bool>();
+    store.gates.add(gate);
+    var selected = false;
+    final selection = c.setLocale(const Locale('de')).then((_) {
+      selected = true;
+    });
+    var initialDone = false;
+    final initial = c.loadTranslations().then((_) {
+      initialDone = true;
+    });
+    loader.complete('en');
+    await initial;
+    expect(initialDone, isTrue);
+    expect(selected, isFalse);
+    expect(store.operations, isEmpty);
+    expect(c.translations, isNull);
+    loader.complete('de');
+    final published = Completer<void>();
+    c.addListener(() {
+      if (!published.isCompleted) published.complete();
+    });
+    await published.future;
+    expect(selected, isFalse);
+    expect(c.locale, const Locale('de'));
+    gate.complete(true);
+    await selection;
+    expect(c.savedLocale, const Locale('de'));
+    c.dispose();
+  });
+
   test('latest load wins and selecting displayed locale cancels pending load', () async {
     final loader = Loader();
     final c = controller(loader);

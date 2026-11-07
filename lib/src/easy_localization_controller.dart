@@ -108,14 +108,7 @@ class EasyLocalizationController extends ChangeNotifier {
     }
   }
 
-  Future<void> loadTranslations() async {
-    final transition = _activeTransition;
-    await _loadLocale(_locale, initial: true);
-    if (_translations == null && transition != null) {
-      // The explicit caller receives its own error; the delegate keeps its initial-error behavior.
-      await transition.then<void>((_) {}, onError: (Object _, StackTrace __) {});
-    }
-  }
+  Future<void> loadTranslations() => _loadLocale(_locale, initial: true);
 
   Future<void> _loadLocale(Locale target, {bool initial = false}) async {
     final supersededInitial = initial && _loading && _activeTransition != null;

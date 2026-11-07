@@ -174,6 +174,12 @@ class _EasyLocalizationState extends State<EasyLocalization> {
   _EasyLocalizationDelegate? delegate;
   EasyLocalizationController? localizationController;
   FlutterError? translationsLoadError;
+  Completer<void> _resourceChange = Completer<void>();
+
+  void _signalResourceChange() {
+    _resourceChange.complete();
+    _resourceChange = Completer<void>();
+  }
 
   @override
   void initState() {
@@ -189,6 +195,7 @@ class _EasyLocalizationState extends State<EasyLocalization> {
       useFallbackTranslations: widget.useFallbackTranslations,
       path: widget.path,
       onLoadError: (FlutterError e) {
+        _signalResourceChange();
         if (mounted && localizationController?.translations == null) {
           setState(() {
             translationsLoadError = e;
@@ -198,6 +205,7 @@ class _EasyLocalizationState extends State<EasyLocalization> {
     );
     // causes localization to rebuild with new language
     localizationController!.addListener(() {
+      _signalResourceChange();
       if (mounted) setState(() {});
     });
     super.initState();
@@ -205,6 +213,7 @@ class _EasyLocalizationState extends State<EasyLocalization> {
 
   @override
   void dispose() {
+    _signalResourceChange();
     localizationController!.dispose();
     super.dispose();
   }
@@ -220,6 +229,7 @@ class _EasyLocalizationState extends State<EasyLocalization> {
       localizationController!,
       delegate: _EasyLocalizationDelegate(
         localizationController: localizationController,
+        waitForResourceChange: () => _resourceChange.future,
         supportedLocales: widget.supportedLocales,
         useFallbackTranslationsForEmptyResources: widget.useFallbackTranslationsForEmptyResources,
         ignorePluralRules: widget.ignorePluralRules,
@@ -301,6 +311,7 @@ class _EasyLocalizationProvider extends InheritedWidget {
 class _EasyLocalizationDelegate extends LocalizationsDelegate<Localization> {
   final List<Locale>? supportedLocales;
   final EasyLocalizationController? localizationController;
+  final Future<void> Function() waitForResourceChange;
   final bool useFallbackTranslationsForEmptyResources;
   final bool ignorePluralRules;
 
@@ -309,6 +320,7 @@ class _EasyLocalizationDelegate extends LocalizationsDelegate<Localization> {
 
   _EasyLocalizationDelegate({
     required this.useFallbackTranslationsForEmptyResources,
+    required this.waitForResourceChange,
     this.ignorePluralRules = true,
     this.localizationController,
     this.supportedLocales,
@@ -323,7 +335,9 @@ class _EasyLocalizationDelegate extends LocalizationsDelegate<Localization> {
   Future<Localization> load(Locale value) async {
     EasyLocalization.onVerbose?.call('Load Localization Delegate');
     if (localizationController!.translations == null) {
+      final resourceChange = waitForResourceChange();
       await localizationController!.loadTranslations();
+      if (localizationController!.translations == null) await resourceChange;
     }
 
     if (value != localizationController!.locale || localizationController!.translations == null) {
