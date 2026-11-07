@@ -631,3 +631,5 @@ example/ios/Runner.xcodeproj/project.pbxproj
 
 # Allow
 !/bin/
+example/ios/Flutter/ephemeral/flutter_lldb_helper.py
+example/ios/Flutter/ephemeral/
