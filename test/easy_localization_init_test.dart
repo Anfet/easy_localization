@@ -1,9 +1,13 @@
+import 'dart:async';
+
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'easy_localization_context_test.dart';
+import 'easy_localization_instance_test.dart' show InstanceLoader;
+import 'utils/test_asset_loaders.dart';
 
 Future<void> main() async {
   SharedPreferences.setMockInitialValues({});
@@ -24,6 +28,111 @@ Future<void> main() async {
       });
     },
   );
+
+  testWidgets('borrowed owner survives detach and remount while legacy-owned owner is disposed', (tester) async {
+    final loader = InstanceLoader();
+    final config = EasyLocalizationConfig(
+      supportedLocales: const [Locale('en'), Locale('de')],
+      fallbackLocale: const Locale('en'),
+      path: 'unused',
+      saveLocale: false,
+      assetLoader: loader,
+    );
+    final owner = await EasyLocalization.initialize(config);
+    Widget root() => EasyLocalization.withInstance(instance: owner, child: const SizedBox());
+    await tester.pumpWidget(root());
+    final gate = Completer<Map<String, dynamic>?>();
+    loader.gates['de'] = [gate];
+    final changing = owner.setLocale(const Locale('de'));
+    await tester.pumpWidget(const SizedBox());
+    gate.complete({'value': 'de'});
+    expect(await changing.ready, LocalizationDataOutcome.committed);
+    expect(await changing.applied, LocalizationApplyOutcome.detached);
+    expect(EasyLocalization.instance, same(owner));
+    await tester.pumpWidget(root());
+    expect(owner.locale, const Locale('de'));
+    await tester.pumpWidget(const SizedBox());
+    owner.dispose();
+
+    await tester.pumpWidget(EasyLocalization(
+      supportedLocales: const [Locale('en')],
+      path: 'unused',
+      saveLocale: false,
+      assetLoader: const ImmutableJsonAssetLoader(),
+      child: const MyApp(),
+    ));
+    await tester.pump();
+    final legacy = EasyLocalization.instance;
+    final snapshot = legacy.dataTranslator;
+    await tester.pumpWidget(const SizedBox());
+    expect(() => EasyLocalization.instance, throwsStateError);
+    expect(() => legacy.setLocale(const Locale('en')), throwsStateError);
+    expect(snapshot.tr('test'), 'test');
+  });
+
+  testWidgets('matching legacy root borrows ready owner and incompatible root is rejected', (tester) async {
+    final config = EasyLocalizationConfig(
+      supportedLocales: const [Locale('en'), Locale('de')],
+      fallbackLocale: const Locale('en'),
+      path: 'unused',
+      startLocale: const Locale('de'),
+      saveLocale: false,
+      assetLoader: const ImmutableJsonAssetLoader(),
+    );
+    final owner = await EasyLocalization.initialize(config);
+    try {
+      await tester.pumpWidget(EasyLocalization(
+        supportedLocales: config.supportedLocales,
+        fallbackLocale: config.fallbackLocale,
+        path: config.path,
+        startLocale: config.startLocale,
+        saveLocale: config.saveLocale,
+        assetLoader: config.assetLoader,
+        child: const SizedBox(),
+      ));
+      await tester.pumpWidget(const SizedBox());
+      expect(EasyLocalization.instance, same(owner));
+      await tester.pumpWidget(EasyLocalization(
+        supportedLocales: const [Locale('de'), Locale('en')],
+        fallbackLocale: config.fallbackLocale,
+        path: config.path,
+        startLocale: config.startLocale,
+        saveLocale: config.saveLocale,
+        assetLoader: config.assetLoader,
+        child: const SizedBox(),
+      ));
+      expect(tester.takeException(), isA<StateError>());
+      await tester.pumpWidget(const SizedBox());
+      expect(await owner.setLocale(const Locale('en')).ready, LocalizationDataOutcome.committed);
+    } finally {
+      await tester.pumpWidget(const SizedBox());
+      owner.dispose();
+    }
+  });
+
+  testWidgets('a second presentation root is rejected without detaching the first', (tester) async {
+    final owner = await EasyLocalization.initialize(EasyLocalizationConfig(
+      supportedLocales: const [Locale('en')],
+      fallbackLocale: const Locale('en'),
+      path: 'unused',
+      saveLocale: false,
+      assetLoader: const ImmutableJsonAssetLoader(),
+    ));
+    try {
+      await tester.pumpWidget(EasyLocalization.withInstance(
+        instance: owner,
+        child: EasyLocalization.withInstance(instance: owner, child: const SizedBox()),
+      ));
+      expect(tester.takeException(), isA<StateError>());
+      await tester.pumpWidget(const SizedBox());
+      expect(await owner.reloadTranslations().ready, LocalizationDataOutcome.committed);
+      await tester.pumpWidget(EasyLocalization.withInstance(instance: owner, child: const SizedBox()));
+      expect(tester.takeException(), isNull);
+    } finally {
+      await tester.pumpWidget(const SizedBox());
+      owner.dispose();
+    }
+  });
 }
 
 class I18nObserver extends StatefulWidget {
@@ -50,11 +159,7 @@ class _I18nObserverState extends State<I18nObserver> {
 
     if (_firstUpdate) {
       _firstUpdate = false;
-      expect(
-        'test'.tr(),
-        'test',
-        reason: 'The translation cannot be found yet',
-      );
+      expect(() => 'test'.tr(), throwsStateError, reason: 'Translations are unavailable until the legacy root has loaded');
     } else {
       expect(
         'test'.tr(),

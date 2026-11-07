@@ -23,9 +23,25 @@ class Localization {
 
   Localization();
 
+  /// An independent translation snapshot. Later loads never change this object.
+  Localization.snapshot(
+    Locale locale, {
+    Translations? translations,
+    Translations? fallbackTranslations,
+    bool useFallbackTranslationsForEmptyResources = false,
+    bool ignorePluralRules = true,
+  })  : _locale = locale,
+        _translations = translations == null ? null : Translations.copy(translations),
+        _fallbackTranslations = fallbackTranslations == null ? null : Translations.copy(fallbackTranslations),
+        _useFallbackTranslationsForEmptyResources = useFallbackTranslationsForEmptyResources,
+        _ignorePluralRules = ignorePluralRules;
+
   static Localization? _instance;
 
-  static Localization get instance => _instance ?? (_instance = Localization());
+  static Localization get instance => _instance ?? (throw StateError('Call EasyLocalization.initialize before accessing translations'));
+
+  /// Publishes a complete snapshot for the legacy global translation helpers.
+  static void publish(Localization? snapshot) => _instance = snapshot;
 
   static Localization? of(BuildContext context) => Localizations.of<Localization>(context, Localization);
 
@@ -36,11 +52,13 @@ class Localization {
     bool useFallbackTranslationsForEmptyResources = false,
     bool ignorePluralRules = true,
   }) {
-    instance._locale = locale;
-    instance._translations = translations;
-    instance._fallbackTranslations = fallbackTranslations;
-    instance._useFallbackTranslationsForEmptyResources = useFallbackTranslationsForEmptyResources;
-    instance._ignorePluralRules = ignorePluralRules;
+    _instance = Localization.snapshot(
+      locale,
+      translations: translations,
+      fallbackTranslations: fallbackTranslations,
+      useFallbackTranslationsForEmptyResources: useFallbackTranslationsForEmptyResources,
+      ignorePluralRules: ignorePluralRules,
+    );
     return translations == null ? false : true;
   }
 
@@ -111,8 +129,8 @@ class Localization {
     return res;
   }
 
-  static PluralRule? _pluralRule(String? locale, num howMany) {
-    if (instance._ignorePluralRules) {
+  PluralRule? _pluralRule(String? locale, num howMany) {
+    if (_ignorePluralRules) {
       return () => _pluralCaseFallback(howMany);
     }
     startRuleEvaluation(howMany);

@@ -8,13 +8,10 @@ import 'lang_view.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await EasyLocalization.ensureInitialized();
-
-  runApp(EasyLocalization(
+  final localization = await EasyLocalization.initialize(EasyLocalizationConfig(
     supportedLocales: [Locale('en', 'US'), Locale('ar', 'DZ'), Locale('de', 'DE'), Locale('ru', 'RU')],
+    fallbackLocale: Locale('en', 'US'),
     path: 'resources/langs',
-    child: MyApp(),
-    // fallbackLocale: Locale('en', 'US'),
     // startLocale: Locale('de', 'DE'),
     // saveLocale: false,
     // useOnlyLangCode: true,
@@ -32,6 +29,9 @@ void main() async {
     // assetLoader: XmlSingleAssetLoader() //single file
     // assetLoader: CodegenLoader()
   ));
+  // Data commands also work here, before a widget exists:
+  // await localization.setLocale(const Locale('de', 'DE')).ready;
+  runApp(EasyLocalization.withInstance(instance: localization, child: MyApp()));
 }
 
 class MyApp extends StatelessWidget {

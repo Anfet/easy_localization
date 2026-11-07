@@ -2,7 +2,21 @@ class Translations {
   final Map<String, dynamic>? _translations;
   final Map<String?, dynamic> _nestedKeysCache;
 
-  Translations(this._translations) : _nestedKeysCache = {};
+  Translations(Map<String, dynamic>? translations)
+      : _translations =
+            translations == null ? null : Map<String, dynamic>.unmodifiable(translations.map((key, value) => MapEntry(key, _copy(value)))),
+        _nestedKeysCache = {};
+
+  Translations.copy(Translations source)
+      : _translations = source._translations,
+        _nestedKeysCache = {};
+
+  static dynamic _copy(dynamic value) {
+    if (value is Map) return Map<dynamic, dynamic>.unmodifiable(value.map((key, item) => MapEntry(key, _copy(item))));
+    if (value is List) return List<dynamic>.unmodifiable(value.map(_copy));
+    return value;
+  }
+
   String? get(String key) {
     String? returnValue;
 

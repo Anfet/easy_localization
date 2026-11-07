@@ -3,12 +3,13 @@ import 'dart:async';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:easy_localization/src/easy_localization_controller.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show AsyncCallback, ValueListenable, listEquals;
 import 'package:flutter_localizations/flutter_localizations.dart';
 
-import 'localization.dart';
 import 'translations.dart';
 
 part 'utils.dart';
+part 'easy_localization_instance.dart';
 
 /// Receives a diagnostic message and its optional original stack trace.
 typedef LocalizationLogCallback = void Function(String message, {StackTrace? stackTrace});
@@ -26,6 +27,37 @@ typedef LocalizationLogCallback = void Function(String message, {StackTrace? sta
 ///  }
 ///  ```
 class EasyLocalization extends StatefulWidget {
+  /// Initializes translations and persistence before runApp. Reusing the same
+  /// immutable config returns the same pending future or ready owner. Dispose
+  /// the owner before initializing with another config. Failed startup is retryable.
+  static Future<EasyLocalizationInstance> initialize(EasyLocalizationConfig config) => EasyLocalizationInstance._initialize(config);
+
+  /// The ready owner. Throws StateError until initialize succeeds or after dispose.
+  static EasyLocalizationInstance get instance {
+    final owner = EasyLocalizationInstance._instance;
+    if (owner == null || owner._data == null) throw StateError('Call EasyLocalization.initialize before accessing the localization instance');
+    return owner;
+  }
+
+  /// Borrows a ready owner. Removing this root leaves the owner usable.
+  EasyLocalization.withInstance({Key? key, required EasyLocalizationInstance instance, required this.child})
+      : _providedInstance = instance,
+        supportedLocales = instance.config.supportedLocales,
+        path = instance.config.path,
+        fallbackLocale = instance.config.fallbackLocale,
+        startLocale = instance.config.startLocale,
+        useOnlyLangCode = instance.config.useOnlyLangCode,
+        useFallbackTranslations = instance.config.useFallbackTranslations,
+        useFallbackTranslationsForEmptyResources = instance.config.useFallbackTranslationsForEmptyResources,
+        ignorePluralRules = instance.config.ignorePluralRules,
+        assetLoader = instance.config.assetLoader,
+        extraAssetLoaders = instance.config.extraAssetLoaders,
+        saveLocale = instance.config.saveLocale,
+        errorWidget = null,
+        super(key: key);
+
+  final EasyLocalizationInstance? _providedInstance;
+
   /// Place for your main page widget.
   final Widget child;
 
@@ -147,7 +179,8 @@ class EasyLocalization extends StatefulWidget {
     this.extraAssetLoaders,
     this.saveLocale = true,
     this.errorWidget,
-  })  : assert(supportedLocales.isNotEmpty),
+  })  : _providedInstance = null,
+        assert(supportedLocales.isNotEmpty),
         assert(path.isNotEmpty),
         super(key: key) {
     EasyLocalization.onVerbose?.call('Start');
@@ -174,6 +207,9 @@ class EasyLocalization extends StatefulWidget {
 class _EasyLocalizationState extends State<EasyLocalization> with WidgetsBindingObserver {
   _EasyLocalizationDelegate? delegate;
   EasyLocalizationController? localizationController;
+  late EasyLocalizationInstance _owner;
+  bool _ownsInstance = false;
+  bool _rootAttached = false;
   FlutterError? translationsLoadError;
   Completer<void> _resourceChange = Completer<void>();
 
@@ -186,35 +222,75 @@ class _EasyLocalizationState extends State<EasyLocalization> with WidgetsBinding
   void initState() {
     WidgetsBinding.instance.addObserver(this);
     EasyLocalization.onVerbose?.call('Init state');
-    localizationController = EasyLocalizationController(
-      saveLocale: widget.saveLocale,
-      fallbackLocale: widget.fallbackLocale,
-      supportedLocales: widget.supportedLocales,
-      startLocale: widget.startLocale,
-      assetLoader: widget.assetLoader,
-      extraAssetLoaders: widget.extraAssetLoaders,
-      useOnlyLangCode: widget.useOnlyLangCode,
-      useFallbackTranslations: widget.useFallbackTranslations,
-      path: widget.path,
-      onLoadError: (FlutterError e) {
-        _signalResourceChange();
-        if (mounted && localizationController?.translations == null) {
-          setState(() {
-            translationsLoadError = e;
-          });
-        }
-      },
-    );
+    final provided = widget._providedInstance;
+    final ready = EasyLocalizationInstance._instance;
+    if (provided != null || ready != null) {
+      final owner = provided ?? ready;
+      if (owner == null) throw StateError('Call EasyLocalization.initialize first');
+      if (provided == null && !owner.config._matches(widget)) throw StateError('The legacy root config differs from the ready localization owner');
+      _owner = owner;
+      localizationController = owner._controller;
+    } else {
+      if (EasyLocalizationInstance._initializing != null) throw StateError('Await EasyLocalization.initialize before mounting a root');
+      final controller = EasyLocalizationController(
+        saveLocale: widget.saveLocale,
+        fallbackLocale: widget.fallbackLocale,
+        supportedLocales: widget.supportedLocales,
+        startLocale: widget.startLocale,
+        assetLoader: widget.assetLoader,
+        extraAssetLoaders: widget.extraAssetLoaders,
+        useOnlyLangCode: widget.useOnlyLangCode,
+        useFallbackTranslations: widget.useFallbackTranslations,
+        path: widget.path,
+        onLoadError: (FlutterError e) {
+          _signalResourceChange();
+          if (mounted && localizationController?.translations == null) {
+            setState(() {
+              translationsLoadError = e;
+            });
+          }
+        },
+      );
+      localizationController = controller;
+      final config = EasyLocalizationConfig(
+        supportedLocales: widget.supportedLocales,
+        path: widget.path,
+        fallbackLocale: widget.fallbackLocale ?? controller.locale,
+        startLocale: widget.startLocale,
+        assetLoader: widget.assetLoader,
+        extraAssetLoaders: widget.extraAssetLoaders ?? const [],
+        useOnlyLangCode: widget.useOnlyLangCode,
+        useFallbackTranslations: widget.useFallbackTranslations,
+        useFallbackTranslationsForEmptyResources: widget.useFallbackTranslationsForEmptyResources,
+        ignorePluralRules: widget.ignorePluralRules,
+        saveLocale: widget.saveLocale,
+      );
+      _owner = EasyLocalizationInstance._(config, controller);
+      EasyLocalizationInstance._instance = _owner;
+      _ownsInstance = true;
+    }
+    _owner._attach();
+    _rootAttached = true;
     // causes localization to rebuild with new language
-    localizationController!.addListener(() {
-      _signalResourceChange();
-      if (mounted) {
-        setState(() {
-          if (localizationController?.translations != null) translationsLoadError = null;
-        });
-      }
-    });
+    localizationController!.addListener(_resourcesChanged);
     super.initState();
+  }
+
+  void _resourcesChanged() {
+    _signalResourceChange();
+    if (mounted) {
+      setState(() {
+        if (localizationController?.translations != null) translationsLoadError = null;
+      });
+    }
+  }
+
+  @override
+  void didUpdateWidget(EasyLocalization oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(widget._providedInstance, oldWidget._providedInstance)) {
+      throw StateError('Unmount the root before replacing its localization owner');
+    }
   }
 
   @override
@@ -244,7 +320,11 @@ class _EasyLocalizationState extends State<EasyLocalization> with WidgetsBinding
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _signalResourceChange();
-    localizationController!.dispose();
+    localizationController?.removeListener(_resourcesChanged);
+    if (_rootAttached) {
+      _owner._detach();
+      if (_ownsInstance) _owner.dispose();
+    }
     super.dispose();
   }
 
@@ -254,6 +334,7 @@ class _EasyLocalizationState extends State<EasyLocalization> with WidgetsBinding
     return _EasyLocalizationProvider(
       widget,
       localizationController!,
+      _owner,
       delegate: _EasyLocalizationDelegate(
         localizationController: localizationController,
         waitForResourceChange: () => _resourceChange.future,
@@ -273,6 +354,7 @@ class _EasyLocalizationState extends State<EasyLocalization> with WidgetsBinding
 class _EasyLocalizationProvider extends InheritedWidget {
   final EasyLocalization parent;
   final EasyLocalizationController _localeState;
+  final EasyLocalizationInstance _owner;
   final Locale? currentLocale;
   final _EasyLocalizationDelegate delegate;
   final bool _translationsLoaded;
@@ -294,6 +376,7 @@ class _EasyLocalizationProvider extends InheritedWidget {
         GlobalMaterialLocalizations.delegate,
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
+        ..._owner.config.additionalDelegates,
       ];
 
   /// Get List of supported locales
@@ -301,7 +384,7 @@ class _EasyLocalizationProvider extends InheritedWidget {
 
   // _EasyLocalizationDelegate get delegate => parent.delegate;
 
-  _EasyLocalizationProvider(this.parent, this._localeState, {Key? key, required this.delegate, required Widget child})
+  _EasyLocalizationProvider(this.parent, this._localeState, this._owner, {Key? key, required this.delegate, required Widget child})
       : currentLocale = _localeState.locale,
         _translationsLoaded = _localeState.translations != null,
         _translations = _localeState.translations,
@@ -321,15 +404,17 @@ class _EasyLocalizationProvider extends InheritedWidget {
   /// Change app locale
   Future<void> setLocale(Locale locale) async {
     assert(parent.supportedLocales.contains(locale));
-    await _localeState.setLocale(locale);
+    await _owner.setLocale(locale).ready;
   }
 
   /// Reloads resources for the currently displayed locale.
-  Future<void> reloadTranslations() => _localeState.reloadTranslations();
+  Future<void> reloadTranslations() async {
+    await _owner.reloadTranslations().ready;
+  }
 
   /// Clears a saved locale from device storage
   Future<void> deleteSaveLocale() async {
-    await _localeState.deleteSaveLocale();
+    await _owner.deleteSaveLocale();
   }
 
   /// Getting device locale from platform
@@ -337,7 +422,9 @@ class _EasyLocalizationProvider extends InheritedWidget {
   Locale? get savedLocale => _localeState.savedLocale;
 
   /// Follow the platform locale and remove the saved selection.
-  Future<void> resetLocale() => _localeState.resetLocale();
+  Future<void> resetLocale() async {
+    await _owner.resetLocale().ready;
+  }
 
   @override
   bool updateShouldNotify(_EasyLocalizationProvider oldWidget) {

@@ -156,6 +156,46 @@ class MyApp extends StatelessWidget {
 
 ### 🔥 Initialize library
 
+For translations before `runApp`, initialize one owner with an explicit supported
+fallback. No `BuildContext`, frame, or separate locale copy is needed:
+
+```dart
+final config = EasyLocalizationConfig(
+  supportedLocales: const [Locale('en'), Locale('de')],
+  fallbackLocale: const Locale('en'),
+  path: 'assets/translations',
+);
+final localization = await EasyLocalization.initialize(config);
+final initialText = tr('title');
+await localization.setLocale(const Locale('de')).ready;
+runApp(EasyLocalization.withInstance(instance: localization, child: const MyApp()));
+```
+
+`initialize` ensures the Flutter binding and completes after all selected resources
+and the required startup write. It chooses `startLocale` first, otherwise the saved
+choice when `saveLocale: true`, otherwise a supported system locale or the required
+fallback. Start and fallback must exactly belong to `supportedLocales`. A supplied
+start is saved after loading; reset follows the system and deletes the explicit
+choice, and a subsequent startup with start applies and saves it again. System and
+fallback choices are never saved as explicit choices. The current startup uses one
+system locale; preferred language list and platform event matching are separate work.
+
+Invalid saved data and resource/storage failures throw without silently trying a
+different source or deleting the saved value. A valid start overrides old saved data.
+With `saveLocale: false`, initialize, set, reset, and delete never access preferences.
+The widget constructor retains legacy saved-before-start selection and optional
+fallback; `ensureInitialized` below belongs to that legacy startup path.
+
+Commands return a receipt synchronously: `ready` confirms data and persistence
+without waiting for Flutter; `applied` describes presentation separately (detached
+when no root is attached). A persistence error leaves committed data available and
+repeating the same selection retries storage without loading again. Read
+`dataTranslator` for an independent snapshot and `state` to observe progress/errors.
+The borrowed root leaves its owner alive after unmount; call `dispose` when the
+owner is no longer needed. Global access before readiness or after disposal throws
+`StateError`. Reusing the same config object reuses initialization; another config
+requires disposing the current owner first.
+
 Call `EasyLocalization.ensureInitialized()` in your main before runApp.
 
 ```dart

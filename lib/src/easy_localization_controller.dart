@@ -17,6 +17,10 @@ class EasyLocalizationController extends ChangeNotifier {
   bool _disposed = false;
   bool _loading = false;
   bool _systemMode = false;
+  Locale? _requestedLocale;
+  bool _requestedSystem = false;
+  bool _requestedReset = false;
+  bool _requestedRefresh = false;
   Object? _userTransition;
   Future<void>? _activeTransition;
   Future<void>? _deferredReload;
@@ -24,6 +28,7 @@ class EasyLocalizationController extends ChangeNotifier {
   int? _acceptedRequest;
   int? _refreshRequest;
   static Locale? _deviceLocale;
+  Locale? _observedDeviceLocale;
 
   late Locale _locale;
   Locale? _fallbackLocale;
@@ -35,6 +40,7 @@ class EasyLocalizationController extends ChangeNotifier {
   final bool useFallbackTranslations;
   final bool saveLocale;
   final bool useOnlyLangCode;
+  final bool strictErrors;
   List<AssetLoader>? extraAssetLoaders;
   Translations? _translations, _fallbackTranslations;
   Translations? get translations => _translations;
@@ -52,11 +58,14 @@ class EasyLocalizationController extends ChangeNotifier {
     Locale? startLocale,
     Locale? fallbackLocale,
     Locale? forceLocale, // used for testing
+    bool forceSystemMode = false,
+    this.strictErrors = false,
   }) {
     _fallbackLocale = fallbackLocale;
     _supportedLocales = supportedLocales;
     if (forceLocale != null) {
       _locale = forceLocale;
+      _systemMode = forceSystemMode;
     } else if ((!saveLocale || _savedLocale == null) && startLocale != null) {
       _locale = selectLocaleFrom(supportedLocales, startLocale, fallbackLocale: fallbackLocale);
       EasyLocalization.onVerbose?.call('Start locale loaded ${_locale.toString()}');
@@ -80,7 +89,6 @@ class EasyLocalizationController extends ChangeNotifier {
     }
   }
 
-  @visibleForTesting
   static Locale selectLocaleFrom(
     List<Locale> supportedLocales,
     Locale deviceLocale, {
@@ -104,7 +112,13 @@ class EasyLocalizationController extends ChangeNotifier {
   Future<void> _loadLocale(Locale target, {bool initial = false, bool refresh = false, bool system = false, bool reset = false}) async {
     final supersededInitial = initial && _loading && _activeTransition != null;
     final request = supersededInitial ? _request - 1 : ++_request;
-    if (!supersededInitial) _loading = true;
+    if (!supersededInitial) {
+      _loading = true;
+      _requestedLocale = target;
+      _requestedSystem = system;
+      _requestedReset = reset;
+      _requestedRefresh = refresh;
+    }
     final callbackErrors = <AsyncError>[];
     final callbackZone = Zone.current;
     return runZoned(() async {
@@ -137,6 +151,7 @@ class EasyLocalizationController extends ChangeNotifier {
           if (!_disposed && request == _request) callbackZone.run(() => onLoadError(failure));
         }
         if (_disposed || request != _request) return;
+        if (strictErrors) return Future.error(error, stackTrace);
         if (!initial) return Future.error(failure, stackTrace);
         return;
       }
@@ -222,6 +237,29 @@ class EasyLocalizationController extends ChangeNotifier {
   }
 
   Locale get locale => _locale;
+  Locale get requestedLocale => _loading ? _requestedLocale ?? _locale : _locale;
+  bool get isSystemMode => _systemMode;
+
+  /// Persists a bootstrap override even when a previous owner cached this locale.
+  Future<void> saveCurrentLocale() => _saveLocale(_locale);
+
+  /// Restores the explicit selection for the standalone bootstrap only.
+  /// Invalid data is reported without deleting the original preference.
+  static Future<Locale?> readSavedLocale(List<Locale> supportedLocales) => _enqueueStorage(() async {
+        final preferences = await SharedPreferences.getInstance();
+        await preferences.reload();
+        final value = preferences.get('locale');
+        if (value == null) {
+          _savedLocale = null;
+          return;
+        }
+        if (value is! String || !RegExp(r'^[a-zA-Z]{2,8}(?:_[a-zA-Z]{4})?(?:_(?:[a-zA-Z]{2}|[0-9]{3}))?$').hasMatch(value)) {
+          throw FormatException('Invalid saved locale', value);
+        }
+        final restored = value.toLocale();
+        if (!supportedLocales.contains(restored)) throw StateError('Saved locale $value is not supported');
+        _savedLocale = restored;
+      }).then((_) => _savedLocale);
 
   /// Applies a locale after its resources load and waits for its storage operation.
   /// A superseded request completes after its own loading without applying it.
@@ -249,9 +287,20 @@ class EasyLocalizationController extends ChangeNotifier {
   /// The future completes after acceptance, or with an error if the current
   /// load fails. An active language load finishes first; a later request can
   /// supersede the refresh. Widgets update next frame.
-  Future<void> reloadTranslations() async {
+  Future<void> reloadTranslations({bool supersede = false}) async {
     if (_disposed) return;
     final active = _activeTransition;
+    if (supersede && _loading && active != null) {
+      final transition = _loadLocale(requestedLocale, refresh: _requestedRefresh, system: _requestedSystem, reset: _requestedReset);
+      _refreshRequest = _request;
+      _activeTransition = transition;
+      try {
+        await transition;
+      } finally {
+        if (identical(_activeTransition, transition)) _activeTransition = null;
+      }
+      return;
+    }
     if (_loading && active != null && _refreshRequest != _request) {
       final request = _request;
       final pendingReload = _deferredReload;
@@ -334,34 +383,44 @@ class EasyLocalizationController extends ChangeNotifier {
         EasyLocalization.onVerbose?.call('Localization initialized');
       });
 
-  Future<void> deleteSaveLocale() => _enqueueStorage(() async {
-        SharedPreferences? preferences;
-        try {
-          preferences = await SharedPreferences.getInstance();
-          if (!await preferences.remove('locale')) throw StateError('Failed to delete saved locale');
-        } catch (error, stackTrace) {
+  Future<void> deleteSaveLocale() => !saveLocale && strictErrors
+      ? Future<void>.value()
+      : _enqueueStorage(() async {
+          SharedPreferences? preferences;
           try {
-            await preferences?.reload();
-          } catch (_) {
-            // Preserve the original storage failure.
+            preferences = await SharedPreferences.getInstance();
+            if (!await preferences.remove('locale')) throw StateError('Failed to delete saved locale');
+          } catch (error, stackTrace) {
+            try {
+              await preferences?.reload();
+            } catch (_) {
+              // Preserve the original storage failure.
+            }
+            EasyLocalization.onError?.call(error.toString(), stackTrace: stackTrace);
+            return Future.error(error, stackTrace);
           }
-          EasyLocalization.onError?.call(error.toString(), stackTrace: stackTrace);
-          return Future.error(error, stackTrace);
-        }
-        _savedLocale = null;
-        EasyLocalization.onVerbose?.call('Saved locale deleted');
-      });
+          _savedLocale = null;
+          EasyLocalization.onVerbose?.call('Saved locale deleted');
+        });
 
-  Locale get deviceLocale => _deviceLocale ?? WidgetsBinding.instance.platformDispatcher.locale;
+  Locale get deviceLocale => strictErrors
+      ? _observedDeviceLocale ?? WidgetsBinding.instance.platformDispatcher.locale
+      : _deviceLocale ?? WidgetsBinding.instance.platformDispatcher.locale;
   Locale? get savedLocale => _savedLocale;
 
   /// Returns to following the system locale and removes the saved selection.
   /// A failed resource load keeps the current language and selection mode.
   Future<void> resetLocale() async {
     if (_disposed) return;
+    final target = selectLocaleFrom(_supportedLocales, deviceLocale, fallbackLocale: _fallbackLocale);
+    if (strictErrors && _systemMode && target == _locale && _translations != null) {
+      _request++;
+      _loading = false;
+      await deleteSaveLocale();
+      return;
+    }
     final userTransition = Object();
     _userTransition = userTransition;
-    final target = selectLocaleFrom(_supportedLocales, deviceLocale, fallbackLocale: _fallbackLocale);
     final transition = _loadLocale(target, reset: true);
     _activeTransition = transition;
     await _finishUserTransition(userTransition, transition, _request);
@@ -401,7 +460,11 @@ class EasyLocalizationController extends ChangeNotifier {
   /// Updates the observed system locale and applies it while following the system.
   Future<void> updateDeviceLocale(Locale locale) async {
     if (_disposed) return;
-    _deviceLocale = locale;
+    if (strictErrors) {
+      _observedDeviceLocale = locale;
+    } else {
+      _deviceLocale = locale;
+    }
     if (!_systemMode || _userTransition != null) return;
     final target = selectLocaleFrom(_supportedLocales, locale, fallbackLocale: _fallbackLocale);
     if (target == _locale && _translations != null && !_loading) return;
