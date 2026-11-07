@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:easy_localization/easy_localization.dart';
+import 'package:flutter/foundation.dart' show DiagnosticsProperty;
 import 'package:flutter/material.dart';
 import 'package:intl/intl_standalone.dart' if (dart.library.html) 'package:intl/intl_browser.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -9,6 +10,10 @@ import 'translations.dart';
 
 class EasyLocalizationController extends ChangeNotifier {
   static Locale? _savedLocale;
+  static Future<void>? _storageQueue;
+  int _request = 0;
+  bool _disposed = false;
+  bool _loading = false;
   static late Locale _deviceLocale;
 
   late Locale _locale;
@@ -102,43 +107,62 @@ class EasyLocalizationController extends ChangeNotifier {
     }
   }
 
-  Future loadTranslations() async {
-    // Remember callback failures separately so they are not reported as resource errors.
+  Future<void> loadTranslations() => _loadLocale(_locale, initial: true);
+
+  Future<void> _loadLocale(Locale target, {bool initial = false}) async {
+    final request = ++_request;
+    _loading = true;
     final callbackErrors = <AsyncError>[];
     final callbackZone = Zone.current;
     return runZoned(() async {
-      Map<String, dynamic> data;
+      late _LocaleResources resources;
       try {
-        data = Map.from(await loadTranslationData(_locale));
-        _translations = Translations(data);
+        final data = Map<String, dynamic>.from(await loadTranslationData(target));
+        Translations? fallback;
         if (useFallbackTranslations && _fallbackLocale != null) {
           Map<String, dynamic>? baseLangData;
-          if (_locale.countryCode != null && _locale.countryCode!.isNotEmpty) {
-            baseLangData = await loadBaseLangTranslationData(Locale(locale.languageCode));
+          if (target.countryCode != null && target.countryCode!.isNotEmpty) {
+            baseLangData = await loadBaseLangTranslationData(Locale(target.languageCode));
           }
-          data = Map.from(await loadTranslationData(_fallbackLocale!));
-          if (baseLangData != null) {
-            try {
-              data.addAll(baseLangData);
-            } on UnsupportedError {
-              data = Map.of(data)..addAll(baseLangData);
-            }
-          }
-          _fallbackTranslations = Translations(data);
+          final fallbackData = Map<String, dynamic>.from(await loadTranslationData(_fallbackLocale!));
+          if (baseLangData != null) fallbackData.addAll(baseLangData);
+          fallback = Translations(fallbackData);
         }
-        notifyListeners();
-      } catch (e, stackTrace) {
+        resources = _LocaleResources(target, Translations(data), fallback);
+      } catch (error, stackTrace) {
         if (callbackErrors.isNotEmpty) {
           final callbackError = callbackErrors.first;
           return Future.error(callbackError.error, callbackError.stackTrace);
         }
+        if (_disposed || request != _request) return;
+        _loading = false;
+        final failure =
+            error is FlutterError ? error : FlutterError.fromParts([ErrorSummary(error.toString()), DiagnosticsProperty<Object>('cause', error)]);
         try {
-          callbackZone.run(() => EasyLocalization.onError?.call(e.toString(), stackTrace: stackTrace));
+          callbackZone.run(() => EasyLocalization.onError?.call(error.toString(), stackTrace: stackTrace));
         } finally {
-          callbackZone.run(() => onLoadError(e is FlutterError ? e : FlutterError(e.toString())));
+          callbackZone.run(() => onLoadError(failure));
         }
+        if (!initial) return Future.error(failure, stackTrace);
+        return;
       }
+      if (_disposed || request != _request) return;
+      _loading = false;
+      _locale = resources.locale;
+      _translations = resources.translations;
+      _fallbackTranslations = resources.fallbackTranslations;
+      final saving = initial ? Future<void>.value() : _saveLocale(target);
+      notifyListeners();
+      if (!initial) EasyLocalization.onVerbose?.call('Locale $target changed');
+      await saving;
     }, zoneValues: {#easyLocalizationCallbackErrors: callbackErrors, #easyLocalizationCallbackZone: callbackZone});
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    _request++;
+    super.dispose();
   }
 
   Future<Map<String, dynamic>?> loadBaseLangTranslationData(Locale locale) async {
@@ -199,36 +223,83 @@ class EasyLocalizationController extends ChangeNotifier {
 
   Locale get locale => _locale;
 
-  Future<void> setLocale(Locale l) async {
-    _locale = l;
-    await loadTranslations();
-    notifyListeners();
-    EasyLocalization.onVerbose?.call('Locale $locale changed');
-    await _saveLocale(_locale);
+  /// Applies a locale after its resources load and waits for its storage operation.
+  /// A superseded request completes after its own loading without applying it.
+  /// Loading or storage errors complete this future with an error; storage errors
+  /// leave the applied locale in place. Widgets update on a subsequent frame.
+  Future<void> setLocale(Locale locale) async {
+    if (_disposed) return;
+    if (locale == _locale && _translations != null) {
+      if (_loading) {
+        _request++;
+        _loading = false;
+      }
+      return;
+    }
+    await _loadLocale(locale);
   }
 
-  Future<void> _saveLocale(Locale? locale) async {
+  static Future<void> _enqueueStorage(Future<void> Function() operation) {
+    final previous = _storageQueue;
+    final result = previous == null ? operation() : previous.then((_) => operation());
+    late Future<void> settled;
+    settled = result.then<void>((_) {}, onError: (Object _, StackTrace __) {}).whenComplete(() {
+      if (identical(_storageQueue, settled)) _storageQueue = null;
+    });
+    _storageQueue = settled;
+    return result;
+  }
+
+  Future<void> _saveLocale(Locale locale) async {
     if (!saveLocale) return;
-    final preferences = await SharedPreferences.getInstance();
-    await preferences.setString('locale', locale.toString());
-    EasyLocalization.onVerbose?.call('Locale $locale saved');
+    await _enqueueStorage(() async {
+      final preferences = await SharedPreferences.getInstance();
+      try {
+        if (!await preferences.setString('locale', locale.toString())) {
+          throw StateError('Failed to save locale');
+        }
+      } catch (error, stackTrace) {
+        try {
+          await preferences.reload();
+        } catch (_) {
+          // Preserve the original storage failure.
+        }
+        EasyLocalization.onError?.call(error.toString(), stackTrace: stackTrace);
+        return Future.error(error, stackTrace);
+      }
+      _savedLocale = locale;
+      EasyLocalization.onVerbose?.call('Locale $locale saved');
+    });
   }
 
   static Future<void> initEasyLocation() async {
+    final pendingStorage = _storageQueue;
+    if (pendingStorage != null) await pendingStorage;
     final preferences = await SharedPreferences.getInstance();
+    await preferences.reload();
     final strLocale = preferences.getString('locale');
-    _savedLocale = strLocale?.toLocale();
     final foundPlatformLocale = await findSystemLocale();
+    _savedLocale = strLocale?.toLocale();
     _deviceLocale = foundPlatformLocale.toLocale();
     EasyLocalization.onVerbose?.call('Localization initialized');
   }
 
-  Future<void> deleteSaveLocale() async {
-    _savedLocale = null;
-    final preferences = await SharedPreferences.getInstance();
-    await preferences.remove('locale');
-    EasyLocalization.onVerbose?.call('Saved locale deleted');
-  }
+  Future<void> deleteSaveLocale() => _enqueueStorage(() async {
+        final preferences = await SharedPreferences.getInstance();
+        try {
+          if (!await preferences.remove('locale')) throw StateError('Failed to delete saved locale');
+        } catch (error, stackTrace) {
+          try {
+            await preferences.reload();
+          } catch (_) {
+            // Preserve the original storage failure.
+          }
+          EasyLocalization.onError?.call(error.toString(), stackTrace: stackTrace);
+          return Future.error(error, stackTrace);
+        }
+        _savedLocale = null;
+        EasyLocalization.onVerbose?.call('Saved locale deleted');
+      });
 
   Locale get deviceLocale => _deviceLocale;
   Locale? get savedLocale => _savedLocale;
@@ -240,6 +311,14 @@ class EasyLocalizationController extends ChangeNotifier {
         ?.call('Reset locale to $locale while the platform locale is $_deviceLocale and the fallback locale is $_fallbackLocale');
     await setLocale(locale);
   }
+}
+
+class _LocaleResources {
+  final Locale locale;
+  final Translations translations;
+  final Translations? fallbackTranslations;
+
+  _LocaleResources(this.locale, this.translations, this.fallbackTranslations);
 }
 
 @visibleForTesting

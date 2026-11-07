@@ -406,10 +406,9 @@ void main() async {
   );
 
   group('SharedPreferences SavedLocale NULL', () {
-    setUp(() {
-      SharedPreferences.setMockInitialValues({
-        'locale': '',
-      });
+    setUp(() async {
+      SharedPreferences.setMockInitialValues({});
+      await EasyLocalization.ensureInitialized();
     });
 
     testWidgets(
@@ -635,6 +634,7 @@ void main() async {
             path: '../../i18n',
             supportedLocales: const [Locale('en', 'US'), Locale('ar', 'DZ')], // Locale('en', 'US'), Locale('ar','DZ')
             startLocale: const Locale('ar', 'DZ'),
+            saveLocale: false,
             child: const MyApp(),
           ));
           await tester.idle();
@@ -676,6 +676,7 @@ void main() async {
             path: '../../i18n',
             supportedLocales: const [Locale('en', 'US'), Locale('ar', 'DZ')], // Locale('en', 'US'), Locale('ar','DZ')
             startLocale: const Locale('ar', 'DZ'),
+            saveLocale: false,
             child: const MyApp(),
           ));
           await tester.idle();

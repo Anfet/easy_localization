@@ -189,9 +189,11 @@ class _EasyLocalizationState extends State<EasyLocalization> {
       useFallbackTranslations: widget.useFallbackTranslations,
       path: widget.path,
       onLoadError: (FlutterError e) {
-        setState(() {
-          translationsLoadError = e;
-        });
+        if (mounted && localizationController?.translations == null) {
+          setState(() {
+            translationsLoadError = e;
+          });
+        }
       },
     );
     // causes localization to rebuild with new language
@@ -272,11 +274,8 @@ class _EasyLocalizationProvider extends InheritedWidget {
 
   /// Change app locale
   Future<void> setLocale(Locale locale) async {
-    // Check old locale
-    if (locale != _localeState.locale) {
-      assert(parent.supportedLocales.contains(locale));
-      await _localeState.setLocale(locale);
-    }
+    assert(parent.supportedLocales.contains(locale));
+    await _localeState.setLocale(locale);
   }
 
   /// Clears a saved locale from device storage
@@ -327,6 +326,9 @@ class _EasyLocalizationDelegate extends LocalizationsDelegate<Localization> {
       await localizationController!.loadTranslations();
     }
 
+    if (value != localizationController!.locale || localizationController!.translations == null) {
+      return Localization.instance;
+    }
     Localization.load(
       value,
       translations: localizationController!.translations,

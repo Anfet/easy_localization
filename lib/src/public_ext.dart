@@ -128,6 +128,9 @@ extension BuildContextEasyLocalizationExtension on BuildContext {
   Locale get locale => EasyLocalization.of(this)!.locale;
 
   /// Change app locale
+  /// Waits for loading and the assigned save. Superseded requests do not apply.
+  /// Load and save failures complete with an error; a save failure keeps the
+  /// applied locale. Widget translations update on the next frame.
   Future<void> setLocale(Locale val) async => EasyLocalization.of(this)!.setLocale(val);
 
   /// Old Change app locale

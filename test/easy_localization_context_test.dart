@@ -57,7 +57,7 @@ void main() async {
             fallbackLocale: const Locale('ar'),
             child: const MyApp(),
           ));
-          // await tester.idle();
+          await tester.idle();
           // The async delegator load will require build on the next frame. Thus, pump
           await tester.pump();
 
@@ -80,7 +80,7 @@ void main() async {
             supportedLocales: const [Locale('ar')], // Locale('en', 'US'), Locale('ar','DZ')
             child: const MyApp(),
           ));
-          // await tester.idle();
+          await tester.idle();
           // The async delegator load will require build on the next frame. Thus, pump
           await tester.pump();
 
@@ -108,7 +108,7 @@ void main() async {
               supportedLocales: const [Locale('en', 'US'), Locale('ar', 'DZ')], // Locale('en', 'US'), Locale('ar','DZ')
               child: const MyApp(),
             ));
-            // await tester.idle();
+            await tester.idle();
             // The async delegator load will require build on the next frame. Thus, pump
             await tester.pump();
 
@@ -163,9 +163,10 @@ void main() async {
               path: '../../i18n',
               supportedLocales: const [Locale('en', 'US'), Locale('ar', 'DZ')], // Locale('en', 'US'), Locale('ar','DZ')
               startLocale: const Locale('ar', 'DZ'),
+              saveLocale: false,
               child: const MyApp(),
             ));
-            // await tester.idle();
+            await tester.idle();
             // The async delegator load will require build on the next frame. Thus, pump
             await tester.pump();
 
@@ -204,6 +205,7 @@ void main() async {
               path: '../../i18n',
               supportedLocales: const [Locale('en', 'US'), Locale('ar', 'DZ')], // Locale('en', 'US'), Locale('ar','DZ')
               startLocale: const Locale('ar', 'DZ'),
+              saveLocale: false,
               child: const MyApp(),
             ));
             await tester.idle();

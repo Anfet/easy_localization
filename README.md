@@ -182,10 +182,13 @@ It's the easiest way change locale or get parameters 😉.
 Example:
 
 ```dart
-context.setLocale(Locale('en', 'US'));
+await context.setLocale(Locale('en', 'US'));
 
 print(context.locale.toString());
 ```
+
+`setLocale` waits for translations and its assigned storage operation. A newer choice can supersede an outstanding load; the superseded future completes after that load without applying it. Loading and storage failures complete the future with an error. A storage failure leaves the new language active. Widgets display the change after the next frame.
+
 
 ### 🔥 Translate `context.tr()`
 
