@@ -155,6 +155,64 @@ void main() {
     expect((await SharedPreferences.getInstance()).getString('locale'), isNull);
   });
 
+  test('system change during failed explicit choice is applied', () async {
+    SharedPreferences.setMockInitialValues({});
+    await EasyLocalization.ensureInitialized();
+    final controlled = LocaleLoader()..held.add('fr');
+    final controller = EasyLocalizationController(
+      supportedLocales: const [Locale('en'), Locale('fr'), Locale('de')],
+      fallbackLocale: const Locale('en'),
+      useFallbackTranslations: false,
+      saveLocale: true,
+      assetLoader: controlled,
+      path: 'unused',
+      useOnlyLangCode: false,
+      onLoadError: (_) {},
+    );
+    await controller.loadTranslations();
+    final choice = controller.setLocale(const Locale('fr'));
+    final result = choice.then<Object?>((_) => null, onError: (Object error) => error);
+    await controller.updateDeviceLocale(const Locale('de'));
+    controlled.pending['fr']?.completeError(StateError('choice failed'));
+    expect(await result, isA<FlutterError>());
+    expect(controller.locale, const Locale('de'));
+    expect(controller.translations?.get('first'), 'de first');
+    controller.dispose();
+  });
+
+  test('system change during failed reset storage is applied', () async {
+    final original = SharedPreferencesStorePlatform.instance;
+    final store = GatedStore();
+    SharedPreferencesStorePlatform.instance = store;
+    SharedPreferences.resetStatic();
+    try {
+      await EasyLocalization.ensureInitialized();
+      final controller = EasyLocalizationController(
+        supportedLocales: const [Locale('en'), Locale('fr'), Locale('de')],
+        useFallbackTranslations: false,
+        saveLocale: true,
+        assetLoader: LocaleLoader(),
+        path: 'unused',
+        useOnlyLangCode: false,
+        onLoadError: (_) {},
+      );
+      await controller.loadTranslations();
+      await controller.updateDeviceLocale(const Locale('fr'));
+      final reset = controller.resetLocale();
+      final result = reset.then<Object?>((_) => null, onError: (Object error) => error);
+      await store.removeStarted.future;
+      await controller.updateDeviceLocale(const Locale('de'));
+      store.removeGate.complete(false);
+      expect(await result, isA<StateError>());
+      expect(controller.locale, const Locale('de'));
+      expect(controller.translations?.get('first'), 'de first');
+      controller.dispose();
+    } finally {
+      SharedPreferencesStorePlatform.instance = original;
+      SharedPreferences.resetStatic();
+    }
+  });
+
   for (final removeSucceeds in [true, false]) {
     test('newer explicit selection survives ${removeSucceeds ? 'delayed' : 'failed'} reset storage', () async {
       final original = SharedPreferencesStorePlatform.instance;

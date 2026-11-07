@@ -253,12 +253,7 @@ class EasyLocalizationController extends ChangeNotifier {
     _userTransition = userTransition;
     final transition = _loadLocale(locale);
     _activeTransition = transition;
-    try {
-      await transition;
-    } finally {
-      if (identical(_userTransition, userTransition)) _userTransition = null;
-      if (identical(_activeTransition, transition)) _activeTransition = null;
-    }
+    await _finishUserTransition(userTransition, transition, _request);
   }
 
   /// Reloads the displayed locale after the asset loader's data has changed.
@@ -349,18 +344,38 @@ class EasyLocalizationController extends ChangeNotifier {
     final target = selectLocaleFrom(_supportedLocales, deviceLocale, fallbackLocale: _fallbackLocale);
     final transition = _loadLocale(target, reset: true);
     _activeTransition = transition;
+    await _finishUserTransition(userTransition, transition, _request);
+  }
+
+  Future<void> _finishUserTransition(Object userTransition, Future<void> transition, int request) async {
+    Object? failure;
+    StackTrace? failureStack;
     try {
       await transition;
-    } finally {
-      if (identical(_userTransition, userTransition)) _userTransition = null;
-      if (identical(_activeTransition, transition)) _activeTransition = null;
+    } catch (error, stackTrace) {
+      failure = error;
+      failureStack = stackTrace;
     }
-    if (!_disposed &&
-        _systemMode &&
-        _userTransition == null &&
-        target != selectLocaleFrom(_supportedLocales, deviceLocale, fallbackLocale: _fallbackLocale)) {
-      await updateDeviceLocale(deviceLocale);
+    if (identical(_activeTransition, transition)) _activeTransition = null;
+    if (identical(_userTransition, userTransition)) {
+      _userTransition = null;
+      if (!_disposed &&
+          request == _request &&
+          _systemMode &&
+          selectLocaleFrom(_supportedLocales, deviceLocale, fallbackLocale: _fallbackLocale) != _locale) {
+        try {
+          await updateDeviceLocale(deviceLocale);
+        } catch (error, stackTrace) {
+          if (failure == null) {
+            failure = error;
+            failureStack = stackTrace;
+          } else if (error is! FlutterError) {
+            FlutterError.reportError(FlutterErrorDetails(exception: error, stack: stackTrace));
+          }
+        }
+      }
     }
+    if (failure != null) return Future.error(failure, failureStack ?? StackTrace.current);
   }
 
   /// Updates the observed system locale and applies it while following the system.
