@@ -202,7 +202,20 @@ class EasyLocalizationInstance with WidgetsBindingObserver {
     if (state == AppLifecycleState.resumed) didChangeLocales(null);
   }
 
-  Future<void> _applySystemLocales(List<Locale> locales) => _reportSystemTransition(_controller.updateDeviceLocales(locales));
+  Future<void> _applySystemLocales(List<Locale> locales) => _startSystemTransition(() => _controller.updateDeviceLocales(locales));
+
+  Future<void> _startSystemTransition(Future<void> Function() operation) {
+    final request = _controller.requestRevision;
+    final transition = operation();
+    final pending = _active;
+    if (request != _controller.requestRevision && pending != null && !pending.ready.isCompleted && !pending.committed) {
+      pending.finish(LocalizationDataOutcome.superseded, LocalizationApplyOutcome.superseded);
+      _pending.remove(pending);
+      _active = null;
+      _publish();
+    }
+    return _reportSystemTransition(transition);
+  }
 
   Future<void> _reportSystemTransition(Future<void> transition) async {
     try {
@@ -347,7 +360,7 @@ class EasyLocalizationInstance with WidgetsBindingObserver {
         _publish();
       }
     } finally {
-      if (!_disposed && _controller.strictErrors) _reportSystemTransition(_controller.replaySystemLocale());
+      if (!_disposed && _controller.strictErrors) _startSystemTransition(_controller.replaySystemLocale);
       if (pending.applied.isCompleted) _pending.remove(pending);
       final active = _active;
       if (!_disposed && (identical(active, pending) || (active != null && active.ready.isCompleted && active.applied.isCompleted))) {
@@ -365,7 +378,7 @@ class EasyLocalizationInstance with WidgetsBindingObserver {
         useFallbackTranslationsForEmptyResources: _config.useFallbackTranslationsForEmptyResources,
         ignorePluralRules: _config.ignorePluralRules);
     final active = _active;
-    if (active != null && !active.ready.isCompleted) {
+    if (active != null && !active.ready.isCompleted && !(_controller.strictErrors && _controller.lastCommitWasSystemEvent)) {
       active.committed = true;
       _committedRevision = active.revision;
     } else {

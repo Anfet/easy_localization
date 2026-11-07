@@ -252,6 +252,40 @@ void main() {
     }
   });
 
+  test('system load supersedes an uncommitted reload and owns its revision', () async {
+    binding.platformDispatcher.localesTestValue = const [Locale('de')];
+    final owner = await EasyLocalization.initialize(config(save: false));
+    final reloadGate = Completer<Map<String, dynamic>?>();
+    final systemGate = Completer<Map<String, dynamic>?>();
+    loader.gates['de'] = [reloadGate];
+    loader.gates['ru'] = [systemGate];
+    final reload = owner.reloadTranslations();
+    binding.platformDispatcher.localesTestValue = const [Locale('fr'), Locale('ru')];
+    systemGate.complete({'value': 'system'});
+    await Future<void>.delayed(Duration.zero);
+    reloadGate.complete({'value': 'stale reload'});
+    expect(await reload.ready, LocalizationDataOutcome.superseded);
+    expect(await reload.applied, LocalizationApplyOutcome.superseded);
+    await Future<void>.delayed(Duration.zero);
+    expect(owner.locale, const Locale('ru'));
+    expect(owner.dataTranslator.tr('value'), 'system');
+    expect(owner.state.value.committedRevision, greaterThan(reload.revision));
+  });
+
+  test('unchanged system candidate leaves an active reload intact', () async {
+    binding.platformDispatcher.localesTestValue = const [Locale('de')];
+    final owner = await EasyLocalization.initialize(config(save: false));
+    final reloadGate = Completer<Map<String, dynamic>?>();
+    loader.gates['de'] = [reloadGate];
+    final reload = owner.reloadTranslations();
+    owner.didChangeLocales(const [Locale('fr'), Locale('de')]);
+    reloadGate.complete({'value': 'reloaded'});
+    expect(await reload.ready, LocalizationDataOutcome.committed);
+    expect(await reload.applied, LocalizationApplyOutcome.detached);
+    expect(owner.dataTranslator.tr('value'), 'reloaded');
+    expect(owner.state.value.committedRevision, reload.revision);
+  });
+
   test('startup matrix chooses only start, saved, supported system or required fallback', () async {
     final cases = <Map<String, dynamic>>[
       {'start': const Locale('de'), 'saved': 'ru', 'system': const Locale('ru'), 'expected': const Locale('de'), 'write': true, 'explicit': true},

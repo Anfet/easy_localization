@@ -19,6 +19,7 @@ class EasyLocalizationController extends ChangeNotifier {
   bool _systemBootstrap = false;
   Completer<void>? _bootstrapChanged;
   bool _systemMode = false;
+  bool _lastCommitWasSystemEvent = false;
   Locale? _requestedLocale;
   bool _requestedSystem = false;
   bool _requestedReset = false;
@@ -163,7 +164,8 @@ class EasyLocalizationController extends ChangeNotifier {
 
   Future<void> loadTranslations() => _loadLocale(_locale, initial: true);
 
-  Future<void> _loadLocale(Locale target, {bool initial = false, bool refresh = false, bool system = false, bool reset = false}) async {
+  Future<void> _loadLocale(Locale target,
+      {bool initial = false, bool refresh = false, bool system = false, bool reset = false, bool systemEvent = false}) async {
     final supersededInitial = initial && _loading && _activeTransition != null;
     final request = supersededInitial ? _request - 1 : ++_request;
     if (!supersededInitial) {
@@ -201,6 +203,7 @@ class EasyLocalizationController extends ChangeNotifier {
       if (_disposed || request != _request) return;
       _loading = false;
       _locale = resources.locale;
+      _lastCommitWasSystemEvent = systemEvent;
       _translations = resources.translations;
       _fallbackTranslations = resources.fallbackTranslations;
       _acceptedRequest = request;
@@ -305,6 +308,8 @@ class EasyLocalizationController extends ChangeNotifier {
   }
 
   Locale get locale => _locale;
+  int get requestRevision => _request;
+  bool get lastCommitWasSystemEvent => _lastCommitWasSystemEvent;
   Locale get requestedLocale => _loading ? _requestedLocale ?? _locale : _locale;
   bool get isSystemMode => _systemMode;
 
@@ -540,7 +545,7 @@ class EasyLocalizationController extends ChangeNotifier {
       return;
     }
     if (_loading && (_requestedSystem || _systemBootstrap) && _requestedLocale == target) return _activeTransition;
-    final transition = _loadLocale(target, system: true);
+    final transition = _loadLocale(target, system: true, systemEvent: true);
     _activeTransition = transition;
     final changed = _bootstrapChanged;
     if (changed != null && !changed.isCompleted) changed.complete();
