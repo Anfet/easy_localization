@@ -168,7 +168,7 @@ extension BuildContextEasyLocalizationExtension on BuildContext {
   Locale get deviceLocale => EasyLocalization.of(this)!.deviceLocale;
   Locale? get savedLocale => EasyLocalization.of(this)!.savedLocale;
 
-  /// Reset locale to platform locale
+  /// Follow the platform locale and remove the saved selection.
   Future<void> resetLocale() => EasyLocalization.of(this)!.resetLocale();
 
   /// An extension method for translating your language keys.

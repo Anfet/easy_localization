@@ -453,6 +453,8 @@ Don't forget to add your linked files (or linked files folder, here assets/trans
 
 ### 🔥 Reset locale `resetLocale()`
 
+`resetLocale` returns to following the system language, including future system changes, and removes the saved selection. A saved selection takes precedence over `startLocale`; either prevents system changes from overriding the selection until reset. If translations fail to load, the current language and selection mode remain active. A storage failure completes the reset future with an error after the language has changed.
+
 Reset locale to device locale
 
 Example:

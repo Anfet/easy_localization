@@ -16,12 +16,14 @@ class EasyLocalizationController extends ChangeNotifier {
   int _request = 0;
   bool _disposed = false;
   bool _loading = false;
+  bool _systemMode = false;
+  Object? _userTransition;
   Future<void>? _activeTransition;
   static late Locale _deviceLocale;
 
   late Locale _locale;
   Locale? _fallbackLocale;
-  List<Locale>? _supportedLocales;
+  late final List<Locale> _supportedLocales;
 
   final Function(FlutterError e) onLoadError;
   final AssetLoader assetLoader;
@@ -64,6 +66,7 @@ class EasyLocalizationController extends ChangeNotifier {
         fallbackLocale: fallbackLocale,
       );
     } else {
+      _systemMode = true;
       // From Device Locale
       _locale = selectLocaleFrom(
         supportedLocales,
@@ -112,7 +115,7 @@ class EasyLocalizationController extends ChangeNotifier {
 
   Future<void> loadTranslations() => _loadLocale(_locale, initial: true);
 
-  Future<void> _loadLocale(Locale target, {bool initial = false, bool refresh = false}) async {
+  Future<void> _loadLocale(Locale target, {bool initial = false, bool refresh = false, bool system = false, bool reset = false}) async {
     final supersededInitial = initial && _loading && _activeTransition != null;
     final request = supersededInitial ? _request - 1 : ++_request;
     if (!supersededInitial) _loading = true;
@@ -156,7 +159,12 @@ class EasyLocalizationController extends ChangeNotifier {
       _locale = resources.locale;
       _translations = resources.translations;
       _fallbackTranslations = resources.fallbackTranslations;
-      final saving = initial || refresh ? Future<void>.value() : _saveLocale(target);
+      if (!initial && !refresh) _systemMode = system || reset;
+      final saving = initial || refresh || system
+          ? Future<void>.value()
+          : reset
+              ? deleteSaveLocale()
+              : _saveLocale(target);
       notifyListeners();
       if (!initial && !refresh) EasyLocalization.onVerbose?.call('Locale $target changed');
       await saving;
@@ -234,18 +242,21 @@ class EasyLocalizationController extends ChangeNotifier {
   /// leave the applied locale in place. Widgets update on a subsequent frame.
   Future<void> setLocale(Locale locale) async {
     if (_disposed) return;
-    if (locale == _locale && _translations != null) {
+    if (locale == _locale && _translations != null && !_systemMode) {
       if (_loading) {
         _request++;
         _loading = false;
       }
       return;
     }
+    final userTransition = Object();
+    _userTransition = userTransition;
     final transition = _loadLocale(locale);
     _activeTransition = transition;
     try {
       await transition;
     } finally {
+      if (identical(_userTransition, userTransition)) _userTransition = null;
       if (identical(_activeTransition, transition)) _activeTransition = null;
     }
   }
@@ -329,12 +340,43 @@ class EasyLocalizationController extends ChangeNotifier {
   Locale get deviceLocale => _deviceLocale;
   Locale? get savedLocale => _savedLocale;
 
+  /// Returns to following the system locale and removes the saved selection.
+  /// A failed resource load keeps the current language and selection mode.
   Future<void> resetLocale() async {
-    final locale = selectLocaleFrom(_supportedLocales!, deviceLocale, fallbackLocale: _fallbackLocale);
+    if (_disposed) return;
+    final userTransition = Object();
+    _userTransition = userTransition;
+    final target = selectLocaleFrom(_supportedLocales, deviceLocale, fallbackLocale: _fallbackLocale);
+    final transition = _loadLocale(target, reset: true);
+    _activeTransition = transition;
+    try {
+      await transition;
+    } finally {
+      if (identical(_userTransition, userTransition)) _userTransition = null;
+      if (identical(_activeTransition, transition)) _activeTransition = null;
+    }
+    if (!_disposed &&
+        _systemMode &&
+        _userTransition == null &&
+        target != selectLocaleFrom(_supportedLocales, deviceLocale, fallbackLocale: _fallbackLocale)) {
+      await updateDeviceLocale(deviceLocale);
+    }
+  }
 
-    EasyLocalization.onVerbose
-        ?.call('Reset locale to $locale while the platform locale is $_deviceLocale and the fallback locale is $_fallbackLocale');
-    await setLocale(locale);
+  /// Updates the observed system locale and applies it while following the system.
+  Future<void> updateDeviceLocale(Locale locale) async {
+    if (_disposed) return;
+    _deviceLocale = locale;
+    if (!_systemMode || _userTransition != null) return;
+    final target = selectLocaleFrom(_supportedLocales, locale, fallbackLocale: _fallbackLocale);
+    if (target == _locale && _translations != null && !_loading) return;
+    final transition = _loadLocale(target, system: true);
+    _activeTransition = transition;
+    try {
+      await transition;
+    } finally {
+      if (identical(_activeTransition, transition)) _activeTransition = null;
+    }
   }
 }
 

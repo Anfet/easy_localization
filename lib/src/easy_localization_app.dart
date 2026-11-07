@@ -171,7 +171,7 @@ class EasyLocalization extends StatefulWidget {
   static LocalizationLogCallback? onError;
 }
 
-class _EasyLocalizationState extends State<EasyLocalization> {
+class _EasyLocalizationState extends State<EasyLocalization> with WidgetsBindingObserver {
   _EasyLocalizationDelegate? delegate;
   EasyLocalizationController? localizationController;
   FlutterError? translationsLoadError;
@@ -184,6 +184,7 @@ class _EasyLocalizationState extends State<EasyLocalization> {
 
   @override
   void initState() {
+    WidgetsBinding.instance.addObserver(this);
     EasyLocalization.onVerbose?.call('Init state');
     localizationController = EasyLocalizationController(
       saveLocale: widget.saveLocale,
@@ -213,7 +214,31 @@ class _EasyLocalizationState extends State<EasyLocalization> {
   }
 
   @override
+  void didChangeLocales(List<Locale>? locales) {
+    if (locales == null || locales.isEmpty) return;
+    _applyDeviceLocale(locales.first);
+  }
+
+  Future<void> _applyDeviceLocale(Locale locale) async {
+    try {
+      await localizationController?.updateDeviceLocale(locale);
+    } on FlutterError {
+      // The controller has already reported this load failure.
+    } catch (error, stackTrace) {
+      FlutterError.reportError(FlutterErrorDetails(exception: error, stack: stackTrace));
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      didChangeLocales(WidgetsBinding.instance.platformDispatcher.locales);
+    }
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _signalResourceChange();
     localizationController!.dispose();
     super.dispose();
@@ -305,7 +330,7 @@ class _EasyLocalizationProvider extends InheritedWidget {
   Locale get deviceLocale => _localeState.deviceLocale;
   Locale? get savedLocale => _localeState.savedLocale;
 
-  /// Reset locale to platform locale
+  /// Follow the platform locale and remove the saved selection.
   Future<void> resetLocale() => _localeState.resetLocale();
 
   @override
