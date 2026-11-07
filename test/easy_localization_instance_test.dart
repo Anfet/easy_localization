@@ -108,7 +108,7 @@ void main() {
     } on StateError {
       // Failed initialization deliberately has no published owner.
     }
-    binding.platformDispatcher.clearLocaleTestValue();
+    binding.platformDispatcher.clearLocalesTestValue();
     SharedPreferencesStorePlatform.instance = original;
     SharedPreferences.resetStatic();
   });
@@ -132,6 +132,81 @@ void main() {
     expect(owner.state.value.phase, LocalizationPhase.idle);
   });
 
+  test('owner follows preferred lists without a root and retains explicit choice until reset', () async {
+    binding.platformDispatcher.localesTestValue = const [Locale('fr'), Locale('de')];
+    final owner = await EasyLocalization.initialize(config(save: false));
+    expect(owner.locale, const Locale('de'));
+    binding.platformDispatcher.localesTestValue = const [Locale('fr'), Locale('ru')];
+    await Future<void>.delayed(Duration.zero);
+    expect(owner.locale, const Locale('ru'));
+    await owner.setLocale(const Locale('de')).ready;
+    binding.platformDispatcher.localesTestValue = const [Locale('fr'), Locale('ru')];
+    await Future<void>.delayed(Duration.zero);
+    expect(owner.locale, const Locale('de'));
+    await owner.resetLocale().ready;
+    expect(owner.locale, const Locale('ru'));
+    expect(store.operations, isEmpty);
+    owner.dispose();
+    final count = loader.calls.length;
+    binding.platformDispatcher.localesTestValue = const [Locale('de')];
+    await Future<void>.delayed(Duration.zero);
+    expect(loader.calls.length, count);
+  });
+
+  test('initial load waits for latest system list and ignores stale result', () async {
+    final first = Completer<Map<String, dynamic>?>();
+    final latest = Completer<Map<String, dynamic>?>();
+    loader.gates['de'] = [first];
+    loader.gates['ru'] = [latest];
+    binding.platformDispatcher.localesTestValue = const [Locale('de')];
+    final pending = EasyLocalization.initialize(config(save: false));
+    binding.platformDispatcher.localesTestValue = const [Locale('fr'), Locale('ru')];
+    first.complete({'value': 'old'});
+    await Future<void>.delayed(Duration.zero);
+    latest.complete({'value': 'new'});
+    final owner = await pending;
+    expect(owner.locale, const Locale('ru'));
+    expect(owner.dataTranslator.tr('value'), 'new');
+  });
+
+  test('latest startup failure cleans observer and permits retry', () async {
+    final first = Completer<Map<String, dynamic>?>();
+    final latest = Completer<Map<String, dynamic>?>();
+    loader.gates['de'] = [first];
+    loader.gates['ru'] = [latest];
+    binding.platformDispatcher.localesTestValue = const [Locale('de')];
+    final pending = EasyLocalization.initialize(config(save: false));
+    final failed = expectLater(pending, throwsStateError);
+    binding.platformDispatcher.localesTestValue = const [Locale('ru')];
+    latest.completeError(StateError('latest failed'));
+    first.complete({'value': 'stale'});
+    await failed;
+    final count = loader.calls.length;
+    binding.platformDispatcher.localesTestValue = const [Locale('de')];
+    await Future<void>.delayed(Duration.zero);
+    expect(loader.calls.length, count);
+    final owner = await EasyLocalization.initialize(config(save: false));
+    expect(owner.locale, const Locale('de'));
+  });
+
+  test('explicit choice supersedes slow system load and reset follows latest list', () async {
+    binding.platformDispatcher.localesTestValue = const [Locale('ru')];
+    final owner = await EasyLocalization.initialize(config(save: false));
+    final gate = Completer<Map<String, dynamic>?>();
+    loader.gates['de'] = [gate];
+    binding.platformDispatcher.localesTestValue = const [Locale('de')];
+    await owner.setLocale(const Locale('ru')).ready;
+    gate.complete({'value': 'stale'});
+    await Future<void>.delayed(Duration.zero);
+    expect(owner.locale, const Locale('ru'));
+    expect(owner.isSystemMode, isFalse);
+    await owner.resetLocale().ready;
+    expect(owner.locale, const Locale('de'));
+    owner.didChangeAppLifecycleState(AppLifecycleState.resumed);
+    await Future<void>.delayed(Duration.zero);
+    expect(owner.locale, const Locale('de'));
+  });
+
   test('startup matrix chooses only start, saved, supported system or required fallback', () async {
     final cases = <Map<String, dynamic>>[
       {'start': const Locale('de'), 'saved': 'ru', 'system': const Locale('ru'), 'expected': const Locale('de'), 'write': true, 'explicit': true},
@@ -153,7 +228,7 @@ void main() {
       final saved = row['saved'];
       if (saved != null) store.data['flutter.locale'] = saved;
       SharedPreferences.resetStatic();
-      binding.platformDispatcher.localeTestValue = row['system'] as Locale? ?? const Locale('fr');
+      binding.platformDispatcher.localesTestValue = [row['system'] as Locale? ?? const Locale('fr')];
       final owner = await EasyLocalization.initialize(config(start: row['start'] as Locale?, supported: row['supported'] as List<Locale>?));
       expect(owner.locale, row['expected'], reason: '$row');
       expect(owner.isSystemMode, row['explicit'] != true, reason: '$row');
@@ -249,7 +324,7 @@ void main() {
         loader.calls.clear();
         if (saved != null) store.data['flutter.locale'] = saved;
         SharedPreferences.resetStatic();
-        binding.platformDispatcher.localeTestValue = system;
+        binding.platformDispatcher.localesTestValue = [system];
         await expectLater(EasyLocalization.initialize(config()), throwsStateError);
         expect(loader.calls, [saved != null || system == const Locale('de') ? const Locale('de') : const Locale('ru')]);
         expect(store.operations.where((operation) => operation == 'remove' || operation.startsWith('set:')), isEmpty);
@@ -277,7 +352,7 @@ void main() {
   test('save false makes no preferences calls through init, set, reset or delete', () async {
     store.failRead = true;
     store.data['flutter.locale'] = 42;
-    binding.platformDispatcher.localeTestValue = const Locale('ru');
+    binding.platformDispatcher.localesTestValue = [const Locale('ru')];
     final owner = await EasyLocalization.initialize(config(start: const Locale('de'), save: false));
     await owner.setLocale(const Locale('ru')).ready;
     await owner.resetLocale().ready;
@@ -288,7 +363,7 @@ void main() {
   });
 
   test('reset deletes explicit choice and restart reapplies start or follows system', () async {
-    binding.platformDispatcher.localeTestValue = const Locale('ru');
+    binding.platformDispatcher.localesTestValue = [const Locale('ru')];
     final withStart = config(start: const Locale('de'));
     var owner = await EasyLocalization.initialize(withStart);
     await owner.resetLocale().ready;
@@ -416,7 +491,7 @@ void main() {
   });
 
   test('storage errors retain committed data and retry without loading resources', () async {
-    binding.platformDispatcher.localeTestValue = const Locale('ru');
+    binding.platformDispatcher.localesTestValue = [const Locale('ru')];
     final owner = await EasyLocalization.initialize(config(start: const Locale('ru')));
     store.failWrite = true;
     final failed = owner.setLocale(const Locale('de'));

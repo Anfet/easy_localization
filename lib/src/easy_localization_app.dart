@@ -250,7 +250,6 @@ class _EasyLocalizationState extends State<EasyLocalization> with WidgetsBinding
 
   @override
   void initState() {
-    WidgetsBinding.instance.addObserver(this);
     EasyLocalization.onVerbose?.call('Init state');
     final provided = widget._providedInstance;
     final ready = EasyLocalizationInstance._instance;
@@ -298,6 +297,7 @@ class _EasyLocalizationState extends State<EasyLocalization> with WidgetsBinding
       _owner = EasyLocalizationInstance._(config, controller);
       EasyLocalizationInstance._instance = _owner;
       _ownsInstance = true;
+      WidgetsBinding.instance.addObserver(this);
     }
     _owner._attach(_attachment);
     _rootAttached = true;
@@ -345,7 +345,7 @@ class _EasyLocalizationState extends State<EasyLocalization> with WidgetsBinding
 
   @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
+    if (_ownsInstance) WidgetsBinding.instance.removeObserver(this);
     localizationController.removeListener(_resourcesChanged);
     if (!_owner._disposed) _owner.state.removeListener(_ownerChanged);
     if (_rootAttached) {

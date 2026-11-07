@@ -21,6 +21,38 @@ void main() {
         additionalDelegates: [if (delegate != null) delegate, if (delegate != null) _DuplicateDelegate()],
       ));
 
+  testWidgets('system updates reach presentation and survive detach and remount', (tester) async {
+    final loader = _Loader();
+    tester.binding.platformDispatcher.localesTestValue = const [Locale('en')];
+    final instance = await EasyLocalization.initialize(EasyLocalizationConfig(
+      supportedLocales: const [Locale('en'), Locale('de'), Locale('ar')],
+      fallbackLocale: const Locale('en'),
+      path: 'unused',
+      saveLocale: false,
+      assetLoader: loader,
+    ));
+    try {
+      await tester.pumpWidget(EasyLocalization.withInstance(instance: instance, child: const _App(home: _Leaf(label: 'home'))));
+      await tester.pumpAndSettle();
+      tester.binding.platformDispatcher.localesTestValue = const [Locale('fr'), Locale('de')];
+      await tester.pumpAndSettle();
+      expect(find.text('de-2 home'), findsOneWidget);
+      expect(Localizations.localeOf(tester.element(find.text('de-2 home'))), const Locale('de'));
+      await tester.pumpWidget(const SizedBox());
+      tester.binding.platformDispatcher.localesTestValue = const [Locale('ar')];
+      await tester.pumpAndSettle();
+      expect(instance.locale, const Locale('ar'));
+      await tester.pumpWidget(EasyLocalization.withInstance(instance: instance, child: const _App(home: _Leaf(label: 'home'))));
+      await tester.pumpAndSettle();
+      expect(find.text('ar-3 home'), findsOneWidget);
+      expect(loader.loads, 3);
+    } finally {
+      await tester.pumpWidget(const SizedBox());
+      instance.dispose();
+      tester.binding.platformDispatcher.clearLocalesTestValue();
+    }
+  });
+
   testWidgets('retained home route and dialog update ordinary translations with focus input scroll and resource types intact', (tester) async {
     final loader = _Loader();
     final delegate = _Delegate();

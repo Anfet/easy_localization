@@ -210,8 +210,9 @@ choice when `saveLocale: true`, otherwise a supported system locale or the requi
 fallback. Start and fallback must exactly belong to `supportedLocales`. A supplied
 start is saved after loading; reset follows the system and deletes the explicit
 choice, and a subsequent startup with start applies and saves it again. System and
-fallback choices are never saved as explicit choices. The current startup uses one
-system locale; preferred language list and platform event matching are separate work.
+fallback choices are never saved as explicit choices. The instance follows the engine’s ordered preferred locale list at startup, on locale events,
+and on resume. The engine may supply a default `en_US`; the library adds no English default.
+Resume reads the engine list and does not force a browser language refresh or guarantee iOS per-app events.
 
 Invalid saved data and resource/storage failures throw without silently trying a
 different source or deleting the saved value. A valid start overrides old saved data.

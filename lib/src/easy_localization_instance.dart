@@ -122,7 +122,7 @@ class LocalizationChange {
 /// for resources and storage; no frame or BuildContext is required. A borrowed
 /// root can unmount without disposing this owner. Captured [dataTranslator]
 /// snapshots remain usable after subsequent changes and disposal.
-class EasyLocalizationInstance {
+class EasyLocalizationInstance with WidgetsBindingObserver {
   EasyLocalizationConfig get config => _config;
   Locale get locale => _controller.locale;
   bool get isSystemMode => _controller.isSystemMode;
@@ -149,8 +149,7 @@ class EasyLocalizationInstance {
   /// Follows the system after loading successfully, then removes explicit storage.
   LocalizationChange resetLocale() {
     _checkLive();
-    final target =
-        EasyLocalizationController.selectLocaleFrom(_config.supportedLocales, _controller.deviceLocale, fallbackLocale: _config.fallbackLocale);
+    final target = _controller.systemTarget;
     return _change(target, _controller.resetLocale, committed: target == locale && isSystemMode && _data != null);
   }
 
@@ -170,6 +169,7 @@ class EasyLocalizationInstance {
   void dispose() {
     if (_disposed) return;
     _disposed = true;
+    if (_controller.strictErrors) WidgetsBinding.instance.removeObserver(this);
     _attachment = null;
     _controller.removeListener(_didCommit);
     _controller.dispose();
@@ -189,6 +189,27 @@ class EasyLocalizationInstance {
   EasyLocalizationInstance._(this._config, this._controller)
       : _state = ValueNotifier(LocalizationState(committedLocale: _controller.locale, committedRevision: 0, isSystemMode: _controller.isSystemMode)) {
     _controller.addListener(_didCommit);
+    if (_controller.strictErrors) WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void didChangeLocales(List<Locale>? locales) {
+    _applySystemLocales(locales ?? WidgetsBinding.instance.platformDispatcher.locales);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) didChangeLocales(null);
+  }
+
+  Future<void> _applySystemLocales(List<Locale> locales) async {
+    try {
+      await _controller.updateDeviceLocales(locales);
+    } on FlutterError {
+      // The controller has already reported this load failure.
+    } catch (error, stackTrace) {
+      if (_data != null) FlutterError.reportError(FlutterErrorDetails(exception: error, stack: stackTrace));
+    }
   }
 
   static Future<EasyLocalizationInstance> _initialize(EasyLocalizationConfig config) {
@@ -220,8 +241,8 @@ class EasyLocalizationInstance {
       final saved = start == null && config.saveLocale ? await EasyLocalizationController.readSavedLocale(config.supportedLocales) : null;
       final explicit = start ?? saved;
       final target = explicit ??
-          EasyLocalizationController.selectLocaleFrom(config.supportedLocales, WidgetsBinding.instance.platformDispatcher.locale,
-              fallbackLocale: config.fallbackLocale);
+          EasyLocalizationController.selectPreferredLocale(
+              config.supportedLocales, WidgetsBinding.instance.platformDispatcher.locales, config.fallbackLocale);
       final controller = EasyLocalizationController(
         supportedLocales: config.supportedLocales,
         fallbackLocale: config.fallbackLocale,
@@ -236,9 +257,14 @@ class EasyLocalizationInstance {
         useOnlyLangCode: config.useOnlyLangCode,
         onLoadError: (_) {},
       );
+      controller.observeDeviceLocales(WidgetsBinding.instance.platformDispatcher.locales);
       final initialized = EasyLocalizationInstance._(config, controller);
       owner = initialized;
-      await controller.loadTranslations();
+      if (explicit == null) {
+        await controller.loadCurrentSystemTranslations();
+      } else {
+        await controller.loadTranslations();
+      }
       if (start != null) await controller.saveCurrentLocale();
       _instance = initialized;
       Localization.publish(initialized.dataTranslator);
@@ -295,7 +321,10 @@ class EasyLocalizationInstance {
         pending.applied.complete(LocalizationApplyOutcome.applied);
         _publish();
       }
-      if (!_attached && !pending.applied.isCompleted) pending.applied.complete(LocalizationApplyOutcome.detached);
+      if (!_attached && !pending.applied.isCompleted) {
+        _publish();
+        pending.applied.complete(LocalizationApplyOutcome.detached);
+      }
     } catch (error, stackTrace) {
       if (_disposed || pending.ready.isCompleted) return;
       if (identical(_active, pending)) {

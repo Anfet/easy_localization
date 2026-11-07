@@ -18,6 +18,23 @@ class RecordingLoader extends AssetLoader {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  test('preferred locales honor language priority and specificity', () {
+    const ru = Locale('ru');
+    const de = Locale('de');
+    const hant = Locale.fromSubtags(languageCode: 'zh', scriptCode: 'Hant');
+    const hansTw = Locale.fromSubtags(languageCode: 'zh', scriptCode: 'Hans', countryCode: 'TW');
+    const exact = Locale.fromSubtags(languageCode: 'sr', scriptCode: 'Latn', countryCode: 'RS');
+    Locale select(List<Locale> supported, List<Locale> preferred) => EasyLocalizationController.selectPreferredLocale(supported, preferred, ru);
+    expect(select([ru, de], [const Locale('fr', 'FR'), const Locale('de', 'DE')]), de);
+    expect(select([ru, de], []), ru);
+    expect(select([ru, de], [const Locale('fr')]), ru);
+    expect(select([const Locale('zh'), hant, hansTw], [const Locale.fromSubtags(languageCode: 'zh', scriptCode: 'Hant', countryCode: 'TW')]), hant);
+    expect(select([const Locale('de', 'DE'), const Locale('en')], [const Locale('de', 'AT')]), const Locale('de', 'DE'));
+    expect(select([const Locale('sr'), const Locale.fromSubtags(languageCode: 'sr', scriptCode: 'Latn'), exact], [exact]), exact);
+    expect(select([const Locale('de', 'DE'), const Locale('en')], [const Locale('de', 'AT'), const Locale('en')]), const Locale('de', 'DE'));
+    expect(select([const Locale('de', 'DE'), const Locale('de', 'CH')], [const Locale('de', 'AT')]), const Locale('de', 'DE'));
+  });
+
   test('start selects a supported locale before loading', () async {
     Future<void> check(List<Locale> supported, Locale start, Locale? fallback, Locale expected) async {
       final loader = RecordingLoader();
