@@ -197,12 +197,11 @@ You can use extension methods of [String] or [Text] widget, you can also use `tr
 Text(context.tr('title'))
 ```
 
-You can also use tr() without [Context] as a static function.
+In a widget build, pass `context` to subscribe to locale changes, including in const subtrees. Calls without context return a snapshot of the current translation and do not subscribe the widget; use them outside the UI or refresh the value explicitly.
 
-This is not recommend in build methods, because the widget won't rebuild when the language changes.
 
 ```dart
-Text('title').tr() //Text widget
+Text('title').tr(context: context) //Text widget
 
 print('title'.tr()); //String
 
@@ -234,16 +233,16 @@ Example:
 
 ```dart
 // args
-Text('msg').tr(args: ['Easy localization', 'Dart']),
+Text('msg').tr(context: context, args: ['Easy localization', 'Dart']),
 
 // namedArgs
-Text('msg_named').tr(namedArgs: {'lang': 'Dart'}),
+Text('msg_named').tr(context: context, namedArgs: {'lang': 'Dart'}),
 
 // args and namedArgs
-Text('msg_mixed').tr(args: ['Easy localization'], namedArgs: {'lang': 'Dart'}),
+Text('msg_mixed').tr(context: context, args: ['Easy localization'], namedArgs: {'lang': 'Dart'}),
 
 // gender
-Text('gender').tr(gender: _gender ? "female" : "male"),
+Text('gender').tr(context: context, gender: _gender ? "female" : "male"),
 
 ```
 
@@ -252,7 +251,7 @@ Text('gender').tr(gender: _gender ? "female" : "male"),
 You can translate with pluralization.
 To insert a number in the translated string, use `{}`. Number formatting supported, for more information read [NumberFormat](https://pub.dev/documentation/intl/latest/intl/NumberFormat-class.html) class documentation.
 
-You can use extension methods of [String] or [Text] widget, you can also use `plural()` as a static function.
+In UI builds, pass `context` to the String or Text extension or to `plural()`, or use `context.plural()`, to subscribe to locale changes. Without context the result is a snapshot.
 
 #### Arguments:
 
@@ -300,7 +299,7 @@ Example:
 
 ```dart
 //Text widget with format
-Text('money').plural(1000000, format: NumberFormat.compact(locale: context.locale.toString())) // output: You have 1M dollars
+Text('money').plural(1000000, context: context, format: NumberFormat.compact(locale: context.locale.toString())) // output: You have 1M dollars
 
 //String
 print('day'.plural(21)); // output: 21 день
@@ -448,7 +447,7 @@ RaisedButton(
   onPressed: (){
     context.resetLocale();
   },
-  child: Text(LocaleKeys.reset_locale).tr(),
+  child: Text(LocaleKeys.reset_locale).tr(context: context),
 )
 ```
 
@@ -473,7 +472,7 @@ RaisedButton(
   onPressed: (){
     context.deleteSaveLocale();
   },
-  child: Text(LocaleKeys.reset_locale).tr(),
+  child: Text(LocaleKeys.reset_locale).tr(context: context),
 )
 ```
 
@@ -569,7 +568,7 @@ How to use generated keys:
 ```dart
 print(LocaleKeys.title.tr()); //String
 //or
-Text(LocaleKeys.title).tr(); //Widget
+Text(LocaleKeys.title).tr(context: context); //Widget
 ```
 
 ### ✅ Audit missing keys

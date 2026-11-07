@@ -4,6 +4,9 @@ import 'localization.dart';
 
 /// {@template tr}
 /// Main function for translate your language keys
+///
+/// Pass [context] in a widget build to subscribe to locale changes. Without it,
+/// the result is a snapshot and does not subscribe the widget.
 /// [key] Localization key
 /// [BuildContext] The location in the tree where this widget builds
 /// [args] List of localized strings. Replaces {} left to right
@@ -25,10 +28,10 @@ import 'localization.dart';
 /// }
 /// ```
 /// ```dart
-/// Text('msg').tr(args: ['Easy localization', 'Dart']), // args
-/// Text('msg_named').tr(namedArgs: {'lang': 'Dart'}),   // namedArgs
-/// Text('msg_mixed').tr(args: ['Easy localization'], namedArgs: {'lang': 'Dart'}), // args and namedArgs
-/// Text('gender').tr(gender: _gender ? "female" : "male"), // gender
+/// Text('msg').tr(context: context, args: ['Easy localization', 'Dart']), // args
+/// Text('msg_named').tr(context: context, namedArgs: {'lang': 'Dart'}),   // namedArgs
+/// Text('msg_mixed').tr(context: context, args: ['Easy localization'], namedArgs: {'lang': 'Dart'}), // args and namedArgs
+/// Text('gender').tr(context: context, gender: _gender ? "female" : "male"), // gender
 /// ```
 /// {@endtemplate}
 String tr(
@@ -39,22 +42,19 @@ String tr(
   String? gender,
 }) {
   return context != null
-      ? Localization.of(context)!
-          .tr(key, args: args, namedArgs: namedArgs, gender: gender)
-      : Localization.instance
-          .tr(key, args: args, namedArgs: namedArgs, gender: gender);
+      ? Localization.of(context)!.tr(key, args: args, namedArgs: namedArgs, gender: gender)
+      : Localization.instance.tr(key, args: args, namedArgs: namedArgs, gender: gender);
 }
 
 bool trExists(String key, {BuildContext? context}) {
-  return context != null
-      ? Localization.of(context)!
-	      .exists(key)
-      : Localization.instance
-	      .exists(key);
+  return context != null ? Localization.of(context)!.exists(key) : Localization.instance.exists(key);
 }
 
 /// {@template plural}
 /// function translate with pluralization
+///
+/// Pass [context] in a widget build to subscribe to locale changes. Without it,
+/// the result is a snapshot and does not subscribe the widget.
 /// [key] Localization key
 /// [value] Number value for pluralization
 /// [BuildContext] The location in the tree where this widget builds
@@ -96,7 +96,7 @@ bool trExists(String key, {BuildContext? context}) {
 /// ```
 ///
 ///```dart
-/// Text('money').plural(1000000, format: NumberFormat.compact(locale: context.locale.toString())) // output: You have 1M dollars
+/// Text('money').plural(1000000, context: context, format: NumberFormat.compact(locale: context.locale.toString())) // output: You have 1M dollars
 /// print('day'.plural(21)); // output: 21 день
 /// var money = plural('money', 10.23) // output: You have 10.23 dollars
 /// var money = plural('money_args', 10.23, args: ['John', '10.23'])  // output: John has 10.23 dollars
@@ -113,8 +113,6 @@ String plural(
   NumberFormat? format,
 }) {
   return context != null
-      ? Localization.of(context)!.plural(key, value,
-          args: args, namedArgs: namedArgs, name: name, format: format)
-      : Localization.instance.plural(key, value,
-          args: args, namedArgs: namedArgs, name: name, format: format);
+      ? Localization.of(context)!.plural(key, value, args: args, namedArgs: namedArgs, name: name, format: format)
+      : Localization.instance.plural(key, value, args: args, namedArgs: namedArgs, name: name, format: format);
 }

@@ -11,12 +11,7 @@ void main() async {
   await EasyLocalization.ensureInitialized();
 
   runApp(EasyLocalization(
-    supportedLocales: [
-      Locale('en', 'US'),
-      Locale('ar', 'DZ'),
-      Locale('de', 'DE'),
-      Locale('ru', 'RU')
-    ],
+    supportedLocales: [Locale('en', 'US'), Locale('ar', 'DZ'), Locale('de', 'DE'), Locale('ru', 'RU')],
     path: 'resources/langs',
     child: MyApp(),
     // fallbackLocale: Locale('en', 'US'),
@@ -83,14 +78,13 @@ class _MyHomePageState extends State<MyHomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(LocaleKeys.title).tr(),
+        title: Text(LocaleKeys.title).tr(context: context),
         actions: <Widget>[
           TextButton(
             onPressed: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(
-                    builder: (_) => LanguageView(), fullscreenDialog: true),
+                MaterialPageRoute(builder: (_) => LanguageView(), fullscreenDialog: true),
               );
             },
             child: Icon(
@@ -109,17 +103,11 @@ class _MyHomePageState extends State<MyHomePage> {
             ),
             Text(
               LocaleKeys.gender_with_arg,
-              style: TextStyle(
-                  color: Colors.grey.shade600,
-                  fontSize: 19,
-                  fontWeight: FontWeight.bold),
-            ).tr(args: ['aissat'], gender: _gender ? 'female' : 'male'),
+              style: TextStyle(color: Colors.grey.shade600, fontSize: 19, fontWeight: FontWeight.bold),
+            ).tr(context: context, args: ['aissat'], gender: _gender ? 'female' : 'male'),
             Text(
-              tr(LocaleKeys.gender, gender: _gender ? 'female' : 'male'),
-              style: TextStyle(
-                  color: Colors.grey.shade600,
-                  fontSize: 15,
-                  fontWeight: FontWeight.bold),
+              tr(LocaleKeys.gender, context: context, gender: _gender ? 'female' : 'male'),
+              style: TextStyle(color: Colors.grey.shade600, fontSize: 15, fontWeight: FontWeight.bold),
             ),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -132,27 +120,20 @@ class _MyHomePageState extends State<MyHomePage> {
             Spacer(
               flex: 1,
             ),
-            Text(LocaleKeys.msg).tr(args: ['aissat', 'Flutter']),
-            Text(LocaleKeys.msg_named)
-                .tr(namedArgs: {'lang': 'Dart'}, args: ['Easy localization']),
-            Text(LocaleKeys.clicked).plural(counter),
+            Text(LocaleKeys.msg).tr(context: context, args: ['aissat', 'Flutter']),
+            Text(LocaleKeys.msg_named).tr(context: context, namedArgs: {'lang': 'Dart'}, args: ['Easy localization']),
+            Text(LocaleKeys.clicked).plural(counter, context: context),
             TextButton(
               onPressed: () {
                 incrementCounter();
               },
-              child: Text(LocaleKeys.clickMe).tr(),
+              child: Text(LocaleKeys.clickMe).tr(context: context),
             ),
             SizedBox(
               height: 15,
             ),
-            Text(
-                plural(LocaleKeys.amount, counter,
-                    format: NumberFormat.currency(
-                        locale: Intl.defaultLocale, symbol: '€')),
-                style: TextStyle(
-                    color: Colors.grey.shade900,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold)),
+            Text(plural(LocaleKeys.amount, counter, context: context, format: NumberFormat.currency(locale: Intl.defaultLocale, symbol: '€')),
+                style: TextStyle(color: Colors.grey.shade900, fontSize: 18, fontWeight: FontWeight.bold)),
             SizedBox(
               height: 20,
             ),
@@ -160,7 +141,7 @@ class _MyHomePageState extends State<MyHomePage> {
               onPressed: () {
                 context.resetLocale();
               },
-              child: Text(LocaleKeys.reset_locale).tr(),
+              child: Text(LocaleKeys.reset_locale).tr(context: context),
             ),
             Spacer(
               flex: 1,
