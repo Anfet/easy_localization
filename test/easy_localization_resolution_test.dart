@@ -57,4 +57,43 @@ void main() {
     expect(localization.plural('fallbackItems', 1, name: 'count', args: ['!']), 'fallback 1 !');
     expect(localization.tr('plain'), 'Hello friend');
   });
+
+  test('named arguments use literal keys and values in translations and plurals', () {
+    Localization.load(
+      const Locale('en'),
+      translations: Translations({
+        'literal': '{0}|{a.b}|{a+b}|{aXb}|{cash}|{slash}',
+        'literalPlural': {'one': '{a.b}|{a+b}|{aXb}', 'other': '{a.b}|{a+b}|{aXb}'},
+      }),
+    );
+    final localization = Localization.instance;
+    final namedArgs = {
+      '0': r'$0\x',
+      'a.b': r'$1\x',
+      'a+b': r'$2\x',
+      'cash': r'$3\x',
+      'slash': r'$4\x',
+    };
+
+    expect(localization.tr('literal', namedArgs: namedArgs), r'$0\x|$1\x|$2\x|{aXb}|$3\x|$4\x');
+    expect(localization.plural('literalPlural', 1, namedArgs: namedArgs), r'$1\x|$2\x|{aXb}');
+  });
+
+  test('capitalize modifier leaves an empty linked translation empty', () {
+    Localization.load(
+      const Locale('en'),
+      translations: Translations({'source': '@.capitalize:empty', 'empty': ''}),
+    );
+
+    expect(Localization.instance.tr('source'), '@.capitalize:empty');
+
+    Localization.load(
+      const Locale('en'),
+      translations: Translations({'source': '@.capitalize:empty', 'empty': ''}),
+      fallbackTranslations: Translations({'empty': 'fallback'}),
+      useFallbackTranslationsForEmptyResources: true,
+    );
+
+    expect(Localization.instance.tr('source'), 'Fallback');
+  });
 }

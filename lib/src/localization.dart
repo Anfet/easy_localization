@@ -15,7 +15,7 @@ class Localization {
   final _modifiers = <String, String Function(String?)>{
     'upper': (String? val) => val!.toUpperCase(),
     'lower': (String? val) => val!.toLowerCase(),
-    'capitalize': (String? val) => '${val![0].toUpperCase()}${val.substring(1)}'
+    'capitalize': (String? val) => val == null || val.isEmpty ? val ?? '' : '${val[0].toUpperCase()}${val.substring(1)}'
   };
 
   bool _useFallbackTranslationsForEmptyResources = false;
@@ -107,7 +107,7 @@ class Localization {
 
   String _replaceNamedArgs(String res, Map<String, String>? args) {
     if (args == null || args.isEmpty) return res;
-    args.forEach((String key, String value) => res = res.replaceAll(RegExp('{$key}'), value));
+    args.forEach((String key, String value) => res = res.replaceAll('{$key}', value));
     return res;
   }
 
