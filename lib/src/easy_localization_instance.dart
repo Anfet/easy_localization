@@ -73,7 +73,7 @@ class EasyLocalizationConfig {
         useFallbackTranslationsForEmptyResources == widget.useFallbackTranslationsForEmptyResources &&
         ignorePluralRules == widget.ignorePluralRules &&
         saveLocale == widget.saveLocale &&
-        additionalDelegates.isEmpty;
+        listEquals(additionalDelegates, widget.additionalDelegates);
   }
 }
 
@@ -160,6 +160,7 @@ class EasyLocalizationInstance {
   void dispose() {
     if (_disposed) return;
     _disposed = true;
+    _attachment = null;
     _controller.removeListener(_didCommit);
     _controller.dispose();
     for (final pending in _pending.toList()) {
@@ -256,6 +257,8 @@ class EasyLocalizationInstance {
       previous.finish(LocalizationDataOutcome.superseded, LocalizationApplyOutcome.superseded);
       _pending.remove(previous);
     }
+    _error = null;
+    _errorStage = null;
     final pending = _LocalizationPending(++_revision, target);
     pending.committed = committed;
     _active = pending;
@@ -275,16 +278,19 @@ class EasyLocalizationInstance {
       }
       // A same-locale command may only retry persistence, with no resource load.
       if (identical(_active, pending)) {
-        _committedRevision = pending.revision;
-        _publish(phase: _attached ? LocalizationPhase.applyScheduled : LocalizationPhase.idle);
+        _publish(phase: _attached && !pending.applied.isCompleted ? LocalizationPhase.applyScheduled : LocalizationPhase.idle);
       }
       pending.ready.complete(LocalizationDataOutcome.committed);
+      if (identical(_active, pending) && _attached && _data == _presentedData && !pending.applied.isCompleted) {
+        pending.applied.complete(LocalizationApplyOutcome.applied);
+        _publish();
+      }
       if (!_attached && !pending.applied.isCompleted) pending.applied.complete(LocalizationApplyOutcome.detached);
     } catch (error, stackTrace) {
       if (_disposed || pending.ready.isCompleted) return;
       if (identical(_active, pending)) {
         _publish(
-          phase: pending.committed && _attached ? LocalizationPhase.applyScheduled : LocalizationPhase.idle,
+          phase: pending.committed && _attached && !pending.applied.isCompleted ? LocalizationPhase.applyScheduled : LocalizationPhase.idle,
           error: error,
           errorStage: pending.committed ? LocalizationErrorStage.persistence : LocalizationErrorStage.resources,
         );
@@ -295,6 +301,9 @@ class EasyLocalizationInstance {
         pending.applied.complete(LocalizationApplyOutcome.failed);
       } else if (!_attached) {
         pending.applied.complete(LocalizationApplyOutcome.detached);
+      } else if (_data == _presentedData) {
+        pending.applied.complete(LocalizationApplyOutcome.applied);
+        _publish();
       }
     } finally {
       if (pending.applied.isCompleted) _pending.remove(pending);
@@ -322,15 +331,21 @@ class EasyLocalizationInstance {
   }
 
   void _publish({LocalizationPhase phase = LocalizationPhase.idle, Object? error, LocalizationErrorStage? errorStage}) {
+    if (error != null) {
+      _error = error;
+      _errorStage = errorStage;
+    }
     final value = LocalizationState(
       requestedLocale: _active?.target,
       requestedRevision: _active?.revision,
       committedLocale: locale,
       committedRevision: _committedRevision,
+      appliedLocale: _appliedLocale,
+      appliedRevision: _appliedRevision,
       isSystemMode: isSystemMode,
       phase: phase,
-      error: error,
-      errorStage: errorStage,
+      error: _error,
+      errorStage: _errorStage,
     );
     // Controller commits can happen during a legacy delegate's build/load.
     // Listeners are always notified outside that synchronous build stack.
@@ -339,18 +354,43 @@ class EasyLocalizationInstance {
     });
   }
 
-  void _attach() {
+  bool _canPresent(int revision) =>
+      !_disposed && revision == _committedRevision && (_active == null || _active?.committed == true || _active?.ready.isCompleted == true);
+
+  void _didApply(int revision, Locale locale) {
+    _presentedData = _data;
+    _appliedRevision = revision;
+    _appliedLocale = locale;
+    for (final pending in _pending.toList()) {
+      if (pending.committed && !pending.applied.isCompleted) pending.applied.complete(LocalizationApplyOutcome.applied);
+      if (pending.ready.isCompleted) _pending.remove(pending);
+    }
+    _publish();
+  }
+
+  void _failedPresentation(Object error) {
+    for (final pending in _pending.toList()) {
+      if (pending.committed && !pending.applied.isCompleted) pending.applied.complete(LocalizationApplyOutcome.failed);
+      if (pending.ready.isCompleted) _pending.remove(pending);
+    }
+    _publish(error: error, errorStage: LocalizationErrorStage.flutterDelegates);
+  }
+
+  void _attach(Object attachment) {
     _checkLive();
     if (_attached) throw StateError('Only one localization presentation root may attach');
-    _attached = true;
+    _attachment = attachment;
   }
 
   void _detach() {
-    _attached = false;
+    _attachment = null;
+    _presentedData = null;
+    _appliedRevision = null;
+    _appliedLocale = null;
     for (final pending in _pending.toList()) {
-      if (pending.ready.isCompleted && !pending.applied.isCompleted) {
+      if (!pending.applied.isCompleted) {
         pending.applied.complete(LocalizationApplyOutcome.detached);
-        _pending.remove(pending);
+        if (pending.ready.isCompleted) _pending.remove(pending);
       }
     }
     if (!_disposed && _data != null && identical(_instance, this)) Localization.publish(_data);
@@ -362,11 +402,17 @@ class EasyLocalizationInstance {
   final ValueNotifier<LocalizationState> _state;
   final Set<_LocalizationPending> _pending = {};
   Localization? _data;
+  Localization? _presentedData;
   _LocalizationPending? _active;
   int _revision = 0;
   int _committedRevision = 0;
+  Locale? _appliedLocale;
+  int? _appliedRevision;
+  Object? _error;
+  LocalizationErrorStage? _errorStage;
   bool _disposed = false;
-  bool _attached = false;
+  Object? _attachment;
+  bool get _attached => _attachment != null;
   static EasyLocalizationInstance? _instance;
   static EasyLocalizationConfig? _initializingConfig;
   static Future<EasyLocalizationInstance>? _initializing;

@@ -34,7 +34,7 @@ void main() {
     expect(find.text('de string'), findsOneWidget);
     expect(find.text('de text'), findsOneWidget);
     expect(find.text('de plural'), findsOneWidget);
-    expect(find.text('en snapshot'), findsOneWidget);
+    expect(find.text('de snapshot'), findsOneWidget);
     expect(find.text('count 1'), findsOneWidget);
     expect(tester.state(find.byType(_Page)), same(state));
     expect(ModalRoute.of(tester.element(find.byType(_Page)))?.isCurrent, isTrue);

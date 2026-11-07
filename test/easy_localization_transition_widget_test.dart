@@ -38,7 +38,6 @@ void main() {
         path: 'unused',
         assetLoader: loader,
         child: Builder(builder: (c) {
-          selection ??= c.setLocale(const Locale('de'));
           return MaterialApp(
               locale: c.locale,
               supportedLocales: c.supportedLocales,
@@ -49,6 +48,7 @@ void main() {
               }));
         }),
       ));
+      selection = tester.element(find.byType(SizedBox)).setLocale(const Locale('de'));
       if (initialFirst) {
         loader.requests['en']!.complete({'value': 'English'});
         await tester.pump();

@@ -12,6 +12,7 @@ void main() async {
     supportedLocales: [Locale('en', 'US'), Locale('ar', 'DZ'), Locale('de', 'DE'), Locale('ru', 'RU')],
     fallbackLocale: Locale('en', 'US'),
     path: 'resources/langs',
+    // Register every custom Flutter delegate here, e.g. additionalDelegates: [MyDelegate()].
     // startLocale: Locale('de', 'DE'),
     // saveLocale: false,
     // useOnlyLangCode: true,
@@ -29,6 +30,8 @@ void main() async {
     // assetLoader: XmlSingleAssetLoader() //single file
     // assetLoader: CodegenLoader()
   ));
+  // A ValueListenableBuilder on localization.state can show phase/error in the UI.
+  // receipt.ready waits for data/storage; receipt.applied waits for the root frame.
   // Data commands also work here, before a widget exists:
   // await localization.setLocale(const Locale('de', 'DE')).ready;
   runApp(EasyLocalization.withInstance(instance: localization, child: MyApp()));
@@ -78,7 +81,7 @@ class _MyHomePageState extends State<MyHomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(LocaleKeys.title).tr(context: context),
+        title: Text(LocaleKeys.title.tr()),
         actions: <Widget>[
           TextButton(
             onPressed: () {
@@ -127,7 +130,7 @@ class _MyHomePageState extends State<MyHomePage> {
               onPressed: () {
                 incrementCounter();
               },
-              child: Text(LocaleKeys.clickMe).tr(context: context),
+              child: Text(LocaleKeys.clickMe.tr()),
             ),
             SizedBox(
               height: 15,

@@ -3,10 +3,8 @@ import 'dart:async';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:easy_localization/src/easy_localization_controller.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart' show AsyncCallback, ValueListenable, listEquals;
+import 'package:flutter/foundation.dart' show AsyncCallback, ValueListenable, SynchronousFuture, listEquals;
 import 'package:flutter_localizations/flutter_localizations.dart';
-
-import 'translations.dart';
 
 part 'utils.dart';
 part 'easy_localization_instance.dart';
@@ -52,6 +50,7 @@ class EasyLocalization extends StatefulWidget {
         ignorePluralRules = instance.config.ignorePluralRules,
         assetLoader = instance.config.assetLoader,
         extraAssetLoaders = instance.config.extraAssetLoaders,
+        additionalDelegates = instance.config.additionalDelegates,
         saveLocale = instance.config.saveLocale,
         errorWidget = null,
         super(key: key);
@@ -153,6 +152,9 @@ class EasyLocalization extends StatefulWidget {
   /// @Default value `null`
   final List<AssetLoader>? extraAssetLoaders;
 
+  /// Registers all custom Flutter delegates for atomic preparation before apply.
+  final List<LocalizationsDelegate<dynamic>> additionalDelegates;
+
   /// Save locale in device storage.
   /// @Default value true
   final bool saveLocale;
@@ -177,6 +179,7 @@ class EasyLocalization extends StatefulWidget {
       linkedFileResolver: JsonLinkedFileResolver(fileLoader: RootBundleFileLoader()),
     ),
     this.extraAssetLoaders,
+    this.additionalDelegates = const [],
     this.saveLocale = true,
     this.errorWidget,
   })  : _providedInstance = null,
@@ -205,17 +208,44 @@ class EasyLocalization extends StatefulWidget {
 }
 
 class _EasyLocalizationState extends State<EasyLocalization> with WidgetsBindingObserver {
-  _EasyLocalizationDelegate? delegate;
-  EasyLocalizationController? localizationController;
-  late EasyLocalizationInstance _owner;
-  bool _ownsInstance = false;
-  bool _rootAttached = false;
-  FlutterError? translationsLoadError;
-  Completer<void> _resourceChange = Completer<void>();
+  @override
+  Widget build(BuildContext context) {
+    if (_failedRequest != null && _failedRequest != _owner._revision) {
+      _failedRequest = null;
+      _preparingRevision = -1;
+    }
+    _prepare();
+    final prepared = _prepared;
+    if (prepared != null && _owner._canPresent(prepared.revision) && !identical(prepared, _presentation)) {
+      _presentation = prepared;
+      Localization.publish(prepared.snapshot);
+      // Mark retained descendants before updateChild; keys, Elements and State survive.
+      void rebuild(Element element) {
+        element.markNeedsBuild();
+        element.visitChildren(rebuild);
+      }
 
-  void _signalResourceChange() {
-    _resourceChange.complete();
-    _resourceChange = Completer<void>();
+      (context as Element).visitChildren(rebuild);
+      final attachment = _attachment;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && identical(attachment, _owner._attachment) && identical(_presentation, prepared) && _owner._canPresent(prepared.revision)) {
+          _owner._didApply(prepared.revision, prepared.locale);
+        }
+      });
+    }
+    final presentation = _presentation;
+    final loadError = translationsLoadError;
+    return _EasyLocalizationProvider(
+      widget,
+      localizationController,
+      _owner,
+      presentation: presentation,
+      child: loadError != null
+          ? widget.errorWidget?.call(loadError) ?? ErrorWidget(loadError)
+          : presentation == null
+              ? const SizedBox.shrink()
+              : widget.child,
+    );
   }
 
   @override
@@ -243,8 +273,7 @@ class _EasyLocalizationState extends State<EasyLocalization> with WidgetsBinding
         useFallbackTranslations: widget.useFallbackTranslations,
         path: widget.path,
         onLoadError: (FlutterError e) {
-          _signalResourceChange();
-          if (mounted && localizationController?.translations == null) {
+          if (mounted && localizationController.translations == null) {
             setState(() {
               translationsLoadError = e;
             });
@@ -259,6 +288,7 @@ class _EasyLocalizationState extends State<EasyLocalization> with WidgetsBinding
         startLocale: widget.startLocale,
         assetLoader: widget.assetLoader,
         extraAssetLoaders: widget.extraAssetLoaders ?? const [],
+        additionalDelegates: widget.additionalDelegates,
         useOnlyLangCode: widget.useOnlyLangCode,
         useFallbackTranslations: widget.useFallbackTranslations,
         useFallbackTranslationsForEmptyResources: widget.useFallbackTranslationsForEmptyResources,
@@ -269,20 +299,17 @@ class _EasyLocalizationState extends State<EasyLocalization> with WidgetsBinding
       EasyLocalizationInstance._instance = _owner;
       _ownsInstance = true;
     }
-    _owner._attach();
+    _owner._attach(_attachment);
     _rootAttached = true;
     // causes localization to rebuild with new language
-    localizationController!.addListener(_resourcesChanged);
-    super.initState();
-  }
-
-  void _resourcesChanged() {
-    _signalResourceChange();
-    if (mounted) {
-      setState(() {
-        if (localizationController?.translations != null) translationsLoadError = null;
+    localizationController.addListener(_resourcesChanged);
+    _owner.state.addListener(_ownerChanged);
+    if (_owner._data == null) {
+      localizationController.loadTranslations().then<void>((_) {}, onError: (Object error, StackTrace stack) {
+        EasyLocalization.onError?.call(error.toString(), stackTrace: stack);
       });
     }
+    super.initState();
   }
 
   @override
@@ -301,7 +328,7 @@ class _EasyLocalizationState extends State<EasyLocalization> with WidgetsBinding
 
   Future<void> _applyDeviceLocale(Locale locale) async {
     try {
-      await localizationController?.updateDeviceLocale(locale);
+      await localizationController.updateDeviceLocale(locale);
     } on FlutterError {
       // The controller has already reported this load failure.
     } catch (error, stackTrace) {
@@ -319,8 +346,8 @@ class _EasyLocalizationState extends State<EasyLocalization> with WidgetsBinding
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _signalResourceChange();
-    localizationController?.removeListener(_resourcesChanged);
+    localizationController.removeListener(_resourcesChanged);
+    if (!_owner._disposed) _owner.state.removeListener(_ownerChanged);
     if (_rootAttached) {
       _owner._detach();
       if (_ownsInstance) _owner.dispose();
@@ -328,27 +355,100 @@ class _EasyLocalizationState extends State<EasyLocalization> with WidgetsBinding
     super.dispose();
   }
 
-  @override
-  Widget build(BuildContext context) {
-    EasyLocalization.onVerbose?.call('Build');
-    return _EasyLocalizationProvider(
-      widget,
-      localizationController!,
-      _owner,
-      delegate: _EasyLocalizationDelegate(
-        localizationController: localizationController,
-        waitForResourceChange: () => _resourceChange.future,
-        supportedLocales: widget.supportedLocales,
-        useFallbackTranslationsForEmptyResources: widget.useFallbackTranslationsForEmptyResources,
-        ignorePluralRules: widget.ignorePluralRules,
-      ),
-      child: translationsLoadError == null
-          ? widget.child
-          : widget.errorWidget != null
-              ? widget.errorWidget!(translationsLoadError)
-              : ErrorWidget(translationsLoadError!),
-    );
+  void _resourcesChanged() {
+    if (mounted) {
+      translationsLoadError = null;
+      setState(() {});
+    }
   }
+
+  void _ownerChanged() {
+    if (_owner._disposed || !mounted) return;
+    setState(() {});
+  }
+
+  Future<void> _prepare() async {
+    final snapshot = _owner._data;
+    final revision = _owner._committedRevision;
+    final locale = _owner.locale;
+    if (snapshot == null || revision == _preparingRevision || !_owner._canPresent(revision)) return;
+    _preparingRevision = revision;
+    try {
+      final delegates = <LocalizationsDelegate<dynamic>>[
+        ..._owner.config.additionalDelegates,
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ];
+      final selected = <Type>{Localization};
+      final adapters = <LocalizationsDelegate<dynamic>>[
+        _PreparedDelegate(type: Localization, value: snapshot, revision: revision),
+      ];
+      for (final delegate in delegates) {
+        if (!selected.contains(delegate.type) && delegate.isSupported(locale)) {
+          selected.add(delegate.type);
+          final value = await delegate.load(locale);
+          adapters.add(_PreparedDelegate(type: delegate.type, value: value, revision: revision));
+        }
+      }
+      if (!mounted || !_owner._canPresent(revision)) {
+        if (_preparingRevision == revision) _preparingRevision = -1;
+        return;
+      }
+      _prepared = _PreparedLocalization(snapshot, locale, revision, adapters);
+      setState(() => translationsLoadError = null);
+    } catch (error, stack) {
+      if (!mounted || !_owner._canPresent(revision)) {
+        if (_preparingRevision == revision) _preparingRevision = -1;
+        return;
+      }
+      EasyLocalization.onError?.call('Flutter localization delegate failed: $error', stackTrace: stack);
+      _failedRequest = _owner._revision;
+      _owner._failedPresentation(error);
+      if (_presentation == null) setState(() => translationsLoadError = FlutterError(error.toString()));
+    }
+  }
+
+  _PreparedLocalization? _prepared;
+  _PreparedLocalization? _presentation;
+  int _preparingRevision = -1;
+  final Object _attachment = Object();
+  int? _failedRequest;
+  late EasyLocalizationController localizationController;
+  late EasyLocalizationInstance _owner;
+  bool _ownsInstance = false;
+  bool _rootAttached = false;
+  FlutterError? translationsLoadError;
+}
+
+/// A complete Flutter resource set for one immutable data revision.
+class _PreparedLocalization {
+  final Localization snapshot;
+  final Locale locale;
+  final int revision;
+  final List<LocalizationsDelegate<dynamic>> delegates;
+
+  _PreparedLocalization(this.snapshot, this.locale, this.revision, List<LocalizationsDelegate<dynamic>> delegates)
+      : delegates = List.unmodifiable(delegates);
+}
+
+/// Preserves the original delegate's resource type, including custom types.
+class _PreparedDelegate extends LocalizationsDelegate<dynamic> {
+  @override
+  final Type type;
+  final dynamic value;
+  final int revision;
+
+  const _PreparedDelegate({required this.type, required this.value, required this.revision});
+
+  @override
+  bool isSupported(Locale locale) => true;
+
+  @override
+  Future<dynamic> load(Locale locale) => SynchronousFuture<dynamic>(value);
+
+  @override
+  bool shouldReload(_PreparedDelegate old) => old.revision != revision || !identical(old.value, value);
 }
 
 class _EasyLocalizationProvider extends InheritedWidget {
@@ -356,45 +456,22 @@ class _EasyLocalizationProvider extends InheritedWidget {
   final EasyLocalizationController _localeState;
   final EasyLocalizationInstance _owner;
   final Locale? currentLocale;
-  final _EasyLocalizationDelegate delegate;
-  final bool _translationsLoaded;
-  final Translations? _translations;
-  final Translations? _fallbackTranslations;
+  final _PreparedLocalization? presentation;
 
   /// {@macro flutter.widgets.widgetsApp.localizationsDelegates}
-  ///
-  /// ```dart
-  ///   delegates = [
-  ///     delegate
-  ///     GlobalMaterialLocalizations.delegate,
-  ///     GlobalWidgetsLocalizations.delegate,
-  ///     GlobalCupertinoLocalizations.delegate
-  ///   ],
-  /// ```
-  List<LocalizationsDelegate> get delegates => [
-        delegate,
-        GlobalMaterialLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
-        ..._owner.config.additionalDelegates,
-      ];
+  /// Includes the internal snapshot, configured custom resources and standard
+  /// Material, Widgets and Cupertino resources, all prepared for this presentation.
+  List<LocalizationsDelegate> get delegates => presentation?.delegates ?? const [];
 
   /// Get List of supported locales
   List<Locale> get supportedLocales => parent.supportedLocales;
 
-  // _EasyLocalizationDelegate get delegate => parent.delegate;
-
-  _EasyLocalizationProvider(this.parent, this._localeState, this._owner, {Key? key, required this.delegate, required Widget child})
-      : currentLocale = _localeState.locale,
-        _translationsLoaded = _localeState.translations != null,
-        _translations = _localeState.translations,
-        _fallbackTranslations = _localeState.fallbackTranslations,
-        super(key: key, child: child) {
-    EasyLocalization.onVerbose?.call('Init provider');
-  }
+  _EasyLocalizationProvider(this.parent, this._localeState, this._owner, {Key? key, required this.presentation, required Widget child})
+      : currentLocale = presentation?.locale ?? _localeState.locale,
+        super(key: key, child: child);
 
   /// Get current locale
-  Locale get locale => _localeState.locale;
+  Locale get locale => currentLocale ?? _localeState.locale;
 
   /// Get fallback locale
   Locale? get fallbackLocale => parent.fallbackLocale;
@@ -428,64 +505,8 @@ class _EasyLocalizationProvider extends InheritedWidget {
 
   @override
   bool updateShouldNotify(_EasyLocalizationProvider oldWidget) {
-    return oldWidget.currentLocale != currentLocale ||
-        oldWidget._translationsLoaded != _translationsLoaded ||
-        !identical(oldWidget._translations, _translations) ||
-        !identical(oldWidget._fallbackTranslations, _fallbackTranslations);
+    return !identical(oldWidget.presentation, presentation);
   }
 
   static _EasyLocalizationProvider? of(BuildContext context) => context.dependOnInheritedWidgetOfExactType<_EasyLocalizationProvider>();
-}
-
-class _EasyLocalizationDelegate extends LocalizationsDelegate<Localization> {
-  final List<Locale>? supportedLocales;
-  final EasyLocalizationController? localizationController;
-  final Future<void> Function() waitForResourceChange;
-  final bool useFallbackTranslationsForEmptyResources;
-  final bool ignorePluralRules;
-  final Translations? _translations;
-  final Translations? _fallbackTranslations;
-
-  ///  * use only the lang code to generate i18n file path like en.json or ar.json
-  // final bool useOnlyLangCode;
-
-  _EasyLocalizationDelegate({
-    required this.useFallbackTranslationsForEmptyResources,
-    required this.waitForResourceChange,
-    this.ignorePluralRules = true,
-    this.localizationController,
-    this.supportedLocales,
-  })  : _translations = localizationController?.translations,
-        _fallbackTranslations = localizationController?.fallbackTranslations {
-    EasyLocalization.onVerbose?.call('Init Localization Delegate');
-  }
-
-  @override
-  bool isSupported(Locale locale) => supportedLocales!.contains(locale);
-
-  @override
-  Future<Localization> load(Locale value) async {
-    EasyLocalization.onVerbose?.call('Load Localization Delegate');
-    if (localizationController!.translations == null) {
-      final resourceChange = waitForResourceChange();
-      await localizationController!.loadTranslations();
-      if (localizationController!.translations == null) await resourceChange;
-    }
-
-    if (value != localizationController!.locale || localizationController!.translations == null) {
-      return Localization.instance;
-    }
-    Localization.load(
-      value,
-      translations: localizationController!.translations,
-      fallbackTranslations: localizationController!.fallbackTranslations,
-      useFallbackTranslationsForEmptyResources: useFallbackTranslationsForEmptyResources,
-      ignorePluralRules: ignorePluralRules,
-    );
-    return Future.value(Localization.instance);
-  }
-
-  @override
-  bool shouldReload(_EasyLocalizationDelegate old) =>
-      !identical(old._translations, _translations) || !identical(old._fallbackTranslations, _fallbackTranslations);
 }

@@ -171,6 +171,39 @@ await localization.setLocale(const Locale('de')).ready;
 runApp(EasyLocalization.withInstance(instance: localization, child: const MyApp()));
 ```
 
+The root prepares every Flutter delegate before publishing a presentation. Register
+custom delegates in `EasyLocalizationConfig(additionalDelegates: [MyDelegate()])`
+(or the legacy constructor's `additionalDelegates`). Wire all three provider values:
+
+```dart
+MaterialApp(
+  locale: context.locale,
+  supportedLocales: context.supportedLocales,
+  localizationsDelegates: context.localizationDelegates,
+  home: const MyHomePage(),
+);
+// In build: ordinary widgets update even in retained const subtrees and routes.
+Text('title'.tr());
+TextField(decoration: InputDecoration(hintText: 'hint'.tr()));
+TextButton(onPressed: submit, child: Text('submit'.tr()));
+```
+
+Keep custom asynchronous delegates inside that config to include them in the same
+atomic presentation. While they load, Flutter resources and global `tr`/`plural`
+keep showing the previous presentation; `dataTranslator` already reads committed
+data. Delegate errors preserve the previous presentation and appear in
+`localization.state` with `errorStage == LocalizationErrorStage.flutterDelegates`.
+Issue another command to retry. A `ValueListenableBuilder<LocalizationState>` can
+show progress while `state.phase != LocalizationPhase.idle` and display errors.
+
+`await change.ready` completes resources and storage without waiting for a frame.
+`await change.applied` reports `applied` after the root's build/layout frame, or a
+terminal `superseded`, `detached`, `failed`, or `disposed` outcome. Borrowed owners
+survive root removal, and remounting prepares current data again; completed
+receipts stay terminal. Strings computed outside build remain captured values.
+Nested `Localizations.override` consumers should use an explicit context or
+translator because global translation represents one presentation.
+
 `initialize` ensures the Flutter binding and completes after all selected resources
 and the required startup write. It chooses `startLocale` first, otherwise the saved
 choice when `saveLocale: true`, otherwise a supported system locale or the required
