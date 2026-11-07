@@ -74,7 +74,15 @@ extension MapExtension<K> on Map<K, dynamic> {
         continue;
       }
 
-      this[entry.key] = newValue;
+      this[entry.key] = _copyContainer(newValue);
     }
+  }
+
+  dynamic _copyContainer(dynamic value) {
+    if (value is Map<K, dynamic>) {
+      return <K, dynamic>{}..addAllRecursive(value);
+    }
+    if (value is List) return value.map(_copyContainer).toList();
+    return value;
   }
 }

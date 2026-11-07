@@ -132,7 +132,7 @@ class EasyLocalizationController extends ChangeNotifier {
             baseLangData = await loadBaseLangTranslationData(Locale(target.languageCode));
           }
           final fallbackData = Map<String, dynamic>.from(await loadTranslationData(_fallbackLocale!));
-          if (baseLangData != null) fallbackData.addAll(baseLangData);
+          if (baseLangData != null) fallbackData.addAllRecursive(baseLangData);
           fallback = Translations(fallbackData);
         }
         resources = _LocaleResources(target, Translations(data), fallback);
