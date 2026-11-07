@@ -317,6 +317,10 @@ class EasyLocalizationInstance {
       }
     } finally {
       if (pending.applied.isCompleted) _pending.remove(pending);
+      final active = _active;
+      if (!_disposed && (identical(active, pending) || (active != null && active.ready.isCompleted && active.applied.isCompleted))) {
+        _publish(phase: active != null && _attached && !active.applied.isCompleted ? LocalizationPhase.applyScheduled : LocalizationPhase.idle);
+      }
     }
   }
 
@@ -353,7 +357,7 @@ class EasyLocalizationInstance {
       appliedLocale: _appliedLocale,
       appliedRevision: _appliedRevision,
       isSystemMode: isSystemMode,
-      phase: phase,
+      phase: phase == LocalizationPhase.idle && _pending.any((pending) => !pending.ready.isCompleted) ? LocalizationPhase.loading : phase,
       error: _error,
       errorStage: _errorStage,
     );

@@ -210,6 +210,43 @@ void main() {
     }
   });
 
+  for (final failure in [false, true]) {
+    testWidgets('busy waits for storage after presentation ${failure ? 'fails' : 'succeeds'}', (tester) async {
+      final original = SharedPreferencesStorePlatform.instance;
+      final store = _RetryStore();
+      SharedPreferencesStorePlatform.instance = store;
+      SharedPreferences.resetStatic();
+      final delegate = _Delegate();
+      final instance = await owner(_Loader(), delegate, true);
+      try {
+        await tester.pumpWidget(EasyLocalization.withInstance(instance: instance, child: const _App(home: _Leaf(label: 'home'))));
+        await tester.pumpAndSettle();
+        final gate = Completer<void>();
+        store.gate = gate;
+        delegate.fail = failure;
+        final change = instance.setLocale(Locale(failure ? 'ar' : 'de'));
+        var ready = false;
+        change.ready.then((_) => ready = true);
+        await tester.pumpAndSettle();
+        expect(await change.applied, failure ? LocalizationApplyOutcome.failed : LocalizationApplyOutcome.applied);
+        expect(ready, isFalse);
+        expect(instance.state.value.phase, isNot(LocalizationPhase.idle));
+        if (failure) expect(instance.state.value.errorStage, LocalizationErrorStage.flutterDelegates);
+        gate.complete();
+        expect(await change.ready, LocalizationDataOutcome.committed);
+        await tester.pump();
+        expect(instance.state.value.phase, LocalizationPhase.idle);
+      } finally {
+        final gate = store.gate;
+        if (gate != null && !gate.isCompleted) gate.complete();
+        await tester.pumpWidget(const SizedBox());
+        instance.dispose();
+        SharedPreferencesStorePlatform.instance = original;
+        SharedPreferences.resetStatic();
+      }
+    });
+  }
+
   testWidgets('first mount waits for all delegates and recovers from preflight failure without changing data', (tester) async {
     final delegate = _Delegate()..fail = true;
     final instance = await owner(_Loader(), delegate);
@@ -375,12 +412,14 @@ class _PageState extends State<_Page> {
 
 class _RetryStore extends SharedPreferencesStorePlatform {
   bool fail = false;
+  Completer<void>? gate;
   final values = <String, Object>{};
   @override
   Future<Map<String, Object>> getAll() async => Map.of(values);
   @override
   Future<bool> setValue(String valueType, String key, Object value) async {
     if (fail) return false;
+    await gate?.future;
     values[key] = value;
     return true;
   }
