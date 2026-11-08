@@ -72,6 +72,39 @@ Future<void> main() async {
     expect(snapshot.tr('test'), 'test');
   });
 
+  testWidgets('legacy root remounts while the previous bootstrap is loading', (tester) async {
+    tester.binding.platformDispatcher.localesTestValue = const [Locale('en')];
+    addTearDown(tester.binding.platformDispatcher.clearLocalesTestValue);
+    final loader = InstanceLoader();
+    final gate = Completer<Map<String, dynamic>?>();
+    loader.gates['en'] = [gate];
+    Widget root() => EasyLocalization(
+      supportedLocales: const [Locale('en'), Locale('de')],
+      path: 'unused',
+      saveLocale: false,
+      assetLoader: loader,
+      child: MaterialApp(home: Builder(builder: (_) => Text(tr('value')))),
+    );
+
+    await tester.pumpWidget(root());
+    await tester.pump();
+    expect(loader.calls, [const Locale('en')]);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pumpWidget(root());
+    expect(tester.takeException(), isNull);
+    gate.complete({'value': 'loaded'});
+    await tester.pumpAndSettle();
+    expect(find.text('en'), findsOneWidget);
+    final owner = EasyLocalization.instance;
+    await tester.pumpWidget(const SizedBox());
+    expect(() => EasyLocalization.instance, throwsStateError);
+    expect(() => owner.setLocale(const Locale('en')), throwsStateError);
+    final callsAfterDispose = loader.calls.length;
+    tester.binding.platformDispatcher.localesTestValue = const [Locale('de')];
+    await tester.pumpAndSettle();
+    expect(loader.calls.length, callsAfterDispose);
+  });
+
   testWidgets('legacy and borrowed roots select the same saved language', (tester) async {
     SharedPreferences.setMockInitialValues({'locale': 'de'});
     final loader = InstanceLoader();

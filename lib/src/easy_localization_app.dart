@@ -268,18 +268,29 @@ class _EasyLocalizationState extends State<EasyLocalization> {
       saveLocale: widget.saveLocale,
     );
     _ownsInstance = true;
-    EasyLocalization.initialize(config).then(
-      (owner) {
-        if (!mounted) {
-          owner.dispose();
-          return;
-        }
-        setState(() => _attachOwner(owner));
-      },
-      onError: (Object error, StackTrace stack) {
-        if (mounted) setState(() => translationsLoadError = error is FlutterError ? error : FlutterError(error.toString()));
-      },
-    );
+    _initializeLegacy(config);
+  }
+
+  Future<void> _initializeLegacy(EasyLocalizationConfig config) async {
+    final pending = EasyLocalizationInstance._initializing;
+    if (pending != null) {
+      try {
+        await pending;
+      } catch (_) {
+        // The previous root reports its own bootstrap failure.
+      }
+      if (!mounted) return;
+    }
+    try {
+      final owner = await EasyLocalization.initialize(config);
+      if (!mounted) {
+        owner.dispose();
+        return;
+      }
+      setState(() => _attachOwner(owner));
+    } catch (error) {
+      if (mounted) setState(() => translationsLoadError = error is FlutterError ? error : FlutterError(error.toString()));
+    }
   }
 
   void _attachOwner(EasyLocalizationInstance owner) {
