@@ -7,7 +7,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_platform_interface.dart';
 
 class Loader extends AssetLoader {
-  Loader() : super(linkedFileResolver: const JsonLinkedFileResolver(fileLoader: RootBundleFileLoader()), fileLoader: const RootBundleFileLoader());
+  Loader()
+    : super(
+        linkedFileResolver: const JsonLinkedFileResolver(fileLoader: RootBundleFileLoader()),
+        fileLoader: const RootBundleFileLoader(),
+      );
   final pending = <String, Completer<Map<String, dynamic>?>>{};
   @override
   Future<Map<String, dynamic>?> load(String path, Locale locale) => pending.putIfAbsent(locale.toString(), () => Completer()).future;
@@ -85,14 +89,15 @@ void main() {
     EasyLocalization.onError = null;
   });
   EasyLocalizationController controller(Loader loader, {bool save = false, void Function(FlutterError)? onError}) => EasyLocalizationController(
-      supportedLocales: const [Locale('en'), Locale('de'), Locale('fr')],
-      useFallbackTranslations: false,
-      saveLocale: save,
-      assetLoader: loader,
-      path: '',
-      useOnlyLangCode: false,
-      onLoadError: onError ?? (_) {},
-      forceLocale: const Locale('en'));
+    supportedLocales: const [Locale('en'), Locale('de'), Locale('fr')],
+    useFallbackTranslations: false,
+    saveLocale: save,
+    assetLoader: loader,
+    path: '',
+    useOnlyLangCode: false,
+    onLoadError: onError ?? (_) {},
+    forceLocale: const Locale('en'),
+  );
 
   test('deferred reload follows the accepted selection and combines callers', () async {
     final loader = Loader();
@@ -293,9 +298,12 @@ void main() {
     EasyLocalization.onError = (message, {stackTrace}) {
       diagnostics++;
     };
-    final c = controller(loader, onError: (_) {
-      errors++;
-    });
+    final c = controller(
+      loader,
+      onError: (_) {
+        errors++;
+      },
+    );
     final initial = c.loadTranslations();
     loader.complete('en');
     await initial;
@@ -316,9 +324,12 @@ void main() {
   test('onError starting a newer choice suppresses the old load error', () async {
     final loader = Loader();
     var loadErrors = 0;
-    final c = controller(loader, onError: (_) {
-      loadErrors++;
-    });
+    final c = controller(
+      loader,
+      onError: (_) {
+        loadErrors++;
+      },
+    );
     late Future<void> next;
     EasyLocalization.onError = (message, {stackTrace}) {
       next = c.setLocale(const Locale('fr'));
@@ -334,34 +345,45 @@ void main() {
     c.dispose();
   });
 
-  test('onError exception propagates even when it starts a newer choice', () async {
+  test('onError callback failure is reported and does not replace the load result', () async {
     final loader = Loader();
+    final reported = <FlutterErrorDetails>[];
+    final previousHandler = FlutterError.onError;
+    FlutterError.onError = reported.add;
     var loadErrors = 0;
-    final c = controller(loader, onError: (_) {
-      loadErrors++;
-    });
+    final c = controller(loader, onError: (_) => loadErrors++);
     final callbackError = StateError('callback');
     late Future<void> next;
     EasyLocalization.onError = (message, {stackTrace}) {
       next = c.setLocale(const Locale('fr'));
       throw callbackError;
     };
-    final initial = c.loadTranslations();
-    loader.pending['en']!.completeError(StateError('initial'));
-    await expectLater(initial, throwsA(same(callbackError)));
-    expect(loadErrors, 0);
-    loader.complete('fr');
-    await next;
-    expect(c.locale, const Locale('fr'));
-    c.dispose();
+    try {
+      final initial = c.loadTranslations();
+      loader.pending['en']!.completeError(StateError('initial'));
+      await initial;
+      expect(reported, hasLength(1));
+      expect(reported.single.exception, same(callbackError));
+      expect(loadErrors, 0);
+      loader.complete('fr');
+      await next;
+      expect(c.locale, const Locale('fr'));
+      expect(c.translations?.get('value'), 'fr');
+    } finally {
+      FlutterError.onError = previousHandler;
+      c.dispose();
+    }
   });
 
   test('onError disposing controller suppresses the old load error', () async {
     final loader = Loader();
     var loadErrors = 0;
-    final c = controller(loader, onError: (_) {
-      loadErrors++;
-    });
+    final c = controller(
+      loader,
+      onError: (_) {
+        loadErrors++;
+      },
+    );
     EasyLocalization.onError = (message, {stackTrace}) {
       c.dispose();
     };

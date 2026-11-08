@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:ui';
 import 'package:easy_localization/easy_localization.dart';
+import 'package:easy_localization/src/diagnostics.dart';
 import 'package:easy_localization/src/file_loaders/file_loader.dart';
 import 'package:easy_localization/src/file_loaders/io_file_loader.dart';
 
@@ -34,7 +35,7 @@ abstract class AssetLoader {
 ///
 class RootBundleAssetLoader extends AssetLoader {
   const RootBundleAssetLoader({required LinkedFileResolver linkedFileResolver, required FileLoader fileLoader})
-      : super(linkedFileResolver: linkedFileResolver, fileLoader: fileLoader);
+    : super(linkedFileResolver: linkedFileResolver, fileLoader: fileLoader);
 
   factory RootBundleAssetLoader.fromRootBundle() {
     return const RootBundleAssetLoader(
@@ -57,14 +58,7 @@ class RootBundleAssetLoader extends AssetLoader {
   @override
   Future<Map<String, dynamic>?> load(String path, Locale locale) async {
     var localePath = getLocalePath(path, locale);
-    try {
-      final callerZone = Zone.current[#easyLocalizationCallbackZone] as Zone?;
-      final callbackZone = callerZone != null && Zone.current.parent == callerZone ? callerZone : Zone.current;
-      callbackZone.run(() => EasyLocalization.onVerbose?.call('Load asset from $path'));
-    } catch (error, stackTrace) {
-      (Zone.current[#easyLocalizationCallbackErrors] as List<AsyncError>?)?.add(AsyncError(error, stackTrace));
-      rethrow;
-    }
+    reportLocalizationDiagnostic(EasyLocalization.onVerbose, 'Load asset from $path');
 
     Map<String, dynamic> baseJson = json.decode(await fileLoader.loadString(localePath));
     return await linkedFileResolver.resolveLinkedFilesForLocale(

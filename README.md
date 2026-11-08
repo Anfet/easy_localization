@@ -718,8 +718,7 @@ await EasyLocalization.ensureInitialized();
 
 Each callback runs synchronously in the current zone. Resource errors include their
 original stack trace. Set a callback to `null` to disable that category. The application
-controls filtering, formatting and output, and is responsible for handling exceptions
-in its callbacks; exceptions propagate to the caller.
+controls filtering, formatting and output, and receives callback exceptions through `FlutterError.reportError`; callback exceptions do not affect localization work. The application remains responsible for handling those reported errors.
 
 This replaces the incompatible `EasyLocalization.logger` API:
 

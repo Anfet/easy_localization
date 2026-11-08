@@ -47,9 +47,9 @@ class EasyLocalizationConfig {
     this.useFallbackTranslationsForEmptyResources = false,
     this.ignorePluralRules = false,
     this.saveLocale = true,
-  })  : supportedLocales = List.unmodifiable(supportedLocales),
-        extraAssetLoaders = List.unmodifiable(extraAssetLoaders),
-        additionalDelegates = List.unmodifiable(additionalDelegates);
+  }) : supportedLocales = List.unmodifiable(supportedLocales),
+       extraAssetLoaders = List.unmodifiable(extraAssetLoaders),
+       additionalDelegates = List.unmodifiable(additionalDelegates);
 
   void _validate() {
     if (supportedLocales.isEmpty) throw ArgumentError.value(supportedLocales, 'supportedLocales', 'Must not be empty');
@@ -138,8 +138,11 @@ class EasyLocalizationInstance with WidgetsBindingObserver {
     _checkLive();
     final config = _config;
     if (!config.supportedLocales.contains(locale)) throw ArgumentError.value(locale, 'locale', 'Must be supported');
-    return _controller.loadSnapshot(locale,
-        useFallbackForEmpty: config.useFallbackTranslationsForEmptyResources, ignorePluralRules: config.ignorePluralRules);
+    return _controller.loadSnapshot(
+      locale,
+      useFallbackForEmpty: config.useFallbackTranslationsForEmptyResources,
+      ignorePluralRules: config.ignorePluralRules,
+    );
   }
 
   /// Reserves a revision synchronously; unsupported locales throw immediately.
@@ -190,7 +193,7 @@ class EasyLocalizationInstance with WidgetsBindingObserver {
   }
 
   EasyLocalizationInstance._(this._config, this._controller)
-      : _state = ValueNotifier(LocalizationState(committedLocale: _controller.locale, committedRevision: 0, isSystemMode: _controller.isSystemMode)) {
+    : _state = ValueNotifier(LocalizationState(committedLocale: _controller.locale, committedRevision: 0, isSystemMode: _controller.isSystemMode)) {
     _controller.addListener(_didCommit);
     if (_controller.strictErrors) WidgetsBinding.instance.addObserver(this);
   }
@@ -258,9 +261,13 @@ class EasyLocalizationInstance with WidgetsBindingObserver {
       final start = config.startLocale;
       final saved = start == null && config.saveLocale ? await EasyLocalizationController.readSavedLocale(config.supportedLocales) : null;
       final explicit = start ?? saved;
-      final target = explicit ??
+      final target =
+          explicit ??
           EasyLocalizationController.selectPreferredLocale(
-              config.supportedLocales, WidgetsBinding.instance.platformDispatcher.locales, config.fallbackLocale);
+            config.supportedLocales,
+            WidgetsBinding.instance.platformDispatcher.locales,
+            config.fallbackLocale,
+          );
       final controller = EasyLocalizationController(
         supportedLocales: config.supportedLocales,
         fallbackLocale: config.fallbackLocale,
@@ -376,11 +383,13 @@ class EasyLocalizationInstance with WidgetsBindingObserver {
   void _didCommit() {
     final translations = _controller.translations;
     if (translations == null || _disposed) return;
-    _data = Localization.snapshot(locale,
-        translations: translations,
-        fallbackTranslations: _controller.fallbackTranslations,
-        useFallbackTranslationsForEmptyResources: _config.useFallbackTranslationsForEmptyResources,
-        ignorePluralRules: _config.ignorePluralRules);
+    _data = Localization.snapshot(
+      locale,
+      translations: translations,
+      fallbackTranslations: _controller.fallbackTranslations,
+      useFallbackTranslationsForEmptyResources: _config.useFallbackTranslationsForEmptyResources,
+      ignorePluralRules: _config.ignorePluralRules,
+    );
     final active = _active;
     if (active != null && !active.ready.isCompleted && !(_controller.strictErrors && _controller.lastCommitWasSystemEvent)) {
       active.committed = true;

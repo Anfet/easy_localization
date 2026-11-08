@@ -2,15 +2,14 @@ import 'dart:async';
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:easy_localization/src/easy_localization_controller.dart';
+import 'package:easy_localization/src/diagnostics.dart' show LocalizationLogCallback, reportLocalizationDiagnostic;
+export 'package:easy_localization/src/diagnostics.dart' show LocalizationLogCallback;
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show AsyncCallback, ValueListenable, SynchronousFuture, listEquals;
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 part 'utils.dart';
 part 'easy_localization_instance.dart';
-
-/// Receives a diagnostic message and its optional original stack trace.
-typedef LocalizationLogCallback = void Function(String message, {StackTrace? stackTrace});
 
 ///  EasyLocalization
 ///  example:
@@ -39,22 +38,22 @@ class EasyLocalization extends StatefulWidget {
 
   /// Borrows a ready owner. Removing this root leaves the owner usable.
   EasyLocalization.withInstance({Key? key, required EasyLocalizationInstance instance, required this.child})
-      : _providedInstance = instance,
-        supportedLocales = instance.config.supportedLocales,
-        path = instance.config.path,
-        fallbackLocale = instance.config.fallbackLocale,
-        startLocale = instance.config.startLocale,
-        useOnlyLangCode = instance.config.useOnlyLangCode,
-        useFallbackTranslations = instance.config.useFallbackTranslations,
-        useBaseLanguageFallback = instance.config.useBaseLanguageFallback,
-        useFallbackTranslationsForEmptyResources = instance.config.useFallbackTranslationsForEmptyResources,
-        ignorePluralRules = instance.config.ignorePluralRules,
-        assetLoader = instance.config.assetLoader,
-        extraAssetLoaders = instance.config.extraAssetLoaders,
-        additionalDelegates = instance.config.additionalDelegates,
-        saveLocale = instance.config.saveLocale,
-        errorWidget = null,
-        super(key: key);
+    : _providedInstance = instance,
+      supportedLocales = instance.config.supportedLocales,
+      path = instance.config.path,
+      fallbackLocale = instance.config.fallbackLocale,
+      startLocale = instance.config.startLocale,
+      useOnlyLangCode = instance.config.useOnlyLangCode,
+      useFallbackTranslations = instance.config.useFallbackTranslations,
+      useBaseLanguageFallback = instance.config.useBaseLanguageFallback,
+      useFallbackTranslationsForEmptyResources = instance.config.useFallbackTranslationsForEmptyResources,
+      ignorePluralRules = instance.config.ignorePluralRules,
+      assetLoader = instance.config.assetLoader,
+      extraAssetLoaders = instance.config.extraAssetLoaders,
+      additionalDelegates = instance.config.additionalDelegates,
+      saveLocale = instance.config.saveLocale,
+      errorWidget = null,
+      super(key: key);
 
   final EasyLocalizationInstance? _providedInstance;
 
@@ -187,11 +186,11 @@ class EasyLocalization extends StatefulWidget {
     this.additionalDelegates = const [],
     this.saveLocale = true,
     this.errorWidget,
-  })  : _providedInstance = null,
-        assert(supportedLocales.isNotEmpty),
-        assert(path.isNotEmpty),
-        super(key: key) {
-    EasyLocalization.onVerbose?.call('Start');
+  }) : _providedInstance = null,
+       assert(supportedLocales.isNotEmpty),
+       assert(path.isNotEmpty),
+       super(key: key) {
+    reportLocalizationDiagnostic(EasyLocalization.onVerbose, 'Start');
   }
 
   @override
@@ -248,14 +247,14 @@ class _EasyLocalizationState extends State<EasyLocalization> with WidgetsBinding
       child: loadError != null
           ? widget.errorWidget?.call(loadError) ?? ErrorWidget(loadError)
           : presentation == null
-              ? const SizedBox.shrink()
-              : widget.child,
+          ? const SizedBox.shrink()
+          : widget.child,
     );
   }
 
   @override
   void initState() {
-    EasyLocalization.onVerbose?.call('Init state');
+    reportLocalizationDiagnostic(EasyLocalization.onVerbose, 'Init state');
     final provided = widget._providedInstance;
     final ready = EasyLocalizationInstance._instance;
     if (provided != null || ready != null) {
@@ -312,9 +311,12 @@ class _EasyLocalizationState extends State<EasyLocalization> with WidgetsBinding
     localizationController.addListener(_resourcesChanged);
     _owner.state.addListener(_ownerChanged);
     if (_owner._data == null) {
-      localizationController.loadTranslations().then<void>((_) {}, onError: (Object error, StackTrace stack) {
-        EasyLocalization.onError?.call(error.toString(), stackTrace: stack);
-      });
+      localizationController.loadTranslations().then<void>(
+        (_) {},
+        onError: (Object error, StackTrace stack) {
+          reportLocalizationDiagnostic(EasyLocalization.onError, error.toString(), stackTrace: stack);
+        },
+      );
     }
     super.initState();
   }
@@ -388,9 +390,7 @@ class _EasyLocalizationState extends State<EasyLocalization> with WidgetsBinding
         GlobalCupertinoLocalizations.delegate,
       ];
       final selected = <Type>{Localization};
-      final adapters = <LocalizationsDelegate<dynamic>>[
-        _PreparedDelegate(type: Localization, value: snapshot, revision: revision),
-      ];
+      final adapters = <LocalizationsDelegate<dynamic>>[_PreparedDelegate(type: Localization, value: snapshot, revision: revision)];
       for (final delegate in delegates) {
         if (!selected.contains(delegate.type) && delegate.isSupported(locale)) {
           selected.add(delegate.type);
@@ -409,7 +409,7 @@ class _EasyLocalizationState extends State<EasyLocalization> with WidgetsBinding
         if (_preparingRevision == revision) _preparingRevision = -1;
         return;
       }
-      EasyLocalization.onError?.call('Flutter localization delegate failed: $error', stackTrace: stack);
+      reportLocalizationDiagnostic(EasyLocalization.onError, 'Flutter localization delegate failed: $error', stackTrace: stack);
       _failedRequest = _owner._revision;
       _owner._failedPresentation(error);
       if (_presentation == null) setState(() => translationsLoadError = FlutterError(error.toString()));
@@ -436,7 +436,7 @@ class _PreparedLocalization {
   final List<LocalizationsDelegate<dynamic>> delegates;
 
   _PreparedLocalization(this.snapshot, this.locale, this.revision, List<LocalizationsDelegate<dynamic>> delegates)
-      : delegates = List.unmodifiable(delegates);
+    : delegates = List.unmodifiable(delegates);
 }
 
 /// Preserves the original delegate's resource type, including custom types.
@@ -474,8 +474,8 @@ class _EasyLocalizationProvider extends InheritedWidget {
   List<Locale> get supportedLocales => parent.supportedLocales;
 
   _EasyLocalizationProvider(this.parent, this._localeState, this._owner, {Key? key, required this.presentation, required Widget child})
-      : currentLocale = presentation?.locale ?? _localeState.locale,
-        super(key: key, child: child);
+    : currentLocale = presentation?.locale ?? _localeState.locale,
+      super(key: key, child: child);
 
   /// Get current locale
   Locale get locale => currentLocale ?? _localeState.locale;

@@ -13,6 +13,8 @@ Entries through 3.0.9 preserve the history of the original project. Version 4.0.
 
 #### Added
 
+- Diagnostic callback exceptions are reported through `FlutterError.reportError` and do not change localization results.
+
 - Added `EasyLocalization.initialize` for localization before the widget tree, with a single owner shared by global translation calls and the root widget.
 - Added awaitable locale commands with separate resource/storage (`ready`) and presentation (`applied`) outcomes, plus `reloadTranslations` for changed loader data.
 - Added explicit fallback lookup through `trExists(includeFallback: true)` and strict missing-resource errors for the new owner.

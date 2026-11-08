@@ -1,6 +1,7 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/widgets.dart';
 
+import 'package:easy_localization/src/diagnostics.dart';
 import 'plural_rules.dart';
 import 'translations.dart';
 
@@ -104,7 +105,10 @@ class Localization {
           translated = _modifiers[formatterName]!(translated);
         } else {
           if (logging) {
-            EasyLocalization.onWarning?.call('Undefined modifier $formatterName, available modifiers: ${_modifiers.keys.toString()}');
+            reportLocalizationDiagnostic(
+              EasyLocalization.onWarning,
+              'Undefined modifier $formatterName, available modifiers: ${_modifiers.keys.toString()}',
+            );
           }
         }
       }
@@ -208,7 +212,7 @@ class Localization {
     var resource = _translations?.get(key);
     if (resource == null || (_useFallbackTranslationsForEmptyResources && resource.isEmpty)) {
       if (logging) {
-        EasyLocalization.onWarning?.call('Localization key [$key] not found');
+        reportLocalizationDiagnostic(EasyLocalization.onWarning, 'Localization key [$key] not found');
       }
       if (_fallbackTranslations == null || !fallback) {
         return key;
@@ -216,7 +220,7 @@ class Localization {
         resource = _fallbackTranslations?.get(key);
         if (resource == null || (_useFallbackTranslationsForEmptyResources && resource.isEmpty)) {
           if (logging) {
-            EasyLocalization.onWarning?.call('Fallback localization key [$key] not found');
+            reportLocalizationDiagnostic(EasyLocalization.onWarning, 'Fallback localization key [$key] not found');
           }
           return key;
         }
