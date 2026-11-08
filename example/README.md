@@ -6,6 +6,7 @@ This app demonstrates translated text, plurals, currency formatting, and switchi
 cd example
 flutter pub get
 flutter run
+flutter run -d windows
 ```
 
 The app initializes its shared configuration before mounting the localization root:
