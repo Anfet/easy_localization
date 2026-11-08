@@ -1,0 +1,41 @@
+# Local plans and agent memory (plans may be a junction in the checkout).
+plans/
+.memory/
+
+# Version control and editor state.
+.git/
+.idea/
+.vscode/
+.history/
+*.iml
+*.ipr
+*.iws
+.metadata
+**/.metadata
+
+# Dart, Flutter, and platform build output.
+.dart_tool/
+.pub/
+.pub-cache/
+build/
+coverage/
+**/build/
+**/coverage/
+**/DerivedData/
+**/Pods/
+**/.symlinks/
+**/ephemeral/
+
+# Local dependency locks and machine-specific SDK configuration.
+*.lock
+local.properties
+**/local.properties
+*.xcuserstate
+**/xcuserdata/
+
+# Scratch and operating-system files.
+*.log
+*.tmp
+*.swp
+.DS_Store
+Thumbs.db

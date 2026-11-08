@@ -619,7 +619,6 @@ MigrationBackup/
 # End of https://www.gitignore.io/api/visualstudiocode,visualstudio,flutter,androidstudio,android
 
 # Custom rules (everything added below won't be overriden by 'Generate .gitignore File' if you use 'Update' option)
-example/.metadata
 .idea/workspace.xml
 *.lock
 test/.test_coverage.dart
@@ -627,9 +626,9 @@ coverage/lcov.info
 pubspec.lock
 .idea/codeStyles/Project.xml
 
-example/ios/Runner.xcodeproj/project.pbxproj
-
 # Allow
 !/bin/
+!example/android/app/src/debug/
+!example/android/app/src/debug/**
 example/ios/Flutter/ephemeral/flutter_lldb_helper.py
 example/ios/Flutter/ephemeral/
