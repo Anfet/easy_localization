@@ -1,5 +1,5 @@
 name: example
-description: A new Flutter project.
+description: Demonstrates easy_localization in a Flutter app.
 publish_to: none
 # The following defines the version and build number for your application.
 # A version number is three numbers separated by dots, like 1.2.43
@@ -26,7 +26,6 @@ dependencies:
   cupertino_icons: ^1.0.2
   easy_localization:
     path: ../
-  font_awesome_flutter: 9.0.0-nullsafety
 
   #custom loaders
 #fixme(DartAndrik): Commented due to [easy_localization_loader] package dependencies issue, uncomment after resolving.
@@ -34,6 +33,7 @@ dependencies:
 #    git: https://github.com/aissat/easy_localization_loader.git
 
 dev_dependencies:
+  shared_preferences: ^2.0.0
   flutter_test:
     sdk: flutter
 
@@ -63,10 +63,6 @@ flutter:
   # "family" key with the font family name, and a "fonts" key with a
   # list giving the asset and other descriptors for the font. For
   # example:
-  fonts:
-    - family:  MyFlutterApp
-      fonts:
-        - asset: resources/fonts/MyFlutterApp.ttf
   # fonts:
   #   - family: Schyler
   #     fonts:
