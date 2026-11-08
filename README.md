@@ -663,10 +663,12 @@ import 'generated/locale_keys.g.dart';
 How to use generated keys:
 
 ```dart
-print(LocaleKeys.title.tr()); //String
-//or
-Text(LocaleKeys.title).tr(context: context); //Widget
+Text(LocaleKeys.title.tr());
+// Optionally, use the Text extension:
+Text(LocaleKeys.title).tr();
 ```
+
+Since 4.0.0, generated keys re-export the translation extensions. The keys output is a Flutter-facing artifact and is not a standalone Dart library.
 
 ### ✅ Audit missing keys
 

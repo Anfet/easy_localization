@@ -68,6 +68,7 @@ void main() {
 
     expect(await generate(first, 'json'), await generate(second, 'json'));
     final keys = await generate(first, 'keys');
+    expect(keys, contains('show StringTranslateExtension, TextTranslateExtension, BuildContextEasyLocalizationExtension;'));
     expect(keys, await generate(second, 'keys'));
     expect(keys, contains('englishOnly'));
     expect(keys, isNot(contains('frenchOnly')));
@@ -91,6 +92,7 @@ void main() {
       await File(path.join(fragments.path, 'section.json')).writeAsString('{"title":"$locale"}');
     }
     final loader = await generate(source, 'json');
+    expect(loader, isNot(contains('StringTranslateExtension')));
     expect(loader, contains('"title": "en"'));
     expect(loader, contains('"title": "zh-Hans-CN"'));
     expect(loader, isNot(contains(':/')));

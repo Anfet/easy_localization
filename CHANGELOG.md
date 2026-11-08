@@ -6,6 +6,7 @@ Entries through 3.0.9 preserve the history of the original project. Version 4.0.
 
 #### Breaking changes
 
+- Generated keys re-export the translation extensions and are now Flutter-facing artifacts, rather than standalone Dart libraries.
 - Custom linked file resolvers must accept `scriptCode` in `resolveLinkedFiles` and `getLinkedLocalePath`; `resolveLinkedFilesForLocale` was removed.
 - Removed deprecated `localeFromString` and `localeToString`, and the empty `Localization()` constructor. Use locale extensions and `Localization.snapshot` or `Localization.load`.
 

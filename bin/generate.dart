@@ -174,6 +174,9 @@ void _writeKeys(StringBuffer classBuilder, Map<String, dynamic> translations, bo
 
 // ignore_for_file: constant_identifier_names
 
+export 'package:easy_localization/easy_localization.dart'
+    show StringTranslateExtension, TextTranslateExtension, BuildContextEasyLocalizationExtension;
+
 abstract class LocaleKeys {
 ''';
 
