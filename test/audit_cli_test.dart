@@ -86,6 +86,39 @@ void main() {
     expectSuccess(await audit(strict: true), 2);
   });
 
+  test('plural, gender and generated constants use their actual values', () async {
+    const data = '{"count":{"one":"one","other":"many"},"person":{"male":"man","female":"woman"},"reset_locale":"reset"}';
+    for (final file in translations.listSync().whereType<File>()) {
+      file.writeAsStringSync(data);
+    }
+    writeSource("""
+      class LocaleKeys { static const String reset_locale = 'reset_locale'; }
+      tr(LocaleKeys.reset_locale); plural('count', 2);
+      Text('person').tr(gender: 'male'); 'count'.plural(2);
+      // tr('commented');
+    """);
+    expectSuccess(await audit(strict: true), 0);
+  });
+
+  test('missing extensions and invalid resource types fail strict', () async {
+    for (final file in translations.listSync().whereType<File>()) {
+      file.writeAsStringSync('{"number":42,"count":{"one":4}}');
+    }
+    writeSource("Text('absent').tr(); 'absent'.plural(2); tr('number'); plural('count', 2); context.tr('context_absent');");
+    final result = await audit(strict: true);
+    expectSuccess(result, 2);
+    for (final key in ['absent', 'number', 'count', 'context_absent']) {
+      expect(result.stdout, contains(key));
+    }
+  });
+
+  test('unknown constants and interpolated keys remain unverified', () async {
+    writeSource(r"tr(LocaleKeys.unknown); Text('item.$name').tr();");
+    final result = await audit(strict: true);
+    expectSuccess(result, 0);
+    expect(result.stdout, contains('cannot be verified'));
+  });
+
   test('invalid option, missing directory and empty locales fail', () async {
     expectError(await audit(extra: ['--unknown']));
     source.deleteSync(recursive: true);

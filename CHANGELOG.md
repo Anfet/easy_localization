@@ -28,6 +28,8 @@ Entries through 3.0.9 preserve the history of the original project. Version 4.0.
 
 #### Improved
 
+- The strict key audit checks translation types, plural and gender forms, String and Text calls, and generated constant values.
+
 - Locale startup, persistence, reset, and system-language updates now follow one owner and preserve the current presentation when a transition fails or is superseded.
 - Translation updates preserve ordinary widget state, including retained subtrees; linked and fallback translations are resolved consistently in nested and plural lookups.
 - Code generation handles escaped JSON strings and produces deterministic locale source ordering.

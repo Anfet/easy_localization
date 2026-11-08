@@ -1,154 +1,162 @@
 import 'dart:convert';
 import 'dart:io';
+
+import 'package:easy_localization/src/file_loaders/io_file_loader.dart';
 import 'package:easy_localization/src/linked_file_resolver.dart';
 import 'package:path/path.dart';
-import 'package:easy_localization/src/file_loaders/io_file_loader.dart';
 
 class AuditCommand {
-  /// Audits the source and returns whether any locale has confirmed missing keys.
-  /// File system, JSON and linked-file errors propagate to the CLI caller.
+  /// Returns whether any locale has confirmed missing translations.
   Future<bool> run({required String transDir, required String srcDir}) async {
-    final translationDir = Directory(transDir);
-    final sourceDir = Directory(srcDir);
-    final allTranslations = await _loadTranslations(translationDir);
-    if (allTranslations.isEmpty) {
-      throw StateError('No JSON locales found in "$transDir".');
-    }
-    final usedKeys = _scanSourceForKeys(sourceDir);
-    return _report(allTranslations, usedKeys);
+    final translations = await _loadTranslations(Directory(transDir));
+    if (translations.isEmpty) throw StateError('No JSON locales found in "$transDir".');
+    return _report(translations, _scanSourceForKeys(Directory(srcDir)));
   }
 
-  /// Walks [translationsDir], reads every `.json`, flattens nested maps
-  /// into dot‑separated keys, and returns a map:
-  ///   { 'en': {'home.title', 'home.subtitle', …}, 'fr': { … } }
-  /// Also handles linked translation files (those containing ':/file.json' references)
-  Future<Map<String, Set<String>>> _loadTranslations(Directory translationsDir) async {
-    final result = <String, Set<String>>{};
-    const IOFileLoader fileLoader = IOFileLoader();
-    const LinkedFileResolver linkedFileResolver = JsonLinkedFileResolver(fileLoader: fileLoader);
-
-    for (var file in translationsDir.listSync().whereType<File>()) {
+  Future<Map<String, Map<String, dynamic>>> _loadTranslations(Directory directory) async {
+    final result = <String, Map<String, dynamic>>{};
+    const resolver = JsonLinkedFileResolver(fileLoader: IOFileLoader());
+    for (final file in directory.listSync().whereType<File>()) {
       if (!file.path.endsWith('.json')) continue;
-
-      final local = basenameWithoutExtension(file.path);
-      final parts = local.split('-');
-      final langCode = parts.first;
+      final locale = basenameWithoutExtension(file.path);
+      final parts = locale.split('-');
       final hasScript = parts.length > 1 && parts[1].length == 4;
-      final scriptCode = hasScript ? parts[1] : null;
-      final countryCode = parts.length > (hasScript ? 2 : 1) ? parts.last : null;
-      final jsonMap = json.decode(file.readAsStringSync()) as Map<String, dynamic>;
-
-      // Process linked files if present using the shared resolver
-      final resolvedJson = await linkedFileResolver.resolveLinkedFiles(
-        basePath: translationsDir.path,
-        languageCode: langCode,
-        baseJson: jsonMap,
-        scriptCode: scriptCode,
-        countryCode: countryCode,
+      result[locale] = await resolver.resolveLinkedFiles(
+        basePath: directory.path,
+        languageCode: parts.first,
+        baseJson: json.decode(file.readAsStringSync()) as Map<String, dynamic>,
+        scriptCode: hasScript ? parts[1] : null,
+        countryCode: parts.length > (hasScript ? 2 : 1) ? parts.last : null,
       );
-      result[local] = _flatten(resolvedJson);
     }
     return result;
   }
 
-  Set<String> _flatten(Map<String, dynamic> json, [String parentKey = '']) {
-    final keys = <String>{};
-    for (var entry in json.entries) {
-      final key = entry.key;
-      final value = entry.value;
-
-      final newKey = parentKey.isEmpty ? key : '$parentKey.$key';
-      if (value is String) {
-        keys.add(newKey);
-        continue;
-      }
-
-      if (value is Map<String, dynamic>) {
-        keys.addAll(_flatten(value, newKey));
-        continue;
-      }
-
-      if (value is List || value is num || value is bool) {
-        keys.add(newKey);
-      }
-    }
-    return keys;
-  }
-
-  Set<String> _scanSourceForKeys(Directory srcDir) {
-    List<RegExp> keyPatterns = [
-      // 1) tr('foo.bar') or tr("foo.bar"), with optional args/comma before the )
-      RegExp(r"""\btr\s*\(\s*['"]([^'"]+)['"](?:\s*,[^)]*)?\)"""),
-
-      // 2) context.tr('foo.bar') same as above but with the context qualifier
-      RegExp(r"""context\s*\.\s*tr\s*\(\s*['"]([^'"]+)['"](?:\s*,[^)]*)?\)"""),
-
-      // 3) 'foo.bar'.tr() or "foo.bar".tr(), allowing whitespace/newlines
-      RegExp(r"""['"]([^'"]+)['"]\s*\.\s*tr\s*\(\s*[^)]*\)"""),
-
-      // 4) generated keys: LocaleKeys.foo_bar (whitespace around the dot ok)
-      RegExp(r"""LocaleKeys\s*\.\s*([A-Za-z0-9_]+)"""),
-
-      // 5) plural() calls
-      RegExp(r"""\bplural\s*\(\s*['"]([^'"]+)['"](?:\s*,[^)]*)?\)"""),
-
-      // 6) context.plural() calls
-      RegExp(r"""context\s*\.\s*plural\s*\(\s*['"]([^'"]+)['"](?:\s*,[^)]*)?\)"""),
-    ];
-
-    final used = <String>{};
-
-    for (var file in srcDir.listSync(recursive: true).whereType<File>().where((f) => f.path.endsWith('.dart'))) {
-      final content = file.readAsStringSync();
-      for (var pattern in keyPatterns) {
-        final matches = pattern.allMatches(content);
-        for (var match in matches) {
-          if (match.groupCount > 0) {
-            String key = match.group(1)!;
-            if (pattern.pattern.contains('LocaleKeys')) {
-              key = key.replaceAll('_', '.');
-            }
-            used.add(key);
-          }
+  List<_Usage> _scanSourceForKeys(Directory directory) {
+    final files = directory.listSync(recursive: true).whereType<File>().where((file) => file.path.endsWith('.dart'));
+    // Keep strings intact while masking comments, including comment markers inside strings.
+    final tokens = RegExp(r'''("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')|//[^\n]*|/\*[\s\S]*?\*/''');
+    final contents = files.map((file) => file.readAsStringSync().replaceAllMapped(tokens, (m) => m[1] ?? ' ')).toList();
+    final constants = <String, String>{};
+    final constant = RegExp(r'''static\s+const\s+(?:String\s+)?(\w+)\s*=\s*(['"])([^'"$\\]*)\2\s*;''');
+    final localeKeysClass = RegExp(r'\bclass\s+LocaleKeys\s*\{([^{}]*)\}');
+    for (final content in contents) {
+      for (final declaration in localeKeysClass.allMatches(content)) {
+        for (final match in constant.allMatches(declaration[1] ?? '')) {
+          final name = match[1];
+          final value = match[3];
+          if (name != null && value != null) constants[name] = value;
         }
       }
     }
-    return used;
+    const expression = r'''(?:['"](?:\\.|[^'"\\])*['"](?=\s*[,)])|LocaleKeys\s*\.\s*\w+(?=\s*[,)])|[^,)]*)''';
+    const receiverExpression = r'''(?:['"](?:\\.|[^'"\\])*['"]|LocaleKeys\s*\.\s*\w+|\b\w+)''';
+    final receiver = RegExp('($receiverExpression)\\s*\\.\\s*(tr|plural)\\s*\\(([^)]*)\\)');
+    final textReceiver = RegExp('Text\\s*\\(\\s*($expression)\\s*\\)\\s*\\.\\s*(tr|plural)\\s*\\(([^)]*)\\)');
+    final function = RegExp('(?:\\bcontext\\s*\\.\\s*)?\\b(tr|plural)\\s*\\(\\s*($expression)([^)]*)\\)');
+    final usages = <_Usage>[];
+
+    void add(String expression, String method, String arguments) {
+      final value = expression.trim();
+      String? key;
+      final literal = RegExp(r'''^(['"])([^'"\\]*)\1$''').firstMatch(value);
+      final reference = RegExp(r'^LocaleKeys\s*\.\s*(\w+)$').firstMatch(value);
+      if (literal != null && !(literal[2] ?? '').contains(r'$')) {
+        key = literal[2];
+      } else if (reference != null) {
+        key = constants[reference[1]];
+      }
+      final gender = RegExp(r'''\bgender\s*:\s*(['"])([^'"$\\]*)\1\s*(?:,|$)''').firstMatch(arguments);
+      final hasGender = RegExp(r'\bgender\s*:').hasMatch(arguments);
+      usages.add(_Usage(key, method == 'plural', hasGender, gender?[2]));
+    }
+
+    for (final content in contents) {
+      // Mask complete Text calls before scanning receivers and function forms.
+      var rest = content.replaceAllMapped(textReceiver, (match) {
+        add(match[1] ?? '', match[2] ?? '', match[3] ?? '');
+        return ' ';
+      });
+      rest = rest.replaceAllMapped(receiver, (match) {
+        if (match[1] == 'context') return match[0] ?? '';
+        add(match[1] ?? '', match[2] ?? '', match[3] ?? '');
+        return ' ';
+      });
+      for (final match in function.allMatches(rest)) {
+        add(match[2] ?? '', match[1] ?? '', match[3] ?? '');
+      }
+    }
+    return usages;
   }
 
-  bool _report(Map<String, Set<String>> allTranslations, Set<String> usedKeys) {
+  dynamic _lookup(Map<String, dynamic> translations, String key) {
+    if (translations.containsKey(key)) return translations[key];
+    dynamic value = translations;
+    for (final part in key.split('.')) {
+      if (value is! Map) return null;
+      value = value[part];
+    }
+    return value;
+  }
+
+  bool _report(Map<String, Map<String, dynamic>> translations, List<_Usage> usages) {
     var hasMissing = false;
     stdout.writeln('=== Keys Audit ===');
-
-    for (var lang in allTranslations.keys) {
-      final keysInFile = allTranslations[lang]!;
-      final missing = usedKeys.difference(keysInFile);
-      final missingWithVariables = usedKeys.where((key) => key.contains('\$')).toList();
-      final missingWithoutVariables = missing.where((key) => !key.contains('\$')).toList();
-
-      stdout.writeln('\nLanguage: $lang');
-      if (missingWithVariables.isEmpty && missingWithoutVariables.isEmpty) {
-        stdout.writeln('  ✅ No missing static keys found (dynamic calls may not be checked).');
+    const forms = ['zero', 'one', 'two', 'few', 'many', 'other'];
+    for (final entry in translations.entries) {
+      final missing = <String>{};
+      final unverified = <String>{};
+      final incomplete = <String>{};
+      for (final usage in usages) {
+        final key = usage.key;
+        if (key == null) {
+          unverified.add('dynamic key');
+          continue;
+        }
+        if (usage.gender) {
+          if (usage.genderValue == null) {
+            final group = _lookup(entry.value, key);
+            if (group is! Map || !group.values.any((value) => value is String)) missing.add(key);
+            unverified.add('$key gender');
+          } else if (_lookup(entry.value, '$key.${usage.genderValue}') is! String) {
+            missing.add('$key.${usage.genderValue}');
+          }
+        } else if (usage.plural) {
+          if (!forms.any((form) => _lookup(entry.value, '$key.$form') is String)) {
+            missing.add(key);
+          } else if (_lookup(entry.value, '$key.other') is! String) {
+            incomplete.add(key);
+          }
+        } else if (_lookup(entry.value, key) is! String) {
+          missing.add(key);
+        }
       }
-
-      if (missingWithoutVariables.isNotEmpty) {
+      stdout.writeln('\nLanguage: ${entry.key}');
+      if (missing.isEmpty) stdout.writeln('  ✅ No missing static keys found (dynamic calls may not be checked).');
+      if (missing.isNotEmpty) {
         hasMissing = true;
-        stdout.writeln('  🔴 Missing (${missingWithoutVariables.length}):');
-        for (var key in missingWithoutVariables) {
-          stdout.writeln('    – $key');
-        }
-
-        stdout.writeln('\n');
-      }
-
-      if (missingWithVariables.isNotEmpty) {
-        stdout.writeln('  🟡 Unverified keys with variables (${missingWithVariables.length}):');
-        stdout.writeln('    These keys contain variables and cannot be verified.');
-        for (var key in missingWithVariables) {
+        stdout.writeln('  🔴 Missing (${missing.length}):');
+        for (final key in missing) {
           stdout.writeln('    – $key');
         }
       }
+      if (unverified.isNotEmpty) {
+        stdout.writeln('  🟡 Unverified keys: These keys contain variables or expressions and cannot be verified.');
+        for (final key in unverified) {
+          stdout.writeln('    – $key');
+        }
+      }
+      if (incomplete.isNotEmpty) stdout.writeln('  🟡 Plural groups without other: ${incomplete.join(', ')}');
     }
     return hasMissing;
   }
+}
+
+class _Usage {
+  _Usage(this.key, this.plural, this.gender, this.genderValue);
+
+  final String? key;
+  final bool plural;
+  final bool gender;
+  final String? genderValue;
 }
