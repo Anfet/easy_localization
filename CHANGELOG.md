@@ -1,5 +1,7 @@
 # Changelog
 
+Entries through 3.0.9 preserve the history of the original project. Version 4.0.0 is the first release prepared in this community-maintained fork.
+
 ### [4.0.0] - Unreleased
 
 #### Breaking changes
