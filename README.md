@@ -686,7 +686,7 @@ If you are not using the default translations folder path (assets/translations) 
 
 For CI, run `flutter pub run easy_localization:audit --strict`. Exit code 0 means the audit completed without confirmed missing keys (or strict mode is off); 2 means strict mode found a missing static key; 1 means the audit could not complete, such as an invalid option, unreadable input, invalid JSON, or no JSON locales. The report and warnings go to stdout; errors go to stderr.
 
-The audit uses a limited pattern scanner for literal keys in `tr` and `plural` calls, including String, Text and context forms. It reads literal `static const` values for `LocaleKeys` from Dart files in the source directory. Interpolation, dynamic expressions and unresolved constants are unverified; this is not a full Dart parser.
+The audit uses a limited pattern scanner for literal keys in `tr` and `plural` calls, including String, Text and context forms. It reads literal `static const` values for `LocaleKeys` from Dart files in the source directory. Conflicting values, interpolation, dynamic expressions and unresolved constants are unverified; this is not a full Dart parser.
 
 Each JSON locale is checked independently, without app configuration or fallback. A translation must be a string; plural calls need at least one string plural form, and a missing `other` is reported as a warning. A literal gender checks that form, while a dynamic gender remains unverified. The audit does not determine which plural form a particular locale and value will select.
 

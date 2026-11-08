@@ -119,6 +119,54 @@ void main() {
     expect(result.stdout, contains('cannot be verified'));
   });
 
+  test('nested arguments retain literal gender for all call forms', () async {
+    for (final file in translations.listSync().whereType<File>()) {
+      file.writeAsStringSync('{"person":{"male":"man"}}');
+    }
+    writeSource(
+      "tr('person', args: makeArgs(), gender: 'male'); "
+      "context.tr('person', args: makeArgs(), gender: 'male'); "
+      "Text('person').tr(args: makeArgs(), gender: 'male'); "
+      "'person'.tr(args: makeArgs(), gender: 'male');",
+    );
+    expectSuccess(await audit(strict: true), 0);
+    writeSource("tr('person', args: makeArgs(), gender: 'female');");
+    final missing = await audit(strict: true);
+    expectSuccess(missing, 2);
+    expect(missing.stdout, contains('person.female'));
+  });
+
+  test('dynamic gender accepts direct string keys and rejects non-string groups', () async {
+    for (final file in translations.listSync().whereType<File>()) {
+      file.writeAsStringSync('{"person.male":"man","empty.male":42}');
+    }
+    writeSource("tr('person', gender: choice);");
+    final result = await audit(strict: true);
+    expectSuccess(result, 0);
+    expect(result.stdout, contains('cannot be verified'));
+    writeSource("tr('empty', gender: choice);");
+    expectSuccess(await audit(strict: true), 2);
+  });
+
+  test('source strings and nested comments are not calls', () async {
+    writeSource('''
+      final example = "tr('absent')";
+      /* outer /* inner */ tr('also_absent'); */
+      tr('present');
+    ''');
+    expectSuccess(await audit(strict: true), 0);
+    writeSource('''final example = "tr('present')"; tr('absent');''');
+    expectSuccess(await audit(strict: true), 2);
+  });
+
+  test('conflicting LocaleKeys values remain unverified', () async {
+    writeSource("class LocaleKeys { static const String key = 'present'; } tr(LocaleKeys.key);");
+    File(path.join(source.path, 'other.dart')).writeAsStringSync("class LocaleKeys { static const String key = 'absent'; }");
+    final result = await audit(strict: true);
+    expectSuccess(result, 0);
+    expect(result.stdout, contains('cannot be verified'));
+  });
+
   test('invalid option, missing directory and empty locales fail', () async {
     expectError(await audit(extra: ['--unknown']));
     source.deleteSync(recursive: true);
