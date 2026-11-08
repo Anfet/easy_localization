@@ -47,7 +47,6 @@ class EasyLocalization extends StatefulWidget {
       useFallbackTranslations = instance.config.useFallbackTranslations,
       useBaseLanguageFallback = instance.config.useBaseLanguageFallback,
       useFallbackTranslationsForEmptyResources = instance.config.useFallbackTranslationsForEmptyResources,
-      ignorePluralRules = instance.config.ignorePluralRules,
       assetLoader = instance.config.assetLoader,
       extraAssetLoaders = instance.config.extraAssetLoaders,
       additionalDelegates = instance.config.additionalDelegates,
@@ -98,26 +97,6 @@ class EasyLocalization extends StatefulWidget {
   /// useFallbackTranslationsForEmptyResources: true
   /// ```
   final bool useFallbackTranslationsForEmptyResources;
-
-  /// Ignore usage of plural strings for languages that do not use plural rules.
-  /// @Default value false
-  /// Example:
-  /// ```
-  /// // Default behavior, use "zero" rule for 0 even if the language doesn't
-  /// // use it by default (e.g. "en"). If "zero" localization for that string
-  /// // doesn't exist, "other" is still used as fallback.
-  /// // "nTimes": "{count, plural, =0{never} =1{once} other{{count} times}}"
-  /// // Text(AppLocalizations.of(context)!.nTimes(_counter)),
-  /// // will print "never, once, 2 times" for ALL languages.
-  /// ignorePluralRules: true
-  /// // Use "zero" rule for 0 only if the language is set to do so (e.g. for
-  /// "lt" but not for "en").
-  /// // "nTimes": "{count, plural, =0{never} =1{once} other{{count} times}}"
-  /// // Text(AppLocalizations.of(context)!.nTimes(_counter)),
-  /// // will print "never, once, 2 times" ONLY for languages with plural rules.
-  /// ignorePluralRules: false
-  /// ```
-  final bool ignorePluralRules;
 
   /// Path to your folder with localization files.
   /// Example:
@@ -177,7 +156,6 @@ class EasyLocalization extends StatefulWidget {
     this.useFallbackTranslations = false,
     this.useBaseLanguageFallback = true,
     this.useFallbackTranslationsForEmptyResources = false,
-    this.ignorePluralRules = true,
     this.assetLoader = const RootBundleAssetLoader(
       fileLoader: RootBundleFileLoader(),
       linkedFileResolver: JsonLinkedFileResolver(fileLoader: RootBundleFileLoader()),
@@ -297,7 +275,6 @@ class _EasyLocalizationState extends State<EasyLocalization> with WidgetsBinding
         useFallbackTranslations: widget.useFallbackTranslations,
         useBaseLanguageFallback: widget.useBaseLanguageFallback,
         useFallbackTranslationsForEmptyResources: widget.useFallbackTranslationsForEmptyResources,
-        ignorePluralRules: widget.ignorePluralRules,
         saveLocale: widget.saveLocale,
       );
       _owner = EasyLocalizationInstance._(config, controller);

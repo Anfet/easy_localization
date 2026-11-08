@@ -11,7 +11,7 @@ Entries through 3.0.9 preserve the history of the original project. Version 4.0.
 
 - Requires Dart 3.12 and Flutter 3.44.
 - Removed the `EasyLocalization.logger` / `easy_logger` integration. Configure the optional `onVerbose`, `onWarning`, and `onError` callbacks instead; diagnostics are silent by default.
-- The new `EasyLocalizationConfig` owner uses language plural rules and disables base-language fallback by default. Legacy constructors and loading APIs retain their historical defaults.
+- Removed `ignorePluralRules`. All plural lookups use explicit 0/1/2 forms followed by locale rules from intl, with each source tried before fallback. The new owner disables base-language fallback by default.
 - The new owner requires a supported `fallbackLocale`, applies stricter resource error handling, and reports missing scope access with `LocalizationNotFoundException`.
 
 #### Added

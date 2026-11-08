@@ -443,7 +443,7 @@ void main() {
 
       test('two as fallback and fallback translations priority', () {
         printLog.clear();
-        expect(Localization.instance.plural('test_fallback_plurals', 2), 'fallback two');
+        expect(Localization.instance.plural('test_fallback_plurals', 2), '2 seconds');
         expect(printLog, isEmpty);
       });
 
@@ -520,7 +520,7 @@ void main() {
       test('reports empty plural resource with fallback', () {
         printLog.clear();
         expect(Localization.instance.plural('test_empty_fallback_plurals', -1), 'fallback other');
-        expect(printLog.first, contains('Localization key [test_empty_fallback_plurals.other] not found'));
+        expect(printLog, isEmpty);
       });
 
       test('reports empty plural resource', () {
@@ -529,8 +529,6 @@ void main() {
         final logIterator = printLog.iterator;
         logIterator.moveNext();
         expect(logIterator.current, contains('Localization key [test_empty_plurals.other] not found'));
-        logIterator.moveNext();
-        expect(logIterator.current, contains('Fallback localization key [test_empty_plurals.other] not found'));
       });
     });
 

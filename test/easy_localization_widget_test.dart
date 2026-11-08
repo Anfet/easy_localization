@@ -271,7 +271,6 @@ void main() async {
         await tester.pumpWidget(EasyLocalization(
           path: '../../i18n',
           supportedLocales: const [Locale('en', 'US'), Locale('ar', 'DZ')],
-          ignorePluralRules: false,
           child: const MyApp(),
         ));
 

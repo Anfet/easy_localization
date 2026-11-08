@@ -2,11 +2,11 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/widgets.dart';
 
 import 'package:easy_localization/src/diagnostics.dart';
-import 'plural_rules.dart';
 import 'translations.dart';
 
 class Localization {
-  final Translations? _translations, _fallbackTranslations;
+  final Translations? _translations, _baseTranslations, _fallbackTranslations;
+  final Locale? _baseLocale, _fallbackLocale;
   final Locale _locale;
 
   /// The locale captured by this translation snapshot.
@@ -23,22 +23,26 @@ class Localization {
   };
 
   final bool _useFallbackTranslationsForEmptyResources;
-  final bool _ignorePluralRules;
 
   /// An independent translation snapshot. Later loads never change this object.
   Localization.snapshot(
     Locale locale, {
     Translations? translations,
     Translations? fallbackTranslations,
+    Translations? baseTranslations,
+    Locale? baseLocale,
+    Locale? fallbackLocale,
     bool useFallbackTranslationsForEmptyResources = false,
-    bool ignorePluralRules = true,
   }) : _locale = locale,
        _translations = translations == null ? null : Translations.copy(translations),
+       _baseTranslations = baseTranslations == null ? null : Translations.copy(baseTranslations),
+       // ignore: prefer_initializing_formals
+       _baseLocale = baseLocale,
+       // ignore: prefer_initializing_formals
+       _fallbackLocale = fallbackLocale,
        _fallbackTranslations = fallbackTranslations == null ? null : Translations.copy(fallbackTranslations),
        // ignore: prefer_initializing_formals
-       _useFallbackTranslationsForEmptyResources = useFallbackTranslationsForEmptyResources,
-       // ignore: prefer_initializing_formals
-       _ignorePluralRules = ignorePluralRules;
+       _useFallbackTranslationsForEmptyResources = useFallbackTranslationsForEmptyResources;
 
   static Localization? _instance;
 
@@ -53,15 +57,19 @@ class Localization {
     Locale locale, {
     Translations? translations,
     Translations? fallbackTranslations,
+    Translations? baseTranslations,
+    Locale? baseLocale,
+    Locale? fallbackLocale,
     bool useFallbackTranslationsForEmptyResources = false,
-    bool ignorePluralRules = true,
   }) {
     _instance = Localization.snapshot(
       locale,
       translations: translations,
       fallbackTranslations: fallbackTranslations,
       useFallbackTranslationsForEmptyResources: useFallbackTranslationsForEmptyResources,
-      ignorePluralRules: ignorePluralRules,
+      baseTranslations: baseTranslations,
+      baseLocale: baseLocale,
+      fallbackLocale: fallbackLocale,
     );
     return translations == null ? false : true;
   }
@@ -142,53 +150,39 @@ class Localization {
     return res;
   }
 
-  PluralRule? _pluralRule(String? locale, num howMany) {
-    if (_ignorePluralRules) {
-      return () => _pluralCaseFallback(howMany);
-    }
-    startRuleEvaluation(howMany);
-    return pluralRules[locale];
-  }
-
-  static PluralCase _pluralCaseFallback(num value) {
-    switch (value) {
-      case 0:
-        return PluralCase.ZERO;
-      case 1:
-        return PluralCase.ONE;
-      case 2:
-        return PluralCase.TWO;
-      default:
-        return PluralCase.OTHER;
-    }
-  }
-
   String plural(String key, num value, {List<String>? args, Map<String, String>? namedArgs, String? name, NumberFormat? format}) {
-    late String res;
+    final missing = Object();
+    String? selected;
+    for (final (translations, locale) in [
+      (_translations, _locale),
+      (_baseTranslations, _baseLocale ?? _locale),
+      (_fallbackTranslations, _fallbackLocale ?? _locale),
+    ]) {
+      if (translations == null) continue;
+      String? form(String name) {
+        final result = translations.get('$key.$name');
+        return result == null || (_useFallbackTranslationsForEmptyResources && result.isEmpty) ? null : result;
+      }
 
-    final pluralRule = _pluralRule(_locale.languageCode, value);
-    final pluralCase = pluralRule != null ? pluralRule() : _pluralCaseFallback(value);
-
-    switch (pluralCase) {
-      case PluralCase.ZERO:
-        res = _resolvePlural(key, 'zero');
+      final result = Intl.pluralLogic<Object>(
+        value,
+        locale: locale.toString(),
+        zero: form('zero'),
+        one: form('one'),
+        two: form('two'),
+        few: form('few'),
+        many: form('many'),
+        other: form('other') ?? missing,
+      );
+      if (!identical(result, missing)) {
+        selected = result as String;
         break;
-      case PluralCase.ONE:
-        res = _resolvePlural(key, 'one');
-        break;
-      case PluralCase.TWO:
-        res = _resolvePlural(key, 'two');
-        break;
-      case PluralCase.FEW:
-        res = _resolvePlural(key, 'few');
-        break;
-      case PluralCase.MANY:
-        res = _resolvePlural(key, 'many');
-        break;
-      case PluralCase.OTHER:
-        res = _resolvePlural(key, 'other');
-        break;
+      }
     }
+    if (selected == null) {
+      reportLocalizationDiagnostic(EasyLocalization.onWarning, 'Localization key [$key.other] not found');
+    }
+    var res = selected ?? '$key.other';
 
     res = _replaceLinks(res, keys: {key});
 
@@ -206,42 +200,29 @@ class Localization {
     return _resolve('$key.$gender');
   }
 
-  String _resolvePlural(String key, String subKey) {
-    if (subKey == 'other') return _resolve('$key.other');
-
-    final tag = '$key.$subKey';
-    var resource = _resolve(tag, logging: false, fallback: _fallbackTranslations != null);
-    if (resource == tag) {
-      resource = _resolve('$key.other');
-    }
-    return resource;
-  }
-
   String _resolve(String key, {bool logging = true, bool fallback = true}) {
-    var resource = _translations?.get(key);
-    if (resource == null || (_useFallbackTranslationsForEmptyResources && resource.isEmpty)) {
-      if (logging) {
-        reportLocalizationDiagnostic(EasyLocalization.onWarning, 'Localization key [$key] not found');
+    bool available(String? value) => value != null && (!_useFallbackTranslationsForEmptyResources || value.isNotEmpty);
+    final primary = _translations?.get(key);
+    if (available(primary)) return primary as String;
+    if (logging) reportLocalizationDiagnostic(EasyLocalization.onWarning, 'Localization key [$key] not found');
+    if (fallback) {
+      for (final translations in [_baseTranslations, _fallbackTranslations]) {
+        final resource = translations?.get(key);
+        if (available(resource)) return resource as String;
       }
-      if (_fallbackTranslations == null || !fallback) {
-        return key;
-      } else {
-        resource = _fallbackTranslations.get(key);
-        if (resource == null || (_useFallbackTranslationsForEmptyResources && resource.isEmpty)) {
-          if (logging) {
-            reportLocalizationDiagnostic(EasyLocalization.onWarning, 'Fallback localization key [$key] not found');
-          }
-          return key;
-        }
+      if (logging && (_baseTranslations != null || _fallbackTranslations != null)) {
+        reportLocalizationDiagnostic(EasyLocalization.onWarning, 'Fallback localization key [$key] not found');
       }
     }
-    return resource;
+    return key;
   }
 
   bool exists(String key, {bool includeFallback = false}) {
     final primary = _translations?.get(key);
     if (!includeFallback) return primary != null;
     if (primary != null && (!_useFallbackTranslationsForEmptyResources || primary.isNotEmpty)) return true;
+    final base = _baseTranslations?.get(key);
+    if (base != null && (!_useFallbackTranslationsForEmptyResources || base.isNotEmpty)) return true;
     final fallback = _fallbackTranslations?.get(key);
     return fallback != null && (!_useFallbackTranslationsForEmptyResources || fallback.isNotEmpty);
   }

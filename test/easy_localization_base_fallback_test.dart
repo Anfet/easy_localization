@@ -2,12 +2,16 @@ import 'dart:async';
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:easy_localization/src/easy_localization_controller.dart';
+import 'package:easy_localization/src/translations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 class ResourceLoader extends AssetLoader {
   ResourceLoader(this.resources)
-      : super(fileLoader: const RootBundleFileLoader(), linkedFileResolver: const JsonLinkedFileResolver(fileLoader: RootBundleFileLoader()));
+    : super(
+        fileLoader: const RootBundleFileLoader(),
+        linkedFileResolver: const JsonLinkedFileResolver(fileLoader: RootBundleFileLoader()),
+      );
   final Map<String, Object?> resources;
   final calls = <String>[];
   @override
@@ -25,28 +29,75 @@ void main() {
   const region = Locale.fromSubtags(languageCode: 'sr', scriptCode: 'Latn', countryCode: 'RS');
   const base = Locale.fromSubtags(languageCode: 'sr', scriptCode: 'Latn');
   const fallback = Locale('en');
-  EasyLocalizationController controller(ResourceLoader loader,
-          {bool enabled = true, bool onlyLanguage = false, Locale fallbackLocale = fallback, List<AssetLoader>? extras, bool strict = true}) =>
-      EasyLocalizationController(
-          supportedLocales: const [region, fallback],
-          useFallbackTranslations: true,
-          saveLocale: false,
-          assetLoader: loader,
-          path: 'unused',
-          useOnlyLangCode: onlyLanguage,
-          useBaseLanguageFallback: enabled,
-          strictErrors: strict,
-          extraAssetLoaders: extras,
-          forceLocale: region,
-          fallbackLocale: fallbackLocale,
-          onLoadError: (_) {});
-  Future<Localization> snapshot(EasyLocalizationController c) => c.loadSnapshot(region, useFallbackForEmpty: false, ignorePluralRules: false);
+  EasyLocalizationController controller(
+    ResourceLoader loader, {
+    bool enabled = true,
+    bool onlyLanguage = false,
+    Locale fallbackLocale = fallback,
+    List<AssetLoader>? extras,
+    bool strict = true,
+  }) => EasyLocalizationController(
+    supportedLocales: const [region, fallback],
+    useFallbackTranslations: true,
+    saveLocale: false,
+    assetLoader: loader,
+    path: 'unused',
+    useOnlyLangCode: onlyLanguage,
+    useBaseLanguageFallback: enabled,
+    strictErrors: strict,
+    extraAssetLoaders: extras,
+    forceLocale: region,
+    fallbackLocale: fallbackLocale,
+    onLoadError: (_) {},
+  );
+  Future<Localization> snapshot(EasyLocalizationController c) => c.loadSnapshot(region, useFallbackForEmpty: false);
+
+  test('plural chooses a source before applying its locale rules', () async {
+    final vi = Localization.snapshot(
+      const Locale('vi'),
+      translations: Translations({
+        'p': {'other': 'vi other'},
+      }),
+      fallbackTranslations: Translations({
+        'p': {'one': 'en one', 'other': 'en other'},
+      }),
+      fallbackLocale: const Locale('en'),
+    );
+    expect(vi.plural('p', 1), 'vi other');
+    final c = EasyLocalizationController(
+      supportedLocales: const [Locale('ru', 'RU'), Locale('en')],
+      useFallbackTranslations: true,
+      useBaseLanguageFallback: true,
+      saveLocale: false,
+      assetLoader: ResourceLoader({
+        'ru_RU': {},
+        'ru': {
+          'p': {'one': 'ru one', 'other': 'ru other'},
+        },
+        'en': {
+          'p': {'one': 'en one', 'other': 'en other'},
+          'q': {'one': 'en one', 'other': 'en other'},
+        },
+      }),
+      path: 'unused',
+      useOnlyLangCode: false,
+      strictErrors: true,
+      forceLocale: const Locale('ru', 'RU'),
+      fallbackLocale: const Locale('en'),
+      onLoadError: (_) {},
+    );
+    final result = await c.loadSnapshot(const Locale('ru', 'RU'), useFallbackForEmpty: false);
+    expect(result.plural('p', 21), 'ru one');
+    expect(result.plural('q', 21), 'en other');
+    expect(result.plural('missing', 5), 'missing.other');
+    c.dispose();
+  });
 
   test('base is optional, script is retained, and layer priority is preserved', () async {
     final loader = ResourceLoader({
       'sr_Latn_RS': {'primary': 'P'},
       'sr_Latn': {'primary': 'B', 'base': 'B'},
-      'en': {'base': 'F', 'fallback': 'F'}
+      'en': {'base': 'F', 'fallback': 'F'},
     });
     final c = controller(loader);
     final result = await snapshot(c);
@@ -68,7 +119,7 @@ void main() {
     final loader = ResourceLoader({
       'sr_Latn_RS': {'key': 'primary'},
       'sr': FlutterError('missing'),
-      'en': {'key2': 'fallback'}
+      'en': {'key2': 'fallback'},
     });
     final c = controller(loader, strict: false);
     expect((await snapshot(c)).tr('key2'), 'fallback');
@@ -80,7 +131,7 @@ void main() {
     final primary = ResourceLoader({
       'sr_Latn_RS': {'key': 'value'},
       'sr_Latn': null,
-      'en': {}
+      'en': {},
     });
     final extra = ResourceLoader({});
     final c = controller(primary, extras: [extra]);

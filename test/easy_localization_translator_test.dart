@@ -8,7 +8,10 @@ import 'package:shared_preferences_platform_interface/shared_preferences_platfor
 
 class DocumentLoader extends AssetLoader {
   DocumentLoader()
-      : super(linkedFileResolver: const JsonLinkedFileResolver(fileLoader: RootBundleFileLoader()), fileLoader: const RootBundleFileLoader());
+    : super(
+        linkedFileResolver: const JsonLinkedFileResolver(fileLoader: RootBundleFileLoader()),
+        fileLoader: const RootBundleFileLoader(),
+      );
 
   final data = <String, Map<String, dynamic>>{};
   final pending = <String, List<Completer<Map<String, dynamic>?>>>{};
@@ -71,18 +74,19 @@ void main() {
   late DocumentLoader loader;
   late DocumentDelegate delegate;
 
-  Future<EasyLocalizationInstance> initialize({bool rules = false}) => EasyLocalization.initialize(EasyLocalizationConfig(
-        supportedLocales: const [Locale('en'), Locale('ru')],
-        fallbackLocale: const Locale('en'),
-        startLocale: const Locale('en'),
-        path: 'unused',
-        assetLoader: loader,
-        additionalDelegates: [delegate],
-        useFallbackTranslations: true,
-        useFallbackTranslationsForEmptyResources: true,
-        ignorePluralRules: rules,
-        saveLocale: false,
-      ));
+  Future<EasyLocalizationInstance> initialize() => EasyLocalization.initialize(
+    EasyLocalizationConfig(
+      supportedLocales: const [Locale('en'), Locale('ru')],
+      fallbackLocale: const Locale('en'),
+      startLocale: const Locale('en'),
+      path: 'unused',
+      assetLoader: loader,
+      additionalDelegates: [delegate],
+      useFallbackTranslations: true,
+      useFallbackTranslationsForEmptyResources: true,
+      saveLocale: false,
+    ),
+  );
 
   setUp(() {
     original = SharedPreferencesStorePlatform.instance;
@@ -99,14 +103,16 @@ void main() {
         'link': '@:value',
         'empty': '',
         'gender': {'female': 'она'},
-        'count': {'one': 'one', 'two': 'two', 'few': 'few', 'many': 'many', 'other': 'other'}
+        'count': {'one': 'one', 'two': 'two', 'few': 'few', 'many': 'many', 'other': 'other'},
       },
     });
   });
   tearDown(() {
     try {
       EasyLocalization.instance.dispose();
-    } on StateError {/* Already disposed. */}
+    } on StateError {
+      /* Already disposed. */
+    }
     SharedPreferencesStorePlatform.instance = original;
     SharedPreferences.resetStatic();
   });
@@ -127,7 +133,7 @@ void main() {
     expect(document.tr('empty'), 'filled');
     expect(document.exists('fallback'), isFalse);
     expect(document.exists('fallback', includeFallback: true), isTrue);
-    expect(document.plural('count', 2), 'few');
+    expect(document.plural('count', 2), 'two');
     expect(owner.locale, const Locale('en'));
     expect(owner.state.value, same(state));
     expect(notifications, 0);
@@ -143,10 +149,10 @@ void main() {
     expect(document.tr('value'), 'Русский');
     expect((await owner.translator(const Locale('ru'))).tr('value'), 'Новый');
     owner.dispose();
-    final other = await initialize(rules: true);
+    final other = await initialize();
     final second = await other.translator(const Locale('ru'));
     expect(second.plural('count', 2), 'two');
-    expect(document.plural('count', 2), 'few');
+    expect(document.plural('count', 2), 'two');
   });
 
   test('concurrent requests, failure, UI change and disposal are independent', () async {

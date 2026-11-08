@@ -8,7 +8,10 @@ import 'package:shared_preferences_platform_interface/shared_preferences_platfor
 
 class InstanceLoader extends AssetLoader {
   InstanceLoader()
-      : super(linkedFileResolver: const JsonLinkedFileResolver(fileLoader: RootBundleFileLoader()), fileLoader: const RootBundleFileLoader());
+    : super(
+        linkedFileResolver: const JsonLinkedFileResolver(fileLoader: RootBundleFileLoader()),
+        fileLoader: const RootBundleFileLoader(),
+      );
 
   final calls = <Locale>[];
   final data = <String, Map<String, dynamic>>{};
@@ -26,7 +29,7 @@ class InstanceLoader extends AssetLoader {
     return data[locale.toString()] ??
         {
           'value': locale.toString(),
-          'count': {'one': 'one', 'two': 'two', 'few': 'few', 'other': 'other'}
+          'count': {'one': 'one', 'two': 'two', 'few': 'few', 'other': 'other'},
         };
   }
 }
@@ -82,8 +85,7 @@ void main() {
   late InstanceStore store;
   late InstanceLoader loader;
 
-  EasyLocalizationConfig config(
-          {Locale? start, bool save = true, List<Locale>? supported, Locale fallback = const Locale('ru'), bool rules = true}) =>
+  EasyLocalizationConfig config({Locale? start, bool save = true, List<Locale>? supported, Locale fallback = const Locale('ru')}) =>
       EasyLocalizationConfig(
         supportedLocales: supported ?? const [Locale('de'), Locale('ru')],
         fallbackLocale: fallback,
@@ -91,7 +93,6 @@ void main() {
         startLocale: start,
         assetLoader: loader,
         saveLocale: save,
-        ignorePluralRules: rules,
       );
 
   setUp(() {
@@ -115,29 +116,28 @@ void main() {
 
   test('config defaults use language rules and translator inherits them', () async {
     final input = EasyLocalizationConfig(
-        supportedLocales: const [Locale('ru')],
-        fallbackLocale: const Locale('ru'),
-        startLocale: const Locale('ru'),
-        path: 'unused',
-        assetLoader: loader,
-        saveLocale: false);
-    expect(input.ignorePluralRules, isFalse);
+      supportedLocales: const [Locale('ru')],
+      fallbackLocale: const Locale('ru'),
+      startLocale: const Locale('ru'),
+      path: 'unused',
+      assetLoader: loader,
+      saveLocale: false,
+    );
     expect(input.useBaseLanguageFallback, isFalse);
     final owner = await EasyLocalization.initialize(input);
     expect(owner.dataTranslator.plural('count', 21), 'one');
     expect(owner.dataTranslator.plural('count', 22), 'few');
     expect((await owner.translator(const Locale('ru'))).plural('count', 22), 'few');
-    expect(EasyLocalization(supportedLocales: const [Locale('ru')], path: 'unused', child: const SizedBox()).ignorePluralRules, isTrue);
   });
 
   test('ready before runApp exposes data, plural, mode and state without a frame', () async {
     expect(() => EasyLocalization.instance, throwsStateError);
     expect(() => tr('value'), throwsStateError);
     expect(() => plural('count', 2), throwsStateError);
-    final owner = await EasyLocalization.initialize(config(start: const Locale('ru'), save: false, rules: false));
+    final owner = await EasyLocalization.initialize(config(start: const Locale('ru'), save: false));
     expect(EasyLocalization.instance, same(owner));
     expect(tr('value'), 'ru');
-    expect(plural('count', 2), 'few');
+    expect(plural('count', 2), 'two');
     expect(owner.locale, const Locale('ru'));
     expect(owner.isSystemMode, isFalse);
     expect(owner.state.value.committedLocale, const Locale('ru'));
@@ -313,7 +313,7 @@ void main() {
       {
         'supported': const [Locale('ru')],
         'system': const Locale('fr'),
-        'expected': const Locale('ru')
+        'expected': const Locale('ru'),
       },
       {'start': const Locale('de'), 'saved': 42, 'expected': const Locale('de'), 'write': true, 'explicit': true},
     ];
@@ -359,7 +359,7 @@ void main() {
       Locale('ru'),
       Locale('ru', 'RU'),
       Locale.fromSubtags(languageCode: 'zh', scriptCode: 'Hans'),
-      Locale.fromSubtags(languageCode: 'zh', scriptCode: 'Hant', countryCode: 'TW')
+      Locale.fromSubtags(languageCode: 'zh', scriptCode: 'Hant', countryCode: 'TW'),
     ];
     for (final locale in locales) {
       store.data['flutter.locale'] = locale.toString();
@@ -557,31 +557,32 @@ void main() {
     final section = <dynamic, dynamic>{'value': 'original'};
     loader.data['ru'] = {
       'nested': section,
-      'count': {'few': 'ru few', 'two': 'ru two', 'other': 'ru other'}
+      'count': {'few': 'ru few', 'two': 'ru two', 'other': 'ru other'},
     };
     loader.data['de'] = {'fallback': 'fallback original'};
-    final owner = await EasyLocalization.initialize(EasyLocalizationConfig(
-      supportedLocales: const [Locale('ru'), Locale('de')],
-      fallbackLocale: const Locale('de'),
-      startLocale: const Locale('ru'),
-      path: 'unused',
-      assetLoader: loader,
-      saveLocale: false,
-      useFallbackTranslations: true,
-      ignorePluralRules: false,
-    ));
+    final owner = await EasyLocalization.initialize(
+      EasyLocalizationConfig(
+        supportedLocales: const [Locale('ru'), Locale('de')],
+        fallbackLocale: const Locale('de'),
+        startLocale: const Locale('ru'),
+        path: 'unused',
+        assetLoader: loader,
+        saveLocale: false,
+        useFallbackTranslations: true,
+      ),
+    );
     final snapshot = owner.dataTranslator;
     section['value'] = 'mutated';
     loader.data['de'] = {
       'fallback': 'new fallback',
-      'count': {'two': 'new two', 'other': 'new other'}
+      'count': {'two': 'new two', 'other': 'new other'},
     };
     await owner.setLocale(const Locale('de')).ready;
     expect(snapshot.tr('nested.value'), 'original');
     expect(snapshot.tr('fallback'), 'fallback original');
-    Localization.load(const Locale('de'), ignorePluralRules: true);
+    Localization.load(const Locale('de'));
     expect(snapshot.tr('nested.value'), 'original');
-    expect(snapshot.plural('count', 2), 'ru few');
+    expect(snapshot.plural('count', 2), 'ru two');
     owner.dispose();
     expect(snapshot.tr('fallback'), 'fallback original');
   });

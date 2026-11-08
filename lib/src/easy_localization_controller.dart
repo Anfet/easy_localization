@@ -47,7 +47,11 @@ class EasyLocalizationController extends ChangeNotifier {
   final bool useOnlyLangCode;
   final bool strictErrors;
   List<AssetLoader>? extraAssetLoaders;
-  Translations? _translations, _fallbackTranslations;
+  Translations? _translations, _baseTranslations, _fallbackTranslations;
+  Locale? _baseLocale;
+  Translations? get baseTranslations => _baseTranslations;
+  Locale? get baseLocale => _baseLocale;
+  Locale? get fallbackLocale => _fallbackLocale;
   Translations? get translations => _translations;
   Translations? get fallbackTranslations => _fallbackTranslations;
 
@@ -197,6 +201,8 @@ class EasyLocalizationController extends ChangeNotifier {
       _locale = resources.locale;
       _lastCommitWasSystemEvent = systemEvent;
       _translations = resources.translations;
+      _baseTranslations = resources.baseTranslations;
+      _baseLocale = resources.baseLocale;
       _fallbackTranslations = resources.fallbackTranslations;
       _acceptedRequest = request;
       if (!initial && !refresh) _systemMode = system || reset;
@@ -212,14 +218,16 @@ class EasyLocalizationController extends ChangeNotifier {
   }
 
   /// Loads an independent snapshot without changing controller state.
-  Future<Localization> loadSnapshot(Locale locale, {required bool useFallbackForEmpty, required bool ignorePluralRules}) async {
+  Future<Localization> loadSnapshot(Locale locale, {required bool useFallbackForEmpty}) async {
     final resources = await _loadResources(locale);
     return Localization.snapshot(
       locale,
       translations: resources.translations,
       fallbackTranslations: resources.fallbackTranslations,
       useFallbackTranslationsForEmptyResources: useFallbackForEmpty,
-      ignorePluralRules: ignorePluralRules,
+      baseTranslations: resources.baseTranslations,
+      baseLocale: resources.baseLocale,
+      fallbackLocale: _fallbackLocale,
     );
   }
 
@@ -245,6 +253,8 @@ class EasyLocalizationController extends ChangeNotifier {
 
     final data = await requiredResource(target, 'primary');
     Translations? fallback;
+    Translations? baseTranslations;
+    Locale? loadedBaseLocale;
     final configured = _fallbackLocale;
     if (useFallbackTranslations && configured != null) {
       Map<String, dynamic>? base;
@@ -252,6 +262,7 @@ class EasyLocalizationController extends ChangeNotifier {
         final baseLocale = strictErrors
             ? Locale.fromSubtags(languageCode: target.languageCode, scriptCode: target.scriptCode)
             : Locale(target.languageCode);
+        loadedBaseLocale = baseLocale;
         if (strictErrors) {
           base = await load(baseLocale);
         } else {
@@ -263,10 +274,10 @@ class EasyLocalizationController extends ChangeNotifier {
         }
       }
       final fallbackData = await requiredResource(configured, 'fallback');
-      if (base != null) fallbackData.addAllRecursive(base);
+      if (base != null) baseTranslations = Translations(base);
       fallback = Translations(fallbackData);
     }
-    return _LocaleResources(target, Translations(data), fallback);
+    return _LocaleResources(target, Translations(data), baseTranslations, loadedBaseLocale, fallback);
   }
 
   @override
@@ -591,9 +602,10 @@ class EasyLocalizationController extends ChangeNotifier {
 class _LocaleResources {
   final Locale locale;
   final Translations translations;
-  final Translations? fallbackTranslations;
+  final Translations? baseTranslations, fallbackTranslations;
+  final Locale? baseLocale;
 
-  _LocaleResources(this.locale, this.translations, this.fallbackTranslations);
+  _LocaleResources(this.locale, this.translations, this.baseTranslations, this.baseLocale, this.fallbackTranslations);
 }
 
 @visibleForTesting

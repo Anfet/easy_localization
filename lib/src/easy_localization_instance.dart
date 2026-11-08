@@ -27,7 +27,6 @@ class EasyLocalizationConfig {
   final bool useFallbackTranslations;
   final bool useBaseLanguageFallback;
   final bool useFallbackTranslationsForEmptyResources;
-  final bool ignorePluralRules;
   final bool saveLocale;
 
   EasyLocalizationConfig({
@@ -45,7 +44,6 @@ class EasyLocalizationConfig {
     this.useFallbackTranslations = false,
     this.useBaseLanguageFallback = false,
     this.useFallbackTranslationsForEmptyResources = false,
-    this.ignorePluralRules = false,
     this.saveLocale = true,
   }) : supportedLocales = List.unmodifiable(supportedLocales),
        extraAssetLoaders = List.unmodifiable(extraAssetLoaders),
@@ -74,7 +72,6 @@ class EasyLocalizationConfig {
         useFallbackTranslations == widget.useFallbackTranslations &&
         useBaseLanguageFallback == widget.useBaseLanguageFallback &&
         useFallbackTranslationsForEmptyResources == widget.useFallbackTranslationsForEmptyResources &&
-        ignorePluralRules == widget.ignorePluralRules &&
         saveLocale == widget.saveLocale &&
         listEquals(additionalDelegates, widget.additionalDelegates);
   }
@@ -138,11 +135,7 @@ class EasyLocalizationInstance with WidgetsBindingObserver {
     _checkLive();
     final config = _config;
     if (!config.supportedLocales.contains(locale)) throw ArgumentError.value(locale, 'locale', 'Must be supported');
-    return _controller.loadSnapshot(
-      locale,
-      useFallbackForEmpty: config.useFallbackTranslationsForEmptyResources,
-      ignorePluralRules: config.ignorePluralRules,
-    );
+    return _controller.loadSnapshot(locale, useFallbackForEmpty: config.useFallbackTranslationsForEmptyResources);
   }
 
   /// Reserves a revision synchronously; unsupported locales throw immediately.
@@ -387,8 +380,10 @@ class EasyLocalizationInstance with WidgetsBindingObserver {
       locale,
       translations: translations,
       fallbackTranslations: _controller.fallbackTranslations,
+      baseTranslations: _controller.baseTranslations,
+      baseLocale: _controller.baseLocale,
+      fallbackLocale: _controller.fallbackLocale,
       useFallbackTranslationsForEmptyResources: _config.useFallbackTranslationsForEmptyResources,
-      ignorePluralRules: _config.ignorePluralRules,
     );
     final active = _active;
     if (active != null && !active.ready.isCompleted && !(_controller.strictErrors && _controller.lastCommitWasSystemEvent)) {

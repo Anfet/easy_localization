@@ -413,28 +413,11 @@ var money = plural('money_named_args', 10.23, namedArgs: {'name': 'Jane', 'money
 var money = plural('money_named_args', 10.23, namedArgs: {'name': 'Jane'}, name: 'money')  // output: Jane has 10.23 dollars
 ```
 
-### ⚙️ Configuring Plural Rules with `ignorePluralRules`
+### ⚙️ Plural rules
 
-In some languages, pluralization is simple and only involves using zero, one, two, and other forms, without needing to handle the `few` or `many` categories.  
-`EasyLocalizationConfig` uses language rules by default. The legacy widget constructor defaults to exact zero, one, two and other forms.
+The package uses `Intl.pluralLogic` with the full locale. If present, `zero`, `one`, and `two` are selected for exact 0, 1, and 2; these explicit cases extend CLDR. Otherwise the locale's CLDR category is used, then `other`. For the TWO category, a missing `two` falls back to `few` then `other`.
 
-If you want to enable the handling of the `few` and `many` plural categories for specific languages, you can configure the `ignorePluralRules` flag to `false` in the `EasyLocalization` initialization.
-
-Here’s how to configure it:
-
-```dart
-EasyLocalization(
-  ignorePluralRules: false, // Set this line to false to enable 'few' and 'many' plural categories
-  supportedLocales: [Locale('ru')],
-  path: 'assets/translations',
-  fallbackLocale: Locale('ru'),
-  child: MyApp()
-)
-```
-
-Setting `ignorePluralRules: false` will enable the `few` and `many` plural categories, allowing your translations to handle all plural forms, including `few` and `many`, for supported languages.
-
-
+For English, 3, 4, and 5 use `other` even when `few` or `many` are present. Russian uses `one`, `few`, and `many` for 21, 22, and 5. Each language's own forms are tried before base and fallback translations, using each source locale's rules.
 
 ### 🔥 Linked translations:
 
@@ -795,7 +778,7 @@ The requested locale must be in `supportedLocales`. A translator remains usable 
 
 ## Compatibility and migration to 4.0.0
 
-The minimum SDKs are Dart 3.12 and Flutter 3.44. The new `EasyLocalizationConfig` uses language plural rules by default (`ignorePluralRules: false`); legacy `EasyLocalization`, `Localization.load` and `Localization.snapshot` retain `true`. Set `true` explicitly on the new path for dictionaries that depend on exact zero/one/two; set `false` on legacy Russian examples to use language rules. For example Russian 21/22/5 use one/few/many; the current fractional rounding rules still apply.
+The minimum SDKs are Dart 3.12 and Flutter 3.44. Remove the `ignorePluralRules` argument when migrating; all constructors use the plural rules described above.
 
 `fallbackLocale` selects a supported startup locale; it does not enable key fallback. Enable `useFallbackTranslations` separately. New owners disable `useBaseLanguageFallback` by default; the legacy constructor enables it. When enabled for a region, strict owners load primary, then one language-and-script base, then configured fallback. A custom loader must return null only for confirmed missing resources, return `{}` for a successful empty resource, and throw for failures. A missing optional base is skipped; missing primary or configured fallback throws before commit. RootBundle loader throws on missing assets, so opt in only when the base asset exists or a custom loader reports confirmed absence. Legacy loading retains its historical all-null and base FlutterError handling. Duplicate normalized resources are loaded once per operation.
 
