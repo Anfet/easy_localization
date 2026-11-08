@@ -140,13 +140,14 @@ void main() {
     expect(plural('count', 2), 'two');
     expect(owner.locale, const Locale('ru'));
     expect(owner.isSystemMode, isFalse);
-    expect(owner.state.value.committedLocale, const Locale('ru'));
+    expect(owner.state.value.locale, const Locale('ru'));
     expect(() => owner.setLocale(const Locale('fr')), throwsArgumentError);
     final change = owner.setLocale(const Locale('de'));
-    expect(await change.ready, LocalizationDataOutcome.committed);
-    expect(await change.applied, LocalizationApplyOutcome.detached);
+    await change;
+
     expect(tr('value'), 'de');
-    expect(owner.state.value.phase, LocalizationPhase.idle);
+    await Future<void>.delayed(Duration.zero);
+    expect(owner.state.value.isLoading, isFalse);
   });
 
   test('owner follows preferred lists without a root and retains explicit choice until reset', () async {
@@ -156,11 +157,11 @@ void main() {
     binding.platformDispatcher.localesTestValue = const [Locale('fr'), Locale('ru')];
     await Future<void>.delayed(Duration.zero);
     expect(owner.locale, const Locale('ru'));
-    await owner.setLocale(const Locale('de')).ready;
+    await owner.setLocale(const Locale('de'));
     binding.platformDispatcher.localesTestValue = const [Locale('fr'), Locale('ru')];
     await Future<void>.delayed(Duration.zero);
     expect(owner.locale, const Locale('de'));
-    await owner.resetLocale().ready;
+    await owner.resetLocale();
     expect(owner.locale, const Locale('ru'));
     expect(store.operations, isEmpty);
     owner.dispose();
@@ -216,12 +217,12 @@ void main() {
     final gate = Completer<Map<String, dynamic>?>();
     loader.gates['de'] = [gate];
     binding.platformDispatcher.localesTestValue = const [Locale('de')];
-    await owner.setLocale(const Locale('ru')).ready;
+    await owner.setLocale(const Locale('ru'));
     gate.complete({'value': 'stale'});
     await Future<void>.delayed(Duration.zero);
     expect(owner.locale, const Locale('ru'));
     expect(owner.isSystemMode, isFalse);
-    await owner.resetLocale().ready;
+    await owner.resetLocale();
     expect(owner.locale, const Locale('de'));
     owner.didChangeAppLifecycleState(AppLifecycleState.resumed);
     await Future<void>.delayed(Duration.zero);
@@ -236,35 +237,30 @@ void main() {
       final replayGate = Completer<Map<String, dynamic>?>();
       loader.gates['de'] = [resetGate];
       loader.gates['ru'] = [replayGate];
-      final revisions = <int>[];
-      void record() => revisions.add(owner.state.value.committedRevision);
-      owner.state.addListener(record);
+
       final reset = owner.resetLocale();
       binding.platformDispatcher.localesTestValue = const [Locale('fr'), Locale('ru')];
       var ready = false;
-      reset.ready.then((_) => ready = true, onError: (Object _) => ready = true);
+      reset.then((_) => ready = true, onError: (Object _) => ready = true);
       resetGate.complete({'value': 'reset'});
       await Future<void>.delayed(Duration.zero);
       if (!ready) replayGate.complete({'value': 'cleanup'});
       expect(ready, isTrue, reason: 'reset must finish before replay');
-      expect(await reset.ready, LocalizationDataOutcome.committed);
-      expect(await reset.applied, LocalizationApplyOutcome.detached);
-      expect(owner.state.value.committedRevision, reset.revision);
+      await reset;
+
       if (failReplay) {
         replayGate.completeError(FlutterError('replay failure'));
       } else {
         replayGate.complete({'value': 'replay'});
       }
       await Future<void>.delayed(Duration.zero);
-      expect(revisions, contains(reset.revision));
+
       if (failReplay) {
         expect(owner.locale, const Locale('de'));
-        expect(owner.state.value.committedRevision, reset.revision);
       } else {
         expect(owner.locale, const Locale('ru'));
-        expect(owner.state.value.committedRevision, greaterThan(reset.revision));
       }
-      owner.state.removeListener(record);
+
       owner.dispose();
     }
   });
@@ -277,16 +273,16 @@ void main() {
     loader.gates['de'] = [reloadGate];
     loader.gates['ru'] = [systemGate];
     final reload = owner.reloadTranslations();
+    final cancelled = expectLater(reload, throwsA(isA<LocalizationOperationSupersededException>()));
     binding.platformDispatcher.localesTestValue = const [Locale('fr'), Locale('ru')];
     systemGate.complete({'value': 'system'});
     await Future<void>.delayed(Duration.zero);
     reloadGate.complete({'value': 'stale reload'});
-    expect(await reload.ready, LocalizationDataOutcome.superseded);
-    expect(await reload.applied, LocalizationApplyOutcome.superseded);
+    await cancelled;
+
     await Future<void>.delayed(Duration.zero);
     expect(owner.locale, const Locale('ru'));
     expect(owner.dataTranslator.tr('value'), 'system');
-    expect(owner.state.value.committedRevision, greaterThan(reload.revision));
   });
 
   test('unchanged system candidate leaves an active reload intact', () async {
@@ -297,10 +293,9 @@ void main() {
     final reload = owner.reloadTranslations();
     owner.didChangeLocales(const [Locale('fr'), Locale('de')]);
     reloadGate.complete({'value': 'reloaded'});
-    expect(await reload.ready, LocalizationDataOutcome.committed);
-    expect(await reload.applied, LocalizationApplyOutcome.detached);
+    await reload;
+
     expect(owner.dataTranslator.tr('value'), 'reloaded');
-    expect(owner.state.value.committedRevision, reload.revision);
   });
 
   test('startup matrix chooses only start, saved, supported system or required fallback', () async {
@@ -450,8 +445,8 @@ void main() {
     store.data['flutter.locale'] = 42;
     binding.platformDispatcher.localesTestValue = [const Locale('ru')];
     final owner = await EasyLocalization.initialize(config(start: const Locale('de'), save: false));
-    await owner.setLocale(const Locale('ru')).ready;
-    await owner.resetLocale().ready;
+    await owner.setLocale(const Locale('ru'));
+    await owner.resetLocale();
     await owner.deleteSaveLocale();
     expect(owner.isSystemMode, isTrue);
     expect(store.operations, isEmpty);
@@ -462,7 +457,7 @@ void main() {
     binding.platformDispatcher.localesTestValue = [const Locale('ru')];
     final withStart = config(start: const Locale('de'));
     var owner = await EasyLocalization.initialize(withStart);
-    await owner.resetLocale().ready;
+    await owner.resetLocale();
     expect(owner.locale, const Locale('ru'));
     expect(owner.isSystemMode, isTrue);
     expect(store.data.containsKey('flutter.locale'), isFalse);
@@ -470,7 +465,7 @@ void main() {
     owner = await EasyLocalization.initialize(withStart);
     expect(owner.locale, const Locale('de'));
     expect(store.data['flutter.locale'], 'de');
-    await owner.resetLocale().ready;
+    await owner.resetLocale();
     owner.dispose();
     owner = await EasyLocalization.initialize(config());
     expect(owner.locale, const Locale('ru'));
@@ -534,12 +529,12 @@ void main() {
     final first = owner.setLocale(const Locale('de'));
     final second = owner.reloadTranslations();
     final reload = owner.reloadTranslations();
-    expect(reload.revision, greaterThan(first.revision));
-    expect(await first.ready, LocalizationDataOutcome.superseded);
-    expect(await first.applied, LocalizationApplyOutcome.superseded);
-    expect(await second.ready, LocalizationDataOutcome.superseded);
+
+    await expectLater(first, throwsA(isA<LocalizationOperationSupersededException>()));
+
+    await expectLater(second, throwsA(isA<LocalizationOperationSupersededException>()));
     fresh.complete({'value': 'fresh de'});
-    expect(await reload.ready, LocalizationDataOutcome.committed);
+    await reload;
     old.complete({'value': 'stale de'});
     middle.complete({'value': 'middle de'});
     expect(tr('value'), 'fresh de');
@@ -547,8 +542,8 @@ void main() {
     loader.gates['ru'] = [late];
     final slow = owner.setLocale(const Locale('ru'));
     final latest = owner.setLocale(const Locale('de'));
-    expect(await slow.ready, LocalizationDataOutcome.superseded);
-    expect(await latest.ready, LocalizationDataOutcome.committed);
+    await expectLater(slow, throwsA(isA<LocalizationOperationSupersededException>()));
+    await latest;
     late.complete({'value': 'stale ru'});
     expect(owner.locale, const Locale('de'));
   });
@@ -577,7 +572,7 @@ void main() {
       'fallback': 'new fallback',
       'count': {'two': 'new two', 'other': 'new other'},
     };
-    await owner.setLocale(const Locale('de')).ready;
+    await owner.setLocale(const Locale('de'));
     expect(snapshot.tr('nested.value'), 'original');
     expect(snapshot.tr('fallback'), 'fallback original');
     Localization.load(const Locale('de'));
@@ -592,22 +587,22 @@ void main() {
     final owner = await EasyLocalization.initialize(config(start: const Locale('ru')));
     store.failWrite = true;
     final failed = owner.setLocale(const Locale('de'));
-    await expectLater(failed.ready, throwsStateError);
+    await expectLater(failed, throwsStateError);
     expect(tr('value'), 'de');
     expect(owner.state.value.errorStage, LocalizationErrorStage.persistence);
     expect(store.data['flutter.locale'], 'ru');
     final calls = loader.calls.length;
     store.failWrite = false;
-    await owner.setLocale(const Locale('de')).ready;
+    await owner.setLocale(const Locale('de'));
     expect(loader.calls.length, calls);
     expect(store.data['flutter.locale'], 'de');
     store.failRemove = true;
-    await expectLater(owner.resetLocale().ready, throwsStateError);
+    await expectLater(owner.resetLocale(), throwsStateError);
     expect(owner.isSystemMode, isTrue);
     expect(owner.locale, const Locale('ru'));
     final afterReset = loader.calls.length;
     store.failRemove = false;
-    await owner.resetLocale().ready;
+    await owner.resetLocale();
     expect(loader.calls.length, afterReset);
     expect(store.data.containsKey('flutter.locale'), isFalse);
     expect(owner.state.value.error, isNull);
@@ -622,12 +617,12 @@ void main() {
     final first = owner.setLocale(const Locale('de'));
     await started.future;
     var firstReady = false;
-    first.ready.then((_) => firstReady = true);
+    first.then((_) => firstReady = true);
     final second = owner.setLocale(const Locale('ru'));
     expect(firstReady, isFalse);
     gate.complete(true);
-    expect(await first.ready, LocalizationDataOutcome.committed);
-    expect(await second.ready, LocalizationDataOutcome.committed);
+    await first;
+    await second;
     expect(store.data['flutter.locale'], 'ru');
   });
 
@@ -636,8 +631,8 @@ void main() {
     final failure = StateError('resource failure');
     loader.failure = failure;
     final failed = owner.setLocale(const Locale('de'));
-    await expectLater(failed.ready, throwsA(same(failure)));
-    expect(await failed.applied, LocalizationApplyOutcome.failed);
+    await expectLater(failed, throwsA(same(failure)));
+
     expect(owner.locale, const Locale('ru'));
     expect(owner.state.value.errorStage, LocalizationErrorStage.resources);
     loader.failure = null;
@@ -645,8 +640,8 @@ void main() {
     loader.gates['de'] = [gate];
     final pending = owner.setLocale(const Locale('de'));
     owner.dispose();
-    expect(await pending.ready, LocalizationDataOutcome.disposed);
-    expect(await pending.applied, LocalizationApplyOutcome.disposed);
+    await expectLater(pending, throwsStateError);
+
     gate.complete({'value': 'late'});
   });
 }

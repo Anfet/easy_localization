@@ -14,20 +14,19 @@ Future<void> main() async {
 
   await EasyLocalization.ensureInitialized();
 
-  testWidgets(
-    'Ensure that loading the translations will update its depending widgets',
-    (WidgetTester tester) async {
-      await tester.runAsync(() async {
-        await tester.pumpWidget(EasyLocalization(
+  testWidgets('Ensure that loading the translations will update its depending widgets', (WidgetTester tester) async {
+    await tester.runAsync(() async {
+      await tester.pumpWidget(
+        EasyLocalization(
           supportedLocales: const [Locale('en'), Locale('de')],
           path: '../../i18n',
           fallbackLocale: const Locale('en'),
           child: const I18nObserver(child: MyApp()),
-        ));
-        await tester.pump();
-      });
-    },
-  );
+        ),
+      );
+      await tester.pump();
+    });
+  });
 
   testWidgets('borrowed owner survives detach and remount while legacy-owned owner is disposed', (tester) async {
     final loader = InstanceLoader();
@@ -46,21 +45,23 @@ Future<void> main() async {
     final changing = owner.setLocale(const Locale('de'));
     await tester.pumpWidget(const SizedBox());
     gate.complete({'value': 'de'});
-    expect(await changing.ready, LocalizationDataOutcome.committed);
-    expect(await changing.applied, LocalizationApplyOutcome.detached);
+    await changing;
+
     expect(EasyLocalization.instance, same(owner));
     await tester.pumpWidget(root());
     expect(owner.locale, const Locale('de'));
     await tester.pumpWidget(const SizedBox());
     owner.dispose();
 
-    await tester.pumpWidget(EasyLocalization(
-      supportedLocales: const [Locale('en')],
-      path: 'unused',
-      saveLocale: false,
-      assetLoader: const ImmutableJsonAssetLoader(),
-      child: const MyApp(),
-    ));
+    await tester.pumpWidget(
+      EasyLocalization(
+        supportedLocales: const [Locale('en')],
+        path: 'unused',
+        saveLocale: false,
+        assetLoader: const ImmutableJsonAssetLoader(),
+        child: const MyApp(),
+      ),
+    );
     await tester.pump();
     final legacy = EasyLocalization.instance;
     final snapshot = legacy.dataTranslator;
@@ -81,29 +82,35 @@ Future<void> main() async {
     );
     final owner = await EasyLocalization.initialize(config);
     try {
-      await tester.pumpWidget(EasyLocalization(
-        supportedLocales: config.supportedLocales,
-        fallbackLocale: config.fallbackLocale,
-        path: config.path,
-        startLocale: config.startLocale,
-        saveLocale: config.saveLocale,
-        assetLoader: config.assetLoader,
-        child: const SizedBox(),
-      ));
+      await tester.pumpWidget(
+        EasyLocalization(
+          supportedLocales: config.supportedLocales,
+          fallbackLocale: config.fallbackLocale,
+          path: config.path,
+          startLocale: config.startLocale,
+          saveLocale: config.saveLocale,
+          useBaseLanguageFallback: config.useBaseLanguageFallback,
+          assetLoader: config.assetLoader,
+          child: const SizedBox(),
+        ),
+      );
       await tester.pumpWidget(const SizedBox());
       expect(EasyLocalization.instance, same(owner));
-      await tester.pumpWidget(EasyLocalization(
-        supportedLocales: const [Locale('de'), Locale('en')],
-        fallbackLocale: config.fallbackLocale,
-        path: config.path,
-        startLocale: config.startLocale,
-        saveLocale: config.saveLocale,
-        assetLoader: config.assetLoader,
-        child: const SizedBox(),
-      ));
+      await tester.pumpWidget(
+        EasyLocalization(
+          supportedLocales: const [Locale('de'), Locale('en')],
+          fallbackLocale: config.fallbackLocale,
+          path: config.path,
+          startLocale: config.startLocale,
+          saveLocale: config.saveLocale,
+          useBaseLanguageFallback: config.useBaseLanguageFallback,
+          assetLoader: config.assetLoader,
+          child: const SizedBox(),
+        ),
+      );
       expect(tester.takeException(), isA<StateError>());
       await tester.pumpWidget(const SizedBox());
-      expect(await owner.setLocale(const Locale('en')).ready, LocalizationDataOutcome.committed);
+      await owner.setLocale(const Locale('en'));
     } finally {
       await tester.pumpWidget(const SizedBox());
       owner.dispose();
@@ -111,21 +118,25 @@ Future<void> main() async {
   });
 
   testWidgets('a second presentation root is rejected without detaching the first', (tester) async {
-    final owner = await EasyLocalization.initialize(EasyLocalizationConfig(
-      supportedLocales: const [Locale('en')],
-      fallbackLocale: const Locale('en'),
-      path: 'unused',
-      saveLocale: false,
-      assetLoader: const ImmutableJsonAssetLoader(),
-    ));
+    final owner = await EasyLocalization.initialize(
+      EasyLocalizationConfig(
+        supportedLocales: const [Locale('en')],
+        fallbackLocale: const Locale('en'),
+        path: 'unused',
+        saveLocale: false,
+        assetLoader: const ImmutableJsonAssetLoader(),
+      ),
+    );
     try {
-      await tester.pumpWidget(EasyLocalization.withInstance(
-        instance: owner,
-        child: EasyLocalization.withInstance(instance: owner, child: const SizedBox()),
-      ));
+      await tester.pumpWidget(
+        EasyLocalization.withInstance(
+          instance: owner,
+          child: EasyLocalization.withInstance(instance: owner, child: const SizedBox()),
+        ),
+      );
       expect(tester.takeException(), isA<StateError>());
       await tester.pumpWidget(const SizedBox());
-      expect(await owner.reloadTranslations().ready, LocalizationDataOutcome.committed);
+      await owner.reloadTranslations();
       await tester.pumpWidget(EasyLocalization.withInstance(instance: owner, child: const SizedBox()));
       expect(tester.takeException(), isNull);
     } finally {
@@ -164,7 +175,8 @@ class _I18nObserverState extends State<I18nObserver> {
       expect(
         'test'.tr(),
         'test_en',
-        reason: 'The translation should be loaded on the second call '
+        reason:
+            'The translation should be loaded on the second call '
             'of didChangeDependencies()',
       );
     }

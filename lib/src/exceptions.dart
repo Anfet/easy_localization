@@ -4,3 +4,8 @@ class LocalizationNotFoundException implements Exception {
   @override
   String toString() => 'Localization not found for current context';
 }
+
+/// A newer command replaced an operation before its data was committed.
+class LocalizationOperationSupersededException implements Exception {
+  const LocalizationOperationSupersededException();
+}

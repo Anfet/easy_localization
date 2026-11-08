@@ -30,10 +30,10 @@ void main() async {
     // assetLoader: XmlSingleAssetLoader() //single file
     // assetLoader: CodegenLoader()
   ));
-  // A ValueListenableBuilder on localization.state can show phase/error in the UI.
-  // receipt.ready waits for data/storage; receipt.applied waits for the root frame.
+  // A ValueListenableBuilder on localization.state can show loading/error in the UI.
+  // Commands wait for data/storage; waitForPresentation observes the root.
   // Data commands also work here, before a widget exists:
-  // await localization.setLocale(const Locale('de', 'DE')).ready;
+  // await localization.setLocale(const Locale('de', 'DE'));
   runApp(EasyLocalization.withInstance(instance: localization, child: MyApp()));
 }
 

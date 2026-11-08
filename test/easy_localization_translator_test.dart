@@ -145,7 +145,7 @@ void main() {
     expect(() => owner.translator(const Locale('fr')), throwsArgumentError);
     expect(loader.calls, loaderCalls);
     loader.data['ru']!['value'] = 'Новый';
-    await owner.reloadTranslations().ready;
+    await owner.reloadTranslations();
     expect(document.tr('value'), 'Русский');
     expect((await owner.translator(const Locale('ru'))).tr('value'), 'Новый');
     owner.dispose();
@@ -172,7 +172,7 @@ void main() {
     await failed;
     expect(owner.locale, const Locale('en'));
     final change = owner.setLocale(const Locale('ru'));
-    await change.ready;
+    await change;
     expect(document.tr('value'), 'second');
     owner.dispose();
     first.complete({'value': 'first'});

@@ -465,12 +465,12 @@ class _EasyLocalizationProvider extends InheritedWidget {
   /// Change app locale
   Future<void> setLocale(Locale locale) async {
     assert(parent.supportedLocales.contains(locale));
-    await _owner.setLocale(locale).ready;
+    await _owner.setLocale(locale);
   }
 
   /// Reloads resources for the currently displayed locale.
   Future<void> reloadTranslations() async {
-    await _owner.reloadTranslations().ready;
+    await _owner.reloadTranslations();
   }
 
   /// Clears a saved locale from device storage
@@ -484,7 +484,7 @@ class _EasyLocalizationProvider extends InheritedWidget {
 
   /// Follow the platform locale and remove the saved selection.
   Future<void> resetLocale() async {
-    await _owner.resetLocale().ready;
+    await _owner.resetLocale();
   }
 
   @override

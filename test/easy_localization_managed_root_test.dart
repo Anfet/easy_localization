@@ -10,16 +10,17 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_platform_interface.dart';
 
 void main() {
-  Future<EasyLocalizationInstance> owner(_Loader loader, [_Delegate? delegate, bool saveLocale = false]) =>
-      EasyLocalization.initialize(EasyLocalizationConfig(
-        supportedLocales: const [Locale('en'), Locale('de'), Locale('ar')],
-        fallbackLocale: const Locale('en'),
-        startLocale: const Locale('en'),
-        path: 'unused',
-        saveLocale: saveLocale,
-        assetLoader: loader,
-        additionalDelegates: [if (delegate != null) delegate, if (delegate != null) _DuplicateDelegate()],
-      ));
+  Future<EasyLocalizationInstance> owner(_Loader loader, [_Delegate? delegate, bool saveLocale = false]) => EasyLocalization.initialize(
+    EasyLocalizationConfig(
+      supportedLocales: const [Locale('en'), Locale('de'), Locale('ar')],
+      fallbackLocale: const Locale('en'),
+      startLocale: const Locale('en'),
+      path: 'unused',
+      saveLocale: saveLocale,
+      assetLoader: loader,
+      additionalDelegates: [if (delegate != null) delegate, if (delegate != null) _DuplicateDelegate()],
+    ),
+  );
 
   testWidgets('reset presentation remains independent of subsequent system replay', (tester) async {
     for (final failReplay in [false, true]) {
@@ -27,7 +28,12 @@ void main() {
       tester.binding.platformDispatcher.localesTestValue = const [Locale('de')];
       final instance = await owner(loader);
       try {
-        await tester.pumpWidget(EasyLocalization.withInstance(instance: instance, child: const _App(home: _Leaf(label: 'home'))));
+        await tester.pumpWidget(
+          EasyLocalization.withInstance(
+            instance: instance,
+            child: const _App(home: _Leaf(label: 'home')),
+          ),
+        );
         await tester.pumpAndSettle();
         final resetGate = Completer<Map<String, dynamic>>();
         final replayGate = Completer<Map<String, dynamic>>();
@@ -36,15 +42,16 @@ void main() {
         final reset = instance.resetLocale();
         tester.binding.platformDispatcher.localesTestValue = const [Locale('ar')];
         resetGate.complete({'value': 'reset'});
-        expect(await reset.ready, LocalizationDataOutcome.committed);
+        await reset;
+        final resetPresentation = instance.waitForPresentation();
         if (failReplay) {
           replayGate.completeError(FlutterError('replay failure'));
         } else {
           replayGate.complete({'value': 'replay'});
         }
         await tester.pumpAndSettle();
-        expect(await reset.applied, failReplay ? LocalizationApplyOutcome.applied : LocalizationApplyOutcome.superseded);
-        expect(instance.state.value.committedRevision, failReplay ? reset.revision : greaterThan(reset.revision));
+        expect(await resetPresentation, failReplay ? LocalizationApplyOutcome.applied : LocalizationApplyOutcome.superseded);
+
         expect(instance.locale, failReplay ? const Locale('de') : const Locale('ar'));
       } finally {
         await tester.pumpWidget(const SizedBox());
@@ -57,15 +64,22 @@ void main() {
   testWidgets('system updates reach presentation and survive detach and remount', (tester) async {
     final loader = _Loader();
     tester.binding.platformDispatcher.localesTestValue = const [Locale('en')];
-    final instance = await EasyLocalization.initialize(EasyLocalizationConfig(
-      supportedLocales: const [Locale('en'), Locale('de'), Locale('ar')],
-      fallbackLocale: const Locale('en'),
-      path: 'unused',
-      saveLocale: false,
-      assetLoader: loader,
-    ));
+    final instance = await EasyLocalization.initialize(
+      EasyLocalizationConfig(
+        supportedLocales: const [Locale('en'), Locale('de'), Locale('ar')],
+        fallbackLocale: const Locale('en'),
+        path: 'unused',
+        saveLocale: false,
+        assetLoader: loader,
+      ),
+    );
     try {
-      await tester.pumpWidget(EasyLocalization.withInstance(instance: instance, child: const _App(home: _Leaf(label: 'home'))));
+      await tester.pumpWidget(
+        EasyLocalization.withInstance(
+          instance: instance,
+          child: const _App(home: _Leaf(label: 'home')),
+        ),
+      );
       await tester.pumpAndSettle();
       tester.binding.platformDispatcher.localesTestValue = const [Locale('fr'), Locale('de')];
       await tester.pumpAndSettle();
@@ -75,7 +89,12 @@ void main() {
       tester.binding.platformDispatcher.localesTestValue = const [Locale('ar')];
       await tester.pumpAndSettle();
       expect(instance.locale, const Locale('ar'));
-      await tester.pumpWidget(EasyLocalization.withInstance(instance: instance, child: const _App(home: _Leaf(label: 'home'))));
+      await tester.pumpWidget(
+        EasyLocalization.withInstance(
+          instance: instance,
+          child: const _App(home: _Leaf(label: 'home')),
+        ),
+      );
       await tester.pumpAndSettle();
       expect(find.text('ar-3 home'), findsOneWidget);
       expect(loader.loads, 3);
@@ -96,27 +115,40 @@ void main() {
     final focus = FocusNode();
     final input = TextEditingController();
     try {
-      await tester.pumpWidget(EasyLocalization.withInstance(
-        instance: instance,
-        child: _App(navigator: navigator, home: _Page(key: page, scroll: scroll, focus: focus, input: input)),
-      ));
+      await tester.pumpWidget(
+        EasyLocalization.withInstance(
+          instance: instance,
+          child: _App(
+            navigator: navigator,
+            home: _Page(key: page, scroll: scroll, focus: focus, input: input),
+          ),
+        ),
+      );
       await tester.pumpAndSettle();
       final retained = page.currentState;
       await tester.enterText(find.byType(TextField), 'kept input');
       focus.requestFocus();
       scroll.jumpTo(100);
       await tester.pump();
-      navigator.currentState?.push(MaterialPageRoute<void>(builder: (_) => const Scaffold(body: _Leaf(label: 'route'))));
+      navigator.currentState?.push(
+        MaterialPageRoute<void>(
+          builder: (_) => const Scaffold(body: _Leaf(label: 'route')),
+        ),
+      );
       await tester.pumpAndSettle();
-      showDialog<void>(context: tester.element(find.text('en-1 route')), builder: (_) => const Dialog(child: _Leaf(label: 'dialog')));
+      showDialog<void>(
+        context: tester.element(find.text('en-1 route')),
+        builder: (_) => const Dialog(child: _Leaf(label: 'dialog')),
+      );
       await tester.pumpAndSettle();
       final change = instance.setLocale(const Locale('ar'));
-      expect(await change.ready, LocalizationDataOutcome.committed);
+      await change;
+      final changePresentation = instance.waitForPresentation();
       var applied = false;
-      change.applied.then((_) => applied = true);
+      changePresentation.then((_) => applied = true);
       expect(applied, isFalse);
       await tester.pumpAndSettle();
-      expect(await change.applied, LocalizationApplyOutcome.applied);
+      expect(await changePresentation, LocalizationApplyOutcome.applied);
       expect(find.text('ar-2 dialog'), findsOneWidget);
       expect(find.text('ar-2 route', skipOffstage: false), findsOneWidget);
       expect(find.text('ar-2 home', skipOffstage: false), findsOneWidget);
@@ -137,9 +169,10 @@ void main() {
       await tester.pump();
       expect(focus.hasFocus, isTrue);
       final reload = instance.reloadTranslations();
-      await reload.ready;
+      await reload;
+      final reloadPresentation = instance.waitForPresentation();
       await tester.pumpAndSettle();
-      expect(await reload.applied, LocalizationApplyOutcome.applied);
+      expect(await reloadPresentation, LocalizationApplyOutcome.applied);
       expect(find.text('ar-3 home'), findsOneWidget);
       expect(tester.widget<TextField>(find.byType(TextField)).decoration?.hintText, 'ar-3 hint');
       expect(find.text('ar-3 button'), findsOneWidget);
@@ -147,7 +180,11 @@ void main() {
       expect(input.text, 'kept input');
       expect(focus.hasFocus, isTrue);
       expect(scroll.offset, 100);
-      navigator.currentState?.push(MaterialPageRoute<void>(builder: (_) => const Scaffold(body: _Leaf(label: 'lazy'))));
+      navigator.currentState?.push(
+        MaterialPageRoute<void>(
+          builder: (_) => const Scaffold(body: _Leaf(label: 'lazy')),
+        ),
+      );
       await tester.pumpAndSettle();
       expect(find.text('ar-3 lazy'), findsOneWidget);
     } finally {
@@ -163,22 +200,29 @@ void main() {
     final delegate = _Delegate();
     final instance = await owner(_Loader(), delegate);
     try {
-      await tester.pumpWidget(EasyLocalization.withInstance(instance: instance, child: const _App(home: _Leaf(label: 'home'))));
+      await tester.pumpWidget(
+        EasyLocalization.withInstance(
+          instance: instance,
+          child: const _App(home: _Leaf(label: 'home')),
+        ),
+      );
       await tester.pumpAndSettle();
       final gate = Completer<_Resource>();
       delegate.gates['de'] = gate;
       final de = instance.setLocale(const Locale('de'));
-      await de.ready;
+      await de;
+      final dePresentation = instance.waitForPresentation();
       await tester.pump();
       expect(instance.dataTranslator.tr('value'), 'de-2');
       expect(tr('value'), 'en-1');
       expect(find.text('en-1 home'), findsOneWidget);
-      expect(instance.state.value.phase, isNot(LocalizationPhase.idle));
+      expect(instance.state.value.isLoading, isTrue);
       final ar = instance.setLocale(const Locale('ar'));
-      await ar.ready;
+      await ar;
+      final arPresentation = instance.waitForPresentation();
       await tester.pumpAndSettle();
-      expect(await de.applied, LocalizationApplyOutcome.superseded);
-      expect(await ar.applied, LocalizationApplyOutcome.applied);
+      expect(await dePresentation, LocalizationApplyOutcome.superseded);
+      expect(await arPresentation, LocalizationApplyOutcome.applied);
       gate.complete(const _Resource(Locale('de')));
       await tester.pumpAndSettle();
       expect(find.text('ar-3 home'), findsOneWidget);
@@ -186,17 +230,19 @@ void main() {
       delegate.gates.remove('de');
       delegate.fail = true;
       final failed = instance.setLocale(const Locale('de'));
-      await failed.ready;
+      await failed;
+      final failedPresentation = instance.waitForPresentation();
       await tester.pumpAndSettle();
-      expect(await failed.applied, LocalizationApplyOutcome.failed);
+      expect(await failedPresentation, LocalizationApplyOutcome.failed);
       expect(instance.state.value.errorStage, LocalizationErrorStage.flutterDelegates);
       expect(tr('value'), 'ar-3');
       expect(Localizations.localeOf(tester.element(find.text('ar-3 home'))), const Locale('ar'));
       delegate.fail = false;
       final retry = instance.setLocale(const Locale('de'));
-      await retry.ready;
+      await retry;
+      final retryPresentation = instance.waitForPresentation();
       await tester.pumpAndSettle();
-      expect(await retry.applied, LocalizationApplyOutcome.applied);
+      expect(await retryPresentation, LocalizationApplyOutcome.applied);
       expect(find.text('de-4 home'), findsOneWidget);
       expect(instance.state.value.error, isNull);
     } finally {
@@ -210,23 +256,31 @@ void main() {
     final instance = await owner(_Loader(), delegate);
     _Leaf.builds = 0;
     try {
-      await tester.pumpWidget(EasyLocalization.withInstance(instance: instance, child: const _App(home: _Leaf(label: 'home'))));
+      await tester.pumpWidget(
+        EasyLocalization.withInstance(
+          instance: instance,
+          child: const _App(home: _Leaf(label: 'home')),
+        ),
+      );
       await tester.pumpAndSettle();
       final before = _Leaf.builds;
       final de = instance.setLocale(const Locale('de'));
-      await de.ready;
+      await de;
+      final dePresentation = instance.waitForPresentation();
       final ar = instance.setLocale(const Locale('ar'));
-      await ar.ready;
+      await ar;
+      final arPresentation = instance.waitForPresentation();
       await tester.pumpAndSettle();
-      expect(await de.applied, LocalizationApplyOutcome.superseded);
-      expect(await ar.applied, LocalizationApplyOutcome.applied);
+      expect(await dePresentation, LocalizationApplyOutcome.superseded);
+      expect(await arPresentation, LocalizationApplyOutcome.applied);
       expect(_Leaf.builds - before, 1);
       expect(find.text('ar-3 home'), findsOneWidget);
       final loads = delegate.loads;
       final builds = _Leaf.builds;
       final unchanged = instance.setLocale(const Locale('ar'));
-      await unchanged.ready;
-      expect(await unchanged.applied, LocalizationApplyOutcome.applied);
+      await unchanged;
+      final unchangedPresentation = instance.waitForPresentation();
+      expect(await unchangedPresentation, LocalizationApplyOutcome.applied);
       await tester.pumpAndSettle();
       expect(delegate.loads, loads);
       expect(_Leaf.builds, builds);
@@ -245,26 +299,33 @@ void main() {
     final loader = _Loader();
     final instance = await owner(loader, delegate, true);
     try {
-      await tester.pumpWidget(EasyLocalization.withInstance(instance: instance, child: const _App(home: _Leaf(label: 'home'))));
+      await tester.pumpWidget(
+        EasyLocalization.withInstance(
+          instance: instance,
+          child: const _App(home: _Leaf(label: 'home')),
+        ),
+      );
       await tester.pumpAndSettle();
       store.fail = true;
       final failed = instance.setLocale(const Locale('de'));
-      await expectLater(failed.ready, throwsStateError);
+      await expectLater(failed, throwsStateError);
+      final failedPresentation = instance.waitForPresentation();
       await tester.pumpAndSettle();
-      expect(await failed.applied, LocalizationApplyOutcome.applied);
+      expect(await failedPresentation, LocalizationApplyOutcome.applied);
       expect(instance.state.value.errorStage, LocalizationErrorStage.persistence);
       final loads = delegate.loads;
       final resources = loader.loads;
       final builds = _Leaf.builds;
       store.fail = false;
       final retry = instance.setLocale(const Locale('de'));
-      await retry.ready;
-      expect(await retry.applied, LocalizationApplyOutcome.applied);
+      await retry;
+      final retryPresentation = instance.waitForPresentation();
+      expect(await retryPresentation, LocalizationApplyOutcome.applied);
       await tester.pumpAndSettle();
       expect(delegate.loads, loads);
       expect(loader.loads, resources);
       expect(_Leaf.builds, builds);
-      expect(instance.state.value.phase, LocalizationPhase.idle);
+      expect(instance.state.value.isLoading, isFalse);
       expect(instance.state.value.error, isNull);
       expect(store.values['flutter.locale'], 'de');
     } finally {
@@ -284,23 +345,29 @@ void main() {
       final delegate = _Delegate();
       final instance = await owner(_Loader(), delegate, true);
       try {
-        await tester.pumpWidget(EasyLocalization.withInstance(instance: instance, child: const _App(home: _Leaf(label: 'home'))));
+        await tester.pumpWidget(
+          EasyLocalization.withInstance(
+            instance: instance,
+            child: const _App(home: _Leaf(label: 'home')),
+          ),
+        );
         await tester.pumpAndSettle();
         final gate = Completer<void>();
         store.gate = gate;
         delegate.fail = failure;
         final change = instance.setLocale(Locale(failure ? 'ar' : 'de'));
         var ready = false;
-        change.ready.then((_) => ready = true);
+        change.then((_) => ready = true);
         await tester.pumpAndSettle();
-        expect(await change.applied, failure ? LocalizationApplyOutcome.failed : LocalizationApplyOutcome.applied);
+        final changePresentation = instance.waitForPresentation();
+        expect(await changePresentation, failure ? LocalizationApplyOutcome.failed : LocalizationApplyOutcome.applied);
         expect(ready, isFalse);
-        expect(instance.state.value.phase, isNot(LocalizationPhase.idle));
+        expect(instance.state.value.isLoading, isTrue);
         if (failure) expect(instance.state.value.errorStage, LocalizationErrorStage.flutterDelegates);
         gate.complete();
-        expect(await change.ready, LocalizationDataOutcome.committed);
+        await change;
         await tester.pump();
-        expect(instance.state.value.phase, LocalizationPhase.idle);
+        expect(instance.state.value.isLoading, isFalse);
       } finally {
         final gate = store.gate;
         if (gate != null && !gate.isCompleted) gate.complete();
@@ -316,16 +383,23 @@ void main() {
     final delegate = _Delegate()..fail = true;
     final instance = await owner(_Loader(), delegate);
     try {
-      await tester.pumpWidget(EasyLocalization.withInstance(instance: instance, child: const _App(home: _Leaf(label: 'home'))));
+      await tester.pumpWidget(
+        EasyLocalization.withInstance(
+          instance: instance,
+          child: const _App(home: _Leaf(label: 'home')),
+        ),
+      );
       await tester.pumpAndSettle();
       expect(find.byType(_App), findsNothing);
       expect(instance.state.value.errorStage, LocalizationErrorStage.flutterDelegates);
-      expect(instance.state.value.appliedRevision, isNull);
+      expect(await instance.waitForPresentation(), LocalizationApplyOutcome.failed);
+
       delegate.fail = false;
       final retry = instance.setLocale(const Locale('en'));
-      await retry.ready;
+      await retry;
+      final retryPresentation = instance.waitForPresentation();
       await tester.pumpAndSettle();
-      expect(await retry.applied, LocalizationApplyOutcome.applied);
+      expect(await retryPresentation, LocalizationApplyOutcome.applied);
       expect(find.text('en-1 home'), findsOneWidget);
     } finally {
       await tester.pumpWidget(const SizedBox());
@@ -339,13 +413,17 @@ void main() {
     try {
       loader.fail = true;
       final failed = instance.setLocale(const Locale('de'));
-      await expectLater(failed.ready, throwsStateError);
-      await tester.pumpWidget(EasyLocalization.withInstance(instance: instance, child: const _App(home: _Leaf(label: 'home'))));
+      await expectLater(failed, throwsStateError);
+      await tester.pumpWidget(
+        EasyLocalization.withInstance(
+          instance: instance,
+          child: const _App(home: _Leaf(label: 'home')),
+        ),
+      );
       await tester.pumpAndSettle();
       expect(find.text('en-1 home'), findsOneWidget);
       expect(instance.state.value.appliedLocale, const Locale('en'));
       expect(instance.state.value.errorStage, LocalizationErrorStage.resources);
-      expect(await failed.applied, LocalizationApplyOutcome.failed);
     } finally {
       await tester.pumpWidget(const SizedBox());
       instance.dispose();
@@ -355,31 +433,36 @@ void main() {
   testWidgets('detach and remount isolate pending preflight and terminal receipts while disposal closes an attached command', (tester) async {
     final delegate = _Delegate();
     final instance = await owner(_Loader(), delegate);
-    Widget root() => EasyLocalization.withInstance(instance: instance, child: const _App(home: _Leaf(label: 'home')));
+    Widget root() => EasyLocalization.withInstance(
+      instance: instance,
+      child: const _App(home: _Leaf(label: 'home')),
+    );
     await tester.pumpWidget(root());
     await tester.pumpAndSettle();
     final gate = Completer<_Resource>();
     delegate.gates['de'] = gate;
     final change = instance.setLocale(const Locale('de'));
-    await change.ready;
+    await change;
+    final changePresentation = instance.waitForPresentation();
     await tester.pump();
     await tester.pumpWidget(const SizedBox());
-    expect(await change.applied, LocalizationApplyOutcome.detached);
+    expect(await changePresentation, LocalizationApplyOutcome.detached);
     delegate.gates.remove('de');
     await tester.pumpWidget(root());
     await tester.pumpAndSettle();
     expect(find.text('de-2 home'), findsOneWidget);
     expect(instance.state.value.appliedLocale, const Locale('de'));
-    expect(await change.applied, LocalizationApplyOutcome.detached);
+    expect(await changePresentation, LocalizationApplyOutcome.detached);
     gate.complete(const _Resource(Locale('de')));
     await tester.pumpAndSettle();
     final pending = Completer<_Resource>();
     delegate.gates['ar'] = pending;
     final disposed = instance.setLocale(const Locale('ar'));
-    await disposed.ready;
+    await disposed;
+    final disposedPresentation = instance.waitForPresentation();
     await tester.pump();
     instance.dispose();
-    expect(await disposed.applied, LocalizationApplyOutcome.disposed);
+    expect(await disposedPresentation, LocalizationApplyOutcome.disposed);
     pending.complete(const _Resource(Locale('ar')));
     await tester.pumpWidget(const SizedBox());
     expect(tester.takeException(), isNull);
@@ -387,7 +470,11 @@ void main() {
 }
 
 class _Loader extends AssetLoader {
-  _Loader() : super(fileLoader: const RootBundleFileLoader(), linkedFileResolver: const JsonLinkedFileResolver(fileLoader: RootBundleFileLoader()));
+  _Loader()
+    : super(
+        fileLoader: const RootBundleFileLoader(),
+        linkedFileResolver: const JsonLinkedFileResolver(fileLoader: RootBundleFileLoader()),
+      );
   int loads = 0;
   bool fail = false;
   final gates = <String, Completer<Map<String, dynamic>>>{};
@@ -438,12 +525,12 @@ class _App extends StatelessWidget {
   const _App({required this.home, this.navigator});
   @override
   Widget build(BuildContext context) => MaterialApp(
-        navigatorKey: navigator,
-        locale: context.locale,
-        supportedLocales: context.supportedLocales,
-        localizationsDelegates: context.localizationDelegates,
-        home: home,
-      );
+    navigatorKey: navigator,
+    locale: context.locale,
+    supportedLocales: context.supportedLocales,
+    localizationsDelegates: context.localizationDelegates,
+    home: home,
+  );
 }
 
 class _Leaf extends StatelessWidget {
@@ -469,14 +556,21 @@ class _Page extends StatefulWidget {
 class _PageState extends State<_Page> {
   @override
   Widget build(BuildContext context) => Scaffold(
-        body: ListView(controller: widget.scroll, children: [
-          const SizedBox(height: 100),
-          const _Leaf(label: 'home'),
-          TextField(controller: widget.input, focusNode: widget.focus, decoration: InputDecoration(hintText: '${tr('value')} hint')),
-          TextButton(onPressed: () {}, child: Text('${tr('value')} button')),
-          const SizedBox(height: 1500),
-        ]),
-      );
+    body: ListView(
+      controller: widget.scroll,
+      children: [
+        const SizedBox(height: 100),
+        const _Leaf(label: 'home'),
+        TextField(
+          controller: widget.input,
+          focusNode: widget.focus,
+          decoration: InputDecoration(hintText: '${tr('value')} hint'),
+        ),
+        TextButton(onPressed: () {}, child: Text('${tr('value')} button')),
+        const SizedBox(height: 1500),
+      ],
+    ),
+  );
 }
 
 class _RetryStore extends SharedPreferencesStorePlatform {

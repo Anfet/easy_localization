@@ -15,16 +15,18 @@ void main() {
     final loader = _Loader();
     final extra = _Extra();
     final delegate = _Delegate();
-    final instance = await EasyLocalization.initialize(EasyLocalizationConfig(
-      supportedLocales: const [Locale('en'), Locale('de'), Locale('ar')],
-      fallbackLocale: const Locale('en'),
-      startLocale: const Locale('en'),
-      path: 'unused',
-      saveLocale: true,
-      assetLoader: loader,
-      extraAssetLoaders: [extra],
-      additionalDelegates: [delegate],
-    ));
+    final instance = await EasyLocalization.initialize(
+      EasyLocalizationConfig(
+        supportedLocales: const [Locale('en'), Locale('de'), Locale('ar')],
+        fallbackLocale: const Locale('en'),
+        startLocale: const Locale('en'),
+        path: 'unused',
+        saveLocale: true,
+        assetLoader: loader,
+        extraAssetLoaders: [extra],
+        additionalDelegates: [delegate],
+      ),
+    );
     final document = await instance.translator(const Locale('de'));
     final initial = instance.dataTranslator;
     final navigator = GlobalKey<NavigatorState>();
@@ -33,19 +35,31 @@ void main() {
     final focus = FocusNode();
     final input = TextEditingController();
     try {
-      await tester.pumpWidget(EasyLocalization.withInstance(
-        instance: instance,
-        child: _App(navigator: navigator, home: _Page(key: page, scroll: scroll, focus: focus, input: input)),
-      ));
+      await tester.pumpWidget(
+        EasyLocalization.withInstance(
+          instance: instance,
+          child: _App(
+            navigator: navigator,
+            home: _Page(key: page, scroll: scroll, focus: focus, input: input),
+          ),
+        ),
+      );
       await tester.pumpAndSettle();
       final retained = page.currentState;
       await tester.enterText(find.byType(TextField), 'retained input');
       focus.requestFocus();
       scroll.jumpTo(100);
       await tester.pump();
-      navigator.currentState?.push(MaterialPageRoute<void>(builder: (_) => const Scaffold(body: _Leaf(label: 'route'))));
+      navigator.currentState?.push(
+        MaterialPageRoute<void>(
+          builder: (_) => const Scaffold(body: _Leaf(label: 'route')),
+        ),
+      );
       await tester.pumpAndSettle();
-      showDialog<void>(context: tester.element(find.text('en-v1 route')), builder: (_) => const Dialog(child: _Leaf(label: 'dialog')));
+      showDialog<void>(
+        context: tester.element(find.text('en-v1 route')),
+        builder: (_) => const Dialog(child: _Leaf(label: 'dialog')),
+      );
       await tester.pumpAndSettle();
       var elements = 0;
       void count(Element element) {
@@ -58,7 +72,8 @@ void main() {
       final gate = Completer<_Resource>();
       delegate.gate = gate;
       final change = instance.setLocale(const Locale('ar'));
-      expect(await change.ready, LocalizationDataOutcome.committed);
+      await change;
+      final changePresentation = instance.waitForPresentation();
       await tester.pump();
       expect(instance.dataTranslator.tr('value'), 'ar-v1');
       expect(tr('value'), 'en-v1');
@@ -71,8 +86,8 @@ void main() {
       expect(Localizations.of<_Resource>(oldResources, _Resource)?.locale, const Locale('en'));
       gate.complete(const _Resource(Locale('ar')));
       await tester.pumpAndSettle();
-      expect(await change.applied, LocalizationApplyOutcome.applied);
-      expect(instance.state.value.appliedRevision, change.revision);
+      expect(await changePresentation, LocalizationApplyOutcome.applied);
+
       expect(find.text('ar-v1 dialog'), findsOneWidget);
       expect(find.text('ar-v1 route', skipOffstage: false), findsOneWidget);
       expect(find.text('ar-v1 home', skipOffstage: false), findsOneWidget);
@@ -89,10 +104,11 @@ void main() {
       extra.version = 2;
       final before = _Leaf.builds;
       final reload = instance.reloadTranslations();
-      expect(await reload.ready, LocalizationDataOutcome.committed);
+      await reload;
+      final reloadPresentation = instance.waitForPresentation();
       await tester.pumpAndSettle();
-      expect(await reload.applied, LocalizationApplyOutcome.applied);
-      expect(instance.state.value.appliedRevision, reload.revision);
+      expect(await reloadPresentation, LocalizationApplyOutcome.applied);
+
       expect(_Leaf.builds - before, 3);
       expect(find.text('ar-v2 dialog'), findsOneWidget);
       expect(find.text('ar-v2 route', skipOffstage: false), findsOneWidget);
@@ -113,9 +129,10 @@ void main() {
       expect(find.text('ar-v2 button'), findsOneWidget);
       final focusedBefore = _Leaf.builds;
       final focusedReload = instance.reloadTranslations();
-      expect(await focusedReload.ready, LocalizationDataOutcome.committed);
+      await focusedReload;
+      final focusedReloadPresentation = instance.waitForPresentation();
       await tester.pumpAndSettle();
-      expect(await focusedReload.applied, LocalizationApplyOutcome.applied);
+      expect(await focusedReloadPresentation, LocalizationApplyOutcome.applied);
       expect(_Leaf.builds - focusedBefore, 1);
       expect(focus.hasFocus, isTrue);
       loader.lastMap?['value'] = 'mutated';
@@ -128,39 +145,42 @@ void main() {
       final lateGate = Completer<Map<String, dynamic>>();
       loader.gate = lateGate;
       final late = instance.reloadTranslations();
+      final cancelled = expectLater(late, throwsA(isA<LocalizationOperationSupersededException>()));
       loader.gate = null;
       final de = instance.setLocale(const Locale('de'));
-      expect(await de.ready, LocalizationDataOutcome.committed);
+      await de;
+      final dePresentation = instance.waitForPresentation();
       await tester.pumpAndSettle();
-      expect(await de.applied, LocalizationApplyOutcome.applied);
+      expect(await dePresentation, LocalizationApplyOutcome.applied);
       lateGate.complete({'value': 'late'});
-      expect(await late.ready, LocalizationDataOutcome.superseded);
-      expect(await late.applied, LocalizationApplyOutcome.superseded);
+      await cancelled;
       await tester.pumpAndSettle();
       expect(find.text('de-v2 home'), findsOneWidget);
       loader.fail = true;
       final failed = instance.reloadTranslations();
-      await expectLater(failed.ready, throwsA(isA<StateError>()));
-      expect(await failed.applied, LocalizationApplyOutcome.failed);
+      await expectLater(failed, throwsA(isA<StateError>()));
+
       expect(find.text('de-v2 home'), findsOneWidget);
       expect(page.currentState, same(retained));
       loader.fail = false;
       loader.version = 3;
       final retry = instance.reloadTranslations();
-      expect(await retry.ready, LocalizationDataOutcome.committed);
+      await retry;
+      final retryPresentation = instance.waitForPresentation();
       await tester.pumpAndSettle();
-      expect(await retry.applied, LocalizationApplyOutcome.applied);
+      expect(await retryPresentation, LocalizationApplyOutcome.applied);
       expect(find.text('de-v3 home'), findsOneWidget);
       tester.binding.platformDispatcher.localesTestValue = const [Locale('fr'), Locale('ar')];
       await tester.pumpAndSettle();
       expect(instance.locale, const Locale('de'));
       expect((await SharedPreferences.getInstance()).getString('locale'), 'de');
       final reset = instance.resetLocale();
-      expect(await reset.ready, LocalizationDataOutcome.committed);
+      await reset;
+      final resetPresentation = instance.waitForPresentation();
       await tester.pumpAndSettle();
-      expect(await reset.applied, LocalizationApplyOutcome.applied);
+      expect(await resetPresentation, LocalizationApplyOutcome.applied);
       expect(instance.locale, const Locale('ar'));
-      expect(instance.state.value.committedRevision, reset.revision);
+
       expect((await SharedPreferences.getInstance()).getString('locale'), isNull);
       expect(document.tr('value'), 'de-v1');
       expect(initial.tr('value'), 'en-v1');
@@ -176,7 +196,11 @@ void main() {
 }
 
 class _Loader extends AssetLoader {
-  _Loader() : super(fileLoader: const RootBundleFileLoader(), linkedFileResolver: const JsonLinkedFileResolver(fileLoader: RootBundleFileLoader()));
+  _Loader()
+    : super(
+        fileLoader: const RootBundleFileLoader(),
+        linkedFileResolver: const JsonLinkedFileResolver(fileLoader: RootBundleFileLoader()),
+      );
   int version = 1;
   bool fail = false;
   Completer<Map<String, dynamic>>? gate;
@@ -188,18 +212,22 @@ class _Loader extends AssetLoader {
     if (pending != null) return pending.future;
     return lastMap = {
       'value': '${locale.languageCode}-v$version',
-      'nested': {'base': '${locale.languageCode}-base$version', 'message': 'base'}
+      'nested': {'base': '${locale.languageCode}-base$version', 'message': 'base'},
     };
   }
 }
 
 class _Extra extends AssetLoader {
-  _Extra() : super(fileLoader: const RootBundleFileLoader(), linkedFileResolver: const JsonLinkedFileResolver(fileLoader: RootBundleFileLoader()));
+  _Extra()
+    : super(
+        fileLoader: const RootBundleFileLoader(),
+        linkedFileResolver: const JsonLinkedFileResolver(fileLoader: RootBundleFileLoader()),
+      );
   int version = 1;
   @override
   Future<Map<String, dynamic>> load(String path, Locale locale) async => {
-        'nested': {'message': '${locale.languageCode}-extra$version {name}'}
-      };
+    'nested': {'message': '${locale.languageCode}-extra$version {name}'},
+  };
 }
 
 class _Resource {
@@ -223,12 +251,12 @@ class _App extends StatelessWidget {
   final Widget home;
   @override
   Widget build(BuildContext context) => MaterialApp(
-        navigatorKey: navigator,
-        locale: context.locale,
-        supportedLocales: context.supportedLocales,
-        localizationsDelegates: context.localizationDelegates,
-        home: home,
-      );
+    navigatorKey: navigator,
+    locale: context.locale,
+    supportedLocales: context.supportedLocales,
+    localizationsDelegates: context.localizationDelegates,
+    home: home,
+  );
 }
 
 class _Leaf extends StatelessWidget {
@@ -255,12 +283,19 @@ class _Page extends StatefulWidget {
 class _PageState extends State<_Page> {
   @override
   Widget build(BuildContext context) => Scaffold(
-        body: ListView(controller: widget.scroll, children: [
-          const SizedBox(height: 100),
-          const _Leaf(label: 'home'),
-          TextField(controller: widget.input, focusNode: widget.focus, decoration: InputDecoration(hintText: '${tr('value')} hint')),
-          TextButton(onPressed: () {}, child: Text('${tr('value')} button')),
-          const SizedBox(height: 1500),
-        ]),
-      );
+    body: ListView(
+      controller: widget.scroll,
+      children: [
+        const SizedBox(height: 100),
+        const _Leaf(label: 'home'),
+        TextField(
+          controller: widget.input,
+          focusNode: widget.focus,
+          decoration: InputDecoration(hintText: '${tr('value')} hint'),
+        ),
+        TextButton(onPressed: () {}, child: Text('${tr('value')} button')),
+        const SizedBox(height: 1500),
+      ],
+    ),
+  );
 }

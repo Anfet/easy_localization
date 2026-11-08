@@ -1,10 +1,6 @@
 part of 'easy_localization_app.dart';
 
-enum LocalizationDataOutcome { committed, superseded, disposed }
-
 enum LocalizationApplyOutcome { applied, superseded, detached, failed, disposed }
-
-enum LocalizationPhase { idle, loading, preparing, applyScheduled }
 
 enum LocalizationErrorStage { resources, persistence, flutterDelegates }
 
@@ -80,46 +76,27 @@ class EasyLocalizationConfig {
 /// Observable operation state. Committed data remains usable after an error.
 @immutable
 class LocalizationState {
-  final Locale? requestedLocale;
-  final int? requestedRevision;
-  final Locale committedLocale;
-  final int committedRevision;
+  final Locale locale;
   final Locale? appliedLocale;
-  final int? appliedRevision;
   final bool isSystemMode;
-  final LocalizationPhase phase;
+  final bool isLoading;
   final Object? error;
   final LocalizationErrorStage? errorStage;
 
   const LocalizationState({
-    this.requestedLocale,
-    this.requestedRevision,
-    required this.committedLocale,
-    required this.committedRevision,
+    required this.locale,
     this.appliedLocale,
-    this.appliedRevision,
     required this.isSystemMode,
-    this.phase = LocalizationPhase.idle,
+    this.isLoading = false,
     this.error,
     this.errorStage,
   });
 }
 
-/// An operation's data/storage completion and separate presentation completion.
-/// Resource and persistence failures retain their original error and stack in
-/// [ready]. Without a presentation root, [applied] completes as detached.
-class LocalizationChange {
-  final int revision;
-  final Future<LocalizationDataOutcome> ready;
-  final Future<LocalizationApplyOutcome> applied;
-
-  const LocalizationChange._(this.revision, this.ready, this.applied);
-}
-
 /// Owns resources and commands independently of any Flutter widget lifecycle.
 ///
-/// Obtain with [EasyLocalization.initialize]. Await a command's receipt.ready
-/// for resources and storage; no frame or BuildContext is required. A borrowed
+/// Obtain with [EasyLocalization.initialize]. Await commands for resources and
+/// storage; no frame or BuildContext is required. A borrowed
 /// root can unmount without disposing this owner. Captured [dataTranslator]
 /// snapshots remain usable after subsequent changes and disposal.
 class EasyLocalizationInstance with WidgetsBindingObserver {
@@ -138,22 +115,22 @@ class EasyLocalizationInstance with WidgetsBindingObserver {
     return _controller.loadSnapshot(locale, useFallbackForEmpty: config.useFallbackTranslationsForEmptyResources);
   }
 
-  /// Reserves a revision synchronously; unsupported locales throw immediately.
-  LocalizationChange setLocale(Locale locale) {
+  /// Loads and saves a locale; unsupported locales throw immediately.
+  Future<void> setLocale(Locale locale) {
     _checkLive();
     if (!_config.supportedLocales.contains(locale)) throw ArgumentError.value(locale, 'locale', 'Must be supported');
     return _change(locale, () => _controller.setLocale(locale), committed: locale == this.locale && _data != null && !isSystemMode);
   }
 
   /// Follows the system after loading successfully, then removes explicit storage.
-  LocalizationChange resetLocale() {
+  Future<void> resetLocale() {
     _checkLive();
     final target = _controller.systemTarget;
     return _change(target, _controller.resetLocale, committed: target == locale && isSystemMode && _data != null);
   }
 
   /// Reloads resources while retaining the explicit/system selection mode.
-  LocalizationChange reloadTranslations() {
+  Future<void> reloadTranslations() {
     _checkLive();
     return _change(_controller.requestedLocale, () => _controller.reloadTranslations(supersede: true));
   }
@@ -164,7 +141,20 @@ class EasyLocalizationInstance with WidgetsBindingObserver {
     return _controller.deleteSaveLocale();
   }
 
-  /// Idempotently closes commands and outstanding receipts. Held snapshots live on.
+  /// Waits for presentation of the currently committed snapshot.
+  Future<LocalizationApplyOutcome> waitForPresentation() {
+    if (_disposed) return Future.value(LocalizationApplyOutcome.disposed);
+    if (!_attached) return Future.value(LocalizationApplyOutcome.detached);
+    if (identical(_data, _presentedData)) return Future.value(LocalizationApplyOutcome.applied);
+    final presentation = _presentation;
+    if (presentation != null) return presentation;
+    final pending = _LocalizationPending(_committedRevision, locale)..committed = true;
+    pending.ready.complete();
+    _pending.add(pending);
+    return _presentation = pending.applied.future;
+  }
+
+  /// Idempotently closes commands and outstanding operations. Held snapshots live on.
   void dispose() {
     if (_disposed) return;
     _disposed = true;
@@ -173,7 +163,7 @@ class EasyLocalizationInstance with WidgetsBindingObserver {
     _controller.removeListener(_didCommit);
     _controller.dispose();
     for (final pending in _pending.toList()) {
-      pending.finish(LocalizationDataOutcome.disposed, LocalizationApplyOutcome.disposed);
+      pending.finish(StateError('Localization is disposed'), LocalizationApplyOutcome.disposed);
     }
     _pending.clear();
     _state.dispose();
@@ -186,7 +176,7 @@ class EasyLocalizationInstance with WidgetsBindingObserver {
   }
 
   EasyLocalizationInstance._(this._config, this._controller)
-    : _state = ValueNotifier(LocalizationState(committedLocale: _controller.locale, committedRevision: 0, isSystemMode: _controller.isSystemMode)) {
+    : _state = ValueNotifier(LocalizationState(locale: _controller.locale, isSystemMode: _controller.isSystemMode)) {
     _controller.addListener(_didCommit);
     if (_controller.strictErrors) WidgetsBinding.instance.addObserver(this);
   }
@@ -208,7 +198,7 @@ class EasyLocalizationInstance with WidgetsBindingObserver {
     final transition = operation();
     final pending = _active;
     if (request != _controller.requestRevision && pending != null && !pending.ready.isCompleted && !pending.committed) {
-      pending.finish(LocalizationDataOutcome.superseded, LocalizationApplyOutcome.superseded);
+      pending.finish(const LocalizationOperationSupersededException(), LocalizationApplyOutcome.superseded);
       _pending.remove(pending);
       _active = null;
       _publish();
@@ -300,27 +290,22 @@ class EasyLocalizationInstance with WidgetsBindingObserver {
     if (_disposed) throw StateError('Localization is disposed; call EasyLocalization.initialize again');
   }
 
-  LocalizationChange _change(Locale target, AsyncCallback operation, {bool committed = false}) {
-    if (_attached) {
-      for (final pending in _pending.toList()) {
-        if (!pending.applied.isCompleted) pending.applied.complete(LocalizationApplyOutcome.superseded);
-        if (pending.ready.isCompleted) _pending.remove(pending);
-      }
-    }
+  Future<void> _change(Locale target, AsyncCallback operation, {bool committed = false}) {
     final previous = _active;
     if (previous != null && !previous.committed) {
-      previous.finish(LocalizationDataOutcome.superseded, LocalizationApplyOutcome.superseded);
+      previous.finish(const LocalizationOperationSupersededException(), LocalizationApplyOutcome.superseded);
       _pending.remove(previous);
     }
     _error = null;
     _errorStage = null;
     final pending = _LocalizationPending(++_revision, target);
     pending.committed = committed;
+    if (committed && !identical(_data, _presentedData)) _presentation = pending.applied.future;
     _active = pending;
     _pending.add(pending);
-    _publish(phase: LocalizationPhase.loading);
+    _publish();
     _run(pending, operation);
-    return pending.change;
+    return pending.ready.future;
   }
 
   Future<void> _run(_LocalizationPending pending, AsyncCallback operation) async {
@@ -328,14 +313,14 @@ class EasyLocalizationInstance with WidgetsBindingObserver {
       await operation();
       if (_disposed || pending.ready.isCompleted) return;
       if (!identical(_active, pending) && !pending.committed) {
-        pending.finish(LocalizationDataOutcome.superseded, LocalizationApplyOutcome.superseded);
+        pending.finish(const LocalizationOperationSupersededException(), LocalizationApplyOutcome.superseded);
         return;
       }
       // A same-locale command may only retry persistence, with no resource load.
       if (identical(_active, pending)) {
-        _publish(phase: _attached && !pending.applied.isCompleted ? LocalizationPhase.applyScheduled : LocalizationPhase.idle);
+        _publish();
       }
-      pending.ready.complete(LocalizationDataOutcome.committed);
+      pending.ready.complete();
       if (identical(_active, pending) && _attached && _data == _presentedData && !pending.applied.isCompleted) {
         pending.applied.complete(LocalizationApplyOutcome.applied);
         _publish();
@@ -347,11 +332,7 @@ class EasyLocalizationInstance with WidgetsBindingObserver {
     } catch (error, stackTrace) {
       if (_disposed || pending.ready.isCompleted) return;
       if (identical(_active, pending)) {
-        _publish(
-          phase: pending.committed && _attached && !pending.applied.isCompleted ? LocalizationPhase.applyScheduled : LocalizationPhase.idle,
-          error: error,
-          errorStage: pending.committed ? LocalizationErrorStage.persistence : LocalizationErrorStage.resources,
-        );
+        _publish(error: error, errorStage: pending.committed ? LocalizationErrorStage.persistence : LocalizationErrorStage.resources);
       }
       pending.ready.completeError(error, stackTrace);
       if (pending.applied.isCompleted) return;
@@ -368,7 +349,7 @@ class EasyLocalizationInstance with WidgetsBindingObserver {
       if (pending.applied.isCompleted) _pending.remove(pending);
       final active = _active;
       if (!_disposed && (identical(active, pending) || (active != null && active.ready.isCompleted && active.applied.isCompleted))) {
-        _publish(phase: active != null && _attached && !active.applied.isCompleted ? LocalizationPhase.applyScheduled : LocalizationPhase.idle);
+        _publish();
       }
     }
   }
@@ -386,37 +367,42 @@ class EasyLocalizationInstance with WidgetsBindingObserver {
       useFallbackTranslationsForEmptyResources: _config.useFallbackTranslationsForEmptyResources,
     );
     final active = _active;
-    if (active != null && !active.ready.isCompleted && !(_controller.strictErrors && _controller.lastCommitWasSystemEvent)) {
+    final committed = active != null && !active.ready.isCompleted && !(_controller.strictErrors && _controller.lastCommitWasSystemEvent);
+    for (final pending in _pending.toList()) {
+      if (!(committed && identical(pending, active)) && pending.committed && !pending.applied.isCompleted) {
+        pending.applied.complete(LocalizationApplyOutcome.superseded);
+      }
+      if (pending.ready.isCompleted && pending.applied.isCompleted) _pending.remove(pending);
+    }
+    if (committed) {
       active.committed = true;
       _committedRevision = active.revision;
+      _presentation = active.applied.future;
     } else {
-      if (_controller.strictErrors) {
-        for (final pending in _pending.toList()) {
-          if (pending.committed && !pending.applied.isCompleted) pending.applied.complete(LocalizationApplyOutcome.superseded);
-          if (pending.ready.isCompleted && pending.applied.isCompleted) _pending.remove(pending);
-        }
-      }
       _committedRevision = ++_revision;
       _active = null;
+      _presentation = null;
+      if (_attached) {
+        final pending = _LocalizationPending(_committedRevision, locale)..committed = true;
+        pending.ready.complete();
+        _pending.add(pending);
+        _presentation = pending.applied.future;
+      }
     }
     if (!_attached && identical(_instance, this)) Localization.publish(_data);
-    _publish(phase: _active == null ? LocalizationPhase.idle : LocalizationPhase.preparing);
+    _publish();
   }
 
-  void _publish({LocalizationPhase phase = LocalizationPhase.idle, Object? error, LocalizationErrorStage? errorStage}) {
+  void _publish({Object? error, LocalizationErrorStage? errorStage}) {
     if (error != null) {
       _error = error;
       _errorStage = errorStage;
     }
     final value = LocalizationState(
-      requestedLocale: _active?.target,
-      requestedRevision: _active?.revision,
-      committedLocale: locale,
-      committedRevision: _committedRevision,
+      locale: locale,
       appliedLocale: _appliedLocale,
-      appliedRevision: _appliedRevision,
       isSystemMode: isSystemMode,
-      phase: phase == LocalizationPhase.idle && _pending.any((pending) => !pending.ready.isCompleted) ? LocalizationPhase.loading : phase,
+      isLoading: _pending.any((pending) => !pending.ready.isCompleted || (pending.committed && !pending.applied.isCompleted)),
       error: _error,
       errorStage: _errorStage,
     );
@@ -432,7 +418,6 @@ class EasyLocalizationInstance with WidgetsBindingObserver {
 
   void _didApply(int revision, Locale locale) {
     _presentedData = _data;
-    _appliedRevision = revision;
     _appliedLocale = locale;
     for (final pending in _pending.toList()) {
       if (pending.committed && !pending.applied.isCompleted) pending.applied.complete(LocalizationApplyOutcome.applied);
@@ -453,12 +438,17 @@ class EasyLocalizationInstance with WidgetsBindingObserver {
     _checkLive();
     if (_attached) throw StateError('Only one localization presentation root may attach');
     _attachment = attachment;
+    final pending = _LocalizationPending(_committedRevision, locale)..committed = true;
+    pending.ready.complete();
+    _pending.add(pending);
+    _presentation = pending.applied.future;
+    _publish();
   }
 
   void _detach() {
     _attachment = null;
+    _presentation = null;
     _presentedData = null;
-    _appliedRevision = null;
     _appliedLocale = null;
     for (final pending in _pending.toList()) {
       if (!pending.applied.isCompleted) {
@@ -480,7 +470,7 @@ class EasyLocalizationInstance with WidgetsBindingObserver {
   int _revision = 0;
   int _committedRevision = 0;
   Locale? _appliedLocale;
-  int? _appliedRevision;
+  Future<LocalizationApplyOutcome>? _presentation;
   Object? _error;
   LocalizationErrorStage? _errorStage;
   bool _disposed = false;
@@ -494,16 +484,14 @@ class EasyLocalizationInstance with WidgetsBindingObserver {
 class _LocalizationPending {
   final int revision;
   final Locale target;
-  final Completer<LocalizationDataOutcome> ready = Completer();
+  final Completer<void> ready = Completer();
   final Completer<LocalizationApplyOutcome> applied = Completer();
   bool committed = false;
 
   _LocalizationPending(this.revision, this.target);
 
-  LocalizationChange get change => LocalizationChange._(revision, ready.future, applied.future);
-
-  void finish(LocalizationDataOutcome data, LocalizationApplyOutcome presentation) {
-    if (!ready.isCompleted) ready.complete(data);
+  void finish(Object error, LocalizationApplyOutcome presentation) {
+    if (!ready.isCompleted) ready.completeError(error);
     if (!applied.isCompleted) applied.complete(presentation);
   }
 }
