@@ -9,6 +9,8 @@ flutter run
 flutter run -d windows
 ```
 
+For an Android debug APK, install the Android SDK and JDK 17, then run `flutter build apk --debug` from this directory.
+
 The app initializes its shared configuration before mounting the localization root:
 
 ```dart
