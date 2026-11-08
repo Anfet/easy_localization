@@ -14,6 +14,7 @@ enum LocalizationErrorStage { resources, persistence, flutterDelegates }
 class EasyLocalizationConfig {
   final List<Locale> supportedLocales;
   final String path;
+  final List<Locale> preloadLocales;
   final Locale fallbackLocale;
   final Locale? startLocale;
   final AssetLoader assetLoader;
@@ -28,6 +29,7 @@ class EasyLocalizationConfig {
   EasyLocalizationConfig({
     required List<Locale> supportedLocales,
     required this.path,
+    List<Locale> preloadLocales = const [],
     required this.fallbackLocale,
     this.startLocale,
     this.assetLoader = const RootBundleAssetLoader(
@@ -41,7 +43,8 @@ class EasyLocalizationConfig {
     this.useBaseLanguageFallback = false,
     this.useFallbackTranslationsForEmptyResources = false,
     this.saveLocale = true,
-  }) : supportedLocales = List.unmodifiable(supportedLocales),
+  }) : preloadLocales = List.unmodifiable(preloadLocales),
+       supportedLocales = List.unmodifiable(supportedLocales),
        extraAssetLoaders = List.unmodifiable(extraAssetLoaders),
        additionalDelegates = List.unmodifiable(additionalDelegates);
 
@@ -49,6 +52,9 @@ class EasyLocalizationConfig {
     if (supportedLocales.isEmpty) throw ArgumentError.value(supportedLocales, 'supportedLocales', 'Must not be empty');
     if (path.isEmpty) throw ArgumentError.value(path, 'path', 'Must not be empty');
     if (!supportedLocales.contains(fallbackLocale)) throw ArgumentError.value(fallbackLocale, 'fallbackLocale', 'Must be supported');
+    for (final locale in preloadLocales) {
+      if (!supportedLocales.contains(locale)) throw ArgumentError.value(locale, 'preloadLocales', 'Must be supported');
+    }
     final start = startLocale;
     if (start != null && !supportedLocales.contains(start)) throw ArgumentError.value(start, 'startLocale', 'Must be supported');
   }
@@ -126,14 +132,12 @@ class EasyLocalizationInstance with WidgetsBindingObserver {
   Localization get dataTranslator => _data ?? (throw StateError('Call EasyLocalization.initialize before accessing translations'));
   ValueListenable<LocalizationState> get state => _state;
 
+  /// Ready translators and independent snapshot loading for supported locales.
+  late final LocaleTranslators translators = LocaleTranslators._(this);
+
   /// Loads a fresh, independent translator without changing the current locale.
-  /// A started load and its result remain usable after this owner is disposed.
-  Future<Localization> translator(Locale locale) {
-    _checkLive();
-    final config = _config;
-    if (!config.supportedLocales.contains(locale)) throw ArgumentError.value(locale, 'locale', 'Must be supported');
-    return _controller.loadSnapshot(locale, useFallbackForEmpty: config.useFallbackTranslationsForEmptyResources);
-  }
+  @Deprecated('Use translators.once(locale)')
+  Future<Localization> translator(Locale locale) => translators.once(locale);
 
   /// Loads and saves a locale; unsupported locales throw immediately.
   Future<void> setLocale(Locale locale) {
@@ -152,7 +156,17 @@ class EasyLocalizationInstance with WidgetsBindingObserver {
   /// Reloads resources while retaining the explicit/system selection mode.
   Future<void> reloadTranslations() {
     _checkLive();
-    return _change(_controller.requestedLocale, () => _controller.reloadTranslations(supersede: true));
+    return _change(_controller.requestedLocale, () {
+      final staged = translators._stageReload();
+      staged.ignore();
+      return _controller.reloadTranslations(
+        supersede: true,
+        beforeCommit: (isCurrent) async {
+          final result = await staged;
+          if (isCurrent()) translators._publishReload(result);
+        },
+      );
+    });
   }
 
   /// Deletes the saved choice without changing mode. Disabled storage does no I/O.
@@ -178,6 +192,7 @@ class EasyLocalizationInstance with WidgetsBindingObserver {
   void dispose() {
     if (_disposed) return;
     _disposed = true;
+    translators._dispose();
     WidgetsBinding.instance.removeObserver(this);
     _attachment = null;
     _publishedPresentation = null;
@@ -292,6 +307,7 @@ class EasyLocalizationInstance with WidgetsBindingObserver {
       } else {
         await controller.loadTranslations();
       }
+      await initialized.translators.load(config.preloadLocales);
       if (start != null) await controller.saveCurrentLocale();
       _instance = initialized;
       Localization.publish(initialized.dataTranslator);

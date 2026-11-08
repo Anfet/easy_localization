@@ -10,6 +10,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 
 part 'utils.dart';
 part 'easy_localization_instance.dart';
+part 'locale_translators.dart';
 
 ///  EasyLocalization
 ///  example:

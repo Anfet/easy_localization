@@ -1,7 +1,18 @@
 import 'package:flutter/widgets.dart';
 import 'package:intl/intl.dart';
 import 'localization.dart';
+import 'easy_localization_app.dart';
 import 'exceptions.dart';
+
+Localization _translator(Locale? locale, BuildContext? context) {
+  if (locale != null) {
+    final owner = EasyLocalization.instance;
+    if (!owner.supportedLocales.contains(locale)) throw ArgumentError.value(locale, 'locale', 'Must be supported');
+    if (locale == owner.locale) return owner.dataTranslator;
+    return owner.translators[locale] ?? (throw StateError('Translations for $locale are not loaded; call instance.translators.load first'));
+  }
+  return context != null ? (Localization.of(context) ?? (throw const LocalizationNotFoundException())) : Localization.instance;
+}
 
 /// {@template tr}
 /// Main function for translate your language keys
@@ -41,20 +52,18 @@ String tr(
   List<String>? args,
   Map<String, String>? namedArgs,
   String? gender,
+  Locale? locale,
 }) {
-  return context != null
-      ? (Localization.of(context) ?? (throw const LocalizationNotFoundException())).tr(key, args: args, namedArgs: namedArgs, gender: gender)
-      : Localization.instance.tr(key, args: args, namedArgs: namedArgs, gender: gender);
+  return _translator(locale, context).tr(key, args: args, namedArgs: namedArgs, gender: gender);
 }
 
 bool trExists(
   String key, {
   @Deprecated('Use trExists without context; scoped form is removed in 5.0') BuildContext? context,
   bool includeFallback = false,
+  Locale? locale,
 }) {
-  return context != null
-      ? (Localization.of(context) ?? (throw const LocalizationNotFoundException())).exists(key, includeFallback: includeFallback)
-      : Localization.instance.exists(key, includeFallback: includeFallback);
+  return _translator(locale, context).exists(key, includeFallback: includeFallback);
 }
 
 /// {@template plural}
@@ -118,15 +127,7 @@ String plural(
   Map<String, String>? namedArgs,
   String? name,
   NumberFormat? format,
+  Locale? locale,
 }) {
-  return context != null
-      ? (Localization.of(context) ?? (throw const LocalizationNotFoundException())).plural(
-          key,
-          value,
-          args: args,
-          namedArgs: namedArgs,
-          name: name,
-          format: format,
-        )
-      : Localization.instance.plural(key, value, args: args, namedArgs: namedArgs, name: name, format: format);
+  return _translator(locale, context).plural(key, value, args: args, namedArgs: namedArgs, name: name, format: format);
 }

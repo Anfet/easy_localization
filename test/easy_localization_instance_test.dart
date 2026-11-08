@@ -644,4 +644,60 @@ void main() {
 
     gate.complete({'value': 'late'});
   });
+  test('preload waits for ready and reload replaces cached set atomically', () async {
+    final gate = Completer<Map<String, dynamic>?>();
+    loader.gates['de'] = [gate];
+    final startup = EasyLocalization.initialize(
+      EasyLocalizationConfig(
+        supportedLocales: const [Locale('ru'), Locale('de')],
+        fallbackLocale: const Locale('ru'),
+        startLocale: const Locale('ru'),
+        preloadLocales: const [Locale('de')],
+        path: 'unused',
+        assetLoader: loader,
+        saveLocale: false,
+      ),
+    );
+    await Future<void>.delayed(Duration.zero);
+    expect(() => EasyLocalization.instance, throwsStateError);
+    gate.complete({'value': 'old de'});
+    final owner = await startup;
+    final old = owner.translators[const Locale('de')];
+    loader.data['de'] = {'value': 'new de'};
+    loader.data['ru'] = {'value': 'new ru'};
+    await owner.reloadTranslations();
+    expect(owner.dataTranslator.tr('value'), 'new ru');
+    expect(owner.translators[const Locale('de')]?.tr('value'), 'new de');
+    expect(old?.tr('value'), 'old de');
+    loader.failure = StateError('failed reload');
+    await expectLater(owner.reloadTranslations(), throwsStateError);
+    expect(owner.dataTranslator.tr('value'), 'new ru');
+    expect(owner.translators[const Locale('de')]?.tr('value'), 'new de');
+  });
+  test('unload during reload supersedes it without replacing current data', () async {
+    final owner = await EasyLocalization.initialize(
+      EasyLocalizationConfig(
+        supportedLocales: const [Locale('ru'), Locale('de')],
+        fallbackLocale: const Locale('ru'),
+        startLocale: const Locale('ru'),
+        preloadLocales: const [Locale('de')],
+        path: 'unused',
+        assetLoader: loader,
+        saveLocale: false,
+      ),
+    );
+    final current = owner.dataTranslator;
+    final held = owner.translators[const Locale('de')];
+    final gate = Completer<Map<String, dynamic>?>();
+    loader.gates['ru'] = [gate];
+    final reload = owner.reloadTranslations();
+    final check = expectLater(reload, throwsA(isA<LocalizationOperationSupersededException>()));
+    await Future<void>.delayed(Duration.zero);
+    owner.translators.unload(const Locale('de'));
+    gate.complete({'value': 'new ru'});
+    await check;
+    expect(owner.dataTranslator, same(current));
+    expect(owner.translators[const Locale('de')], isNull);
+    expect(held?.tr('value'), 'de');
+  });
 }

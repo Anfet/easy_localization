@@ -180,4 +180,97 @@ void main() {
     expect(document.tr('value'), 'second');
     expect(() => owner.translator(const Locale('ru')), throwsStateError);
   });
+  test('preloaded recipient and search use explicit language without changing UI', () async {
+    final owner = await EasyLocalization.initialize(
+      EasyLocalizationConfig(
+        supportedLocales: const [Locale('en'), Locale('ru')],
+        fallbackLocale: const Locale('ru'),
+        startLocale: const Locale('ru'),
+        preloadLocales: const [Locale('en')],
+        path: 'unused',
+        assetLoader: loader,
+        saveLocale: false,
+      ),
+    );
+    expect(tr('value'), 'Русский');
+    expect(tr('value', locale: const Locale('en')), 'English');
+    expect('value'.tr(locale: const Locale('en')), 'English');
+    expect(const Text('value').tr(locale: const Locale('en')).data, 'English');
+    expect('value'.trExists(locale: const Locale('en')), isTrue);
+    expect([const Locale('ru'), const Locale('en')].map((l) => tr('value', locale: l)), ['Русский', 'English']);
+    expect(owner.locale, const Locale('ru'));
+    expect(store.calls, 0);
+    expect(owner.translators[const Locale('en')]?.tr('value'), 'English');
+  });
+
+  test('cache batches share loads, invalidate pending work and preserve held snapshots', () async {
+    final owner = await initialize();
+    expect(() => tr('value', locale: const Locale('ru')), throwsStateError);
+    final gate = Completer<Map<String, dynamic>?>();
+    loader.pending['ru'] = [gate];
+    final before = loader.calls;
+    final first = owner.translators.load([const Locale('ru')]);
+    final second = owner.translators.load([const Locale('ru')]);
+    expect(loader.calls, before + 1);
+    gate.complete({'value': 'cached'});
+    await Future.wait([first, second]);
+    final held = owner.translators[const Locale('ru')];
+    expect(held?.tr('value'), 'cached');
+    owner.translators.unload(const Locale('ru'));
+    final next = Completer<Map<String, dynamic>?>();
+    loader.pending['ru'] = [next];
+    final loading = owner.translators.load([const Locale('ru')]);
+    final cancelled = expectLater(loading, throwsA(isA<LocalizationOperationSupersededException>()));
+    owner.translators.unload(const Locale('ru'));
+    await cancelled;
+    next.complete({'value': 'late'});
+    await Future<void>.delayed(Duration.zero);
+    expect(owner.translators[const Locale('ru')], isNull);
+    owner.dispose();
+    expect(held?.tr('value'), 'cached');
+  });
+  test('batch failure keeps ready cache and publishes none of its new snapshots', () async {
+    final owner = await initialize();
+    await owner.translators.load([const Locale('ru')]);
+    final held = owner.translators[const Locale('ru')];
+    final failure = Completer<Map<String, dynamic>?>();
+    loader.pending['en'] = [failure];
+    final loading = owner.translators.load([const Locale('en'), const Locale('ru')]);
+    final check = expectLater(loading, throwsStateError);
+    failure.completeError(StateError('failed'));
+    await check;
+    expect(owner.translators[const Locale('en')], isNull);
+    expect(owner.translators[const Locale('ru')], same(held));
+    await expectLater(owner.translators.load([const Locale('fr')]), throwsArgumentError);
+  });
+  testWidgets('explicit locale takes precedence over scoped context for String and Text', (tester) async {
+    final owner = await initialize();
+    await owner.translators.load([const Locale('ru')]);
+    late BuildContext scoped;
+    await tester.pumpWidget(
+      EasyLocalization.withInstance(
+        instance: owner,
+        child: Builder(
+          builder: (context) => MaterialApp(
+            locale: context.locale,
+            supportedLocales: context.supportedLocales,
+            localizationsDelegates: context.localizationDelegates,
+            home: Builder(
+              builder: (context) {
+                scoped = context;
+                return const SizedBox();
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect('value'.tr(context: scoped), 'English');
+    expect('value'.tr(context: scoped, locale: const Locale('ru')), 'Русский');
+    expect(const Text('value').tr(context: scoped, locale: const Locale('ru')).data, 'Русский');
+    expect('count'.plural(2, context: scoped, locale: const Locale('ru')), 'two');
+    expect(const Text('count').plural(2, context: scoped, locale: const Locale('ru')).data, 'two');
+    await tester.pumpWidget(const SizedBox());
+  });
 }

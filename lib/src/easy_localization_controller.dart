@@ -162,6 +162,7 @@ class EasyLocalizationController extends ChangeNotifier {
     bool system = false,
     bool reset = false,
     bool systemEvent = false,
+    Future<void> Function(bool Function())? beforeCommit,
   }) async {
     final supersededInitial = initial && _loading && _activeTransition != null;
     final request = supersededInitial ? _request - 1 : ++_request;
@@ -176,6 +177,7 @@ class EasyLocalizationController extends ChangeNotifier {
       late _LocaleResources resources;
       try {
         resources = await _loadResources(target);
+        if (beforeCommit != null) await beforeCommit(() => !_disposed && request == _request);
       } catch (error, stackTrace) {
         if (_disposed || request != _request) return;
         _loading = false;
@@ -366,11 +368,17 @@ class EasyLocalizationController extends ChangeNotifier {
   /// The future completes after acceptance, or with an error if the current
   /// load fails. An active language load finishes first; a later request can
   /// supersede the refresh. Widgets update next frame.
-  Future<void> reloadTranslations({bool supersede = false}) async {
+  Future<void> reloadTranslations({bool supersede = false, Future<void> Function(bool Function())? beforeCommit}) async {
     if (_disposed) return;
     final active = _activeTransition;
     if (supersede && _loading && active != null) {
-      final transition = _loadLocale(requestedLocale, refresh: _requestedRefresh, system: _requestedSystem, reset: _requestedReset);
+      final transition = _loadLocale(
+        requestedLocale,
+        refresh: _requestedRefresh,
+        system: _requestedSystem,
+        reset: _requestedReset,
+        beforeCommit: beforeCommit,
+      );
       _refreshRequest = _request;
       _activeTransition = transition;
       try {
@@ -397,7 +405,7 @@ class EasyLocalizationController extends ChangeNotifier {
       }
       return;
     }
-    final transition = _loadLocale(_locale, refresh: true);
+    final transition = _loadLocale(_locale, refresh: true, beforeCommit: beforeCommit);
     _refreshRequest = _request;
     _activeTransition = transition;
     try {

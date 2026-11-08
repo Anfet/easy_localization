@@ -43,6 +43,7 @@ extension TextTranslateExtension on Text {
     @Deprecated('Use translations without context; scoped form is removed in 5.0') BuildContext? context,
     Map<String, String>? namedArgs,
     String? gender,
+    Locale? locale,
   }) => _withData(
     this,
     ez.tr(
@@ -51,6 +52,7 @@ extension TextTranslateExtension on Text {
       args: args,
       namedArgs: namedArgs,
       gender: gender,
+      locale: locale,
     ),
   );
 
@@ -62,6 +64,7 @@ extension TextTranslateExtension on Text {
     Map<String, String>? namedArgs,
     String? name,
     NumberFormat? format,
+    Locale? locale,
   }) => _withData(
     this,
     ez.plural(
@@ -72,6 +75,7 @@ extension TextTranslateExtension on Text {
       namedArgs: namedArgs,
       name: name,
       format: format,
+      locale: locale,
     ),
   );
 }
@@ -91,12 +95,14 @@ extension StringTranslateExtension on String {
     Map<String, String>? namedArgs,
     String? gender,
     @Deprecated('Use translations without context; scoped form is removed in 5.0') BuildContext? context,
-  }) => ez.tr(this, context: context, args: args, namedArgs: namedArgs, gender: gender);
+    Locale? locale,
+  }) => ez.tr(this, context: context, args: args, namedArgs: namedArgs, gender: gender, locale: locale);
 
   bool trExists({
     @Deprecated('Use translations without context; scoped form is removed in 5.0') BuildContext? context,
     bool includeFallback = false,
-  }) => ez.trExists(this, context: context, includeFallback: includeFallback);
+    Locale? locale,
+  }) => ez.trExists(this, context: context, includeFallback: includeFallback, locale: locale);
 
   /// {@macro plural}
   String plural(
@@ -106,7 +112,8 @@ extension StringTranslateExtension on String {
     Map<String, String>? namedArgs,
     String? name,
     NumberFormat? format,
-  }) => ez.plural(this, value, context: context, args: args, namedArgs: namedArgs, name: name, format: format);
+    Locale? locale,
+  }) => ez.plural(this, value, context: context, args: args, namedArgs: namedArgs, name: name, format: format, locale: locale);
 }
 
 /// BuildContext extension method for access to [locale], [supportedLocales], [fallbackLocale], [delegates] and [deleteSaveLocale()]
