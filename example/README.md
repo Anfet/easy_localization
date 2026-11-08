@@ -27,6 +27,8 @@ void main() async {
 }
 ```
 
+The selector and reset action await the owner command and `waitForPresentation()` before treating a change as visible. They show busy state and report errors or non-applied outcomes. Currency formatting uses the published presentation locale.
+
 See the [package README](../README.md) for the full API.
 
 The [Alchemist golden test](test/localization_golden_test.dart) initializes a fresh owner for each locale, loads Roboto, and checks translated text before capturing readable Windows goldens. From this directory:

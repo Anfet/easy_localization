@@ -64,6 +64,7 @@ class MyHomePage extends StatefulWidget {
 class _MyHomePageState extends State<MyHomePage> {
   int counter = 0;
   bool _gender = true;
+  bool _resetting = false;
 
   void incrementCounter() {
     setState(() {
@@ -97,9 +98,9 @@ class _MyHomePageState extends State<MyHomePage> {
           children: <Widget>[
             Spacer(flex: 1),
             Text(
-              LocaleKeys.gender_with_arg,
+              LocaleKeys.gender_with_arg.tr(args: ['aissat'], gender: _gender ? 'female' : 'male'),
               style: TextStyle(color: Colors.grey.shade600, fontSize: 19, fontWeight: FontWeight.bold),
-            ).tr(args: ['aissat'], gender: _gender ? 'female' : 'male'),
+            ),
             Text(
               tr(LocaleKeys.gender, gender: _gender ? 'female' : 'male'),
               style: TextStyle(color: Colors.grey.shade600, fontSize: 15, fontWeight: FontWeight.bold),
@@ -113,9 +114,9 @@ class _MyHomePageState extends State<MyHomePage> {
               ],
             ),
             Spacer(flex: 1),
-            Text(LocaleKeys.msg).tr(args: ['aissat', 'Flutter']),
-            Text(LocaleKeys.msg_named).tr(namedArgs: {'lang': 'Dart'}, args: ['Easy localization']),
-            Text(LocaleKeys.clicked).plural(counter),
+            Text(LocaleKeys.msg.tr(args: ['aissat', 'Flutter'])),
+            Text(LocaleKeys.msg_named.tr(namedArgs: {'lang': 'Dart'}, args: ['Easy localization'])),
+            Text(LocaleKeys.clicked.plural(counter)),
             TextButton(
               onPressed: () {
                 incrementCounter();
@@ -135,9 +136,10 @@ class _MyHomePageState extends State<MyHomePage> {
             ValueListenableBuilder<LocalizationState>(
               valueListenable: EasyLocalization.instance.state,
               builder: (context, state, _) => ElevatedButton(
-                onPressed: state.isLoading
+                onPressed: state.isLoading || _resetting
                     ? null
                     : () async {
+                        setState(() => _resetting = true);
                         try {
                           final localization = EasyLocalization.instance;
                           await localization.resetLocale();
@@ -147,9 +149,11 @@ class _MyHomePageState extends State<MyHomePage> {
                           }
                         } catch (error) {
                           if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Language reset failed: $error')));
+                        } finally {
+                          if (mounted) setState(() => _resetting = false);
                         }
                       },
-                child: Text(LocaleKeys.reset_locale).tr(),
+                child: _resetting ? const CircularProgressIndicator() : Text(LocaleKeys.reset_locale.tr()),
               ),
             ),
             Spacer(flex: 1),

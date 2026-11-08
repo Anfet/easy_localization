@@ -5,7 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
-  testWidgets('starts in English and switches to Russian', (tester) async {
+  testWidgets('starts in English, switches to Russian and resets', (tester) async {
     SharedPreferences.setMockInitialValues({});
     tester.binding.platformDispatcher.localesTestValue = const [Locale('en', 'US')];
     final localization = await tester.runAsync(() => EasyLocalization.initialize(localizationConfig));
@@ -27,6 +27,16 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Привет!'), findsOneWidget);
       expect(find.textContaining('0,00'), findsOneWidget);
+
+      await tester.tap(find.text('Сбросить язык'));
+      await tester.runAsync(() async {
+        while (localization.locale != const Locale('en', 'US')) {
+          await Future<void>.delayed(const Duration(milliseconds: 10));
+        }
+      });
+      await tester.pumpAndSettle();
+      expect(find.text('Hello'), findsOneWidget);
+      expect(find.textContaining('€0.00'), findsOneWidget);
     } finally {
       await tester.pumpWidget(const SizedBox());
       localization.dispose();

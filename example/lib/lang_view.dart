@@ -1,7 +1,13 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
-class LanguageView extends StatelessWidget {
+class LanguageView extends StatefulWidget {
+  @override
+  State<LanguageView> createState() => _LanguageViewState();
+}
+
+class _LanguageViewState extends State<LanguageView> {
+  bool _busy = false;
   @override
   Widget build(BuildContext context) {
     final localization = EasyLocalization.instance;
@@ -15,8 +21,10 @@ class LanguageView extends StatelessWidget {
               ListTile(
                 title: Text(_names[locale.languageCode] ?? locale.toString()),
                 selected: locale == localization.presentationLocale,
-                enabled: !state.isLoading,
+                enabled: !state.isLoading && !_busy,
+                trailing: _busy && locale == localization.presentationLocale ? const CircularProgressIndicator() : null,
                 onTap: () async {
+                  setState(() => _busy = true);
                   try {
                     await localization.setLocale(locale);
                     final outcome = await localization.waitForPresentation();
@@ -32,6 +40,8 @@ class LanguageView extends StatelessWidget {
                         context,
                       ).showSnackBar(SnackBar(content: Text('Language change failed: ${localization.state.value.error ?? error}')));
                     }
+                  } finally {
+                    if (mounted) setState(() => _busy = false);
                   }
                 },
               ),

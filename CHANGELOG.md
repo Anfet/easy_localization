@@ -27,6 +27,8 @@ Entries through 3.0.9 preserve the history of the original project. Version 4.0.
 - Added `--strict` to the audit command, returning a non-zero exit code when static missing translation keys are found.
 - Added browser locale detection for Flutter Web compiled to JavaScript/WASM.
 
+- Added independent translator snapshots and a managed cache for supported locales; held snapshots survive reload, eviction and owner disposal.
+
 #### Improved
 
 - Code generation resolves linked JSON and fails with exit code 1 on invalid input without replacing existing output.
@@ -37,6 +39,8 @@ Entries through 3.0.9 preserve the history of the original project. Version 4.0.
 - Translation updates preserve ordinary widget state, including retained subtrees; linked and fallback translations are resolved consistently in nested and plural lookups.
 - Code generation handles escaped JSON strings and produces deterministic locale source ordering.
 - `Text.tr` and `Text.plural` preserve the original `Text` properties.
+
+In this fork the work covers upstream issue scenarios #788, #603, #715, #531, #705, #553, #466, #573, #583, #745, #359, #693 and #780; it does not automatically close upstream issues.
 
 See [Compatibility and migration](README.md#compatibility-and-migration-to-400) for SDK requirements, changed defaults, loader contracts, and migration steps.
 
