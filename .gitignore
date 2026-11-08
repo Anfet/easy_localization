@@ -632,3 +632,4 @@ pubspec.lock
 !example/android/app/src/debug/**
 example/ios/Flutter/ephemeral/flutter_lldb_helper.py
 example/ios/Flutter/ephemeral/
+!/easy_localization.iml
