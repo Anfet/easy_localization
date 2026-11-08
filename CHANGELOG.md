@@ -28,6 +28,8 @@ Entries through 3.0.9 preserve the history of the original project. Version 4.0.
 
 #### Improved
 
+- Code generation resolves linked JSON and fails with exit code 1 on invalid input without replacing existing output.
+
 - The strict key audit checks translation types, plural and gender forms, String and Text calls, and generated constant values.
 
 - Locale startup, persistence, reset, and system-language updates now follow one owner and preserve the current presentation when a transition fails or is superseded.

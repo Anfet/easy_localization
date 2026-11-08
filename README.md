@@ -648,7 +648,7 @@ If you have many localization keys and are confused, key generation will help yo
 Keys are generated from a single JSON file, never combined across languages. By default, the first regular `.json` file
 in ordinal filename order is used. Pass `--source-file` to choose a complete fallback language file when another file
 does not contain every key. JSON loader generation uses all regular `.json` files in the same filename order unless a
-source file is specified.
+source file is specified. Linked JSON files are resolved during generation for both formats, so generated loaders do not read them at runtime. Missing or invalid sources and broken links produce exit code 1 and leave the existing output untouched.
 
 Steps:
 1. Open your terminal in the folder's path containing your project 

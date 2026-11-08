@@ -19,22 +19,23 @@ void main() {
   Future<String> generate(Directory source, String format, {String? sourceFile, bool skip = false}) async {
     final output = Directory(path.join(scratch.path, 'output'));
     final result = await Process.run(
-        'dart',
-        [
-          generator,
-          '-S',
-          path.basename(source.path),
-          '-O',
-          'output',
-          '-o',
-          '$format.dart',
-          '-f',
-          format,
-          if (sourceFile != null) ...['-s', sourceFile],
-          if (skip) '-u',
-        ],
-        workingDirectory: scratch.path,
-        runInShell: true);
+      'dart',
+      [
+        generator,
+        '-S',
+        path.basename(source.path),
+        '-O',
+        'output',
+        '-o',
+        '$format.dart',
+        '-f',
+        format,
+        if (sourceFile != null) ...['-s', sourceFile],
+        if (skip) '-u',
+      ],
+      workingDirectory: scratch.path,
+      runInShell: true,
+    );
     expect(result.exitCode, 0, reason: '${result.stdout}\n${result.stderr}');
     return File(path.join(output.path, '$format.dart')).readAsString();
   }
@@ -45,11 +46,11 @@ void main() {
       'en.json': {
         'englishOnly': 'English',
         'nested': {'child': 'value'},
-        'count': {'one': 'one', 'other': 'other'}
+        'count': {'one': 'one', 'other': 'other'},
       },
       'fr.json': {
         'frenchOnly': 'Français',
-        'nested': {'child': 'valeur'}
+        'nested': {'child': 'valeur'},
       },
     };
     for (final name in order) {
@@ -78,5 +79,54 @@ void main() {
     expect(skipped, isNot(contains('static const nested =')));
     expect(skipped, contains('static const count ='));
     expect(skipped, isNot(contains('static const one =')));
+  });
+
+  test('resolves linked files for loaders and keys, including script locales', () async {
+    final source = Directory(path.join(scratch.path, 'langs'));
+    await source.create();
+    for (final locale in ['en', 'zh-Hans-CN']) {
+      await File(path.join(source.path, '$locale.json')).writeAsString('{"section":":/section.json"}');
+      final fragments = Directory(path.join(source.path, locale));
+      await fragments.create();
+      await File(path.join(fragments.path, 'section.json')).writeAsString('{"title":"$locale"}');
+    }
+    final loader = await generate(source, 'json');
+    expect(loader, contains('"title": "en"'));
+    expect(loader, contains('"title": "zh-Hans-CN"'));
+    expect(loader, isNot(contains(':/')));
+    final keys = await generate(source, 'keys');
+    expect(keys, contains("section_title = 'section.title'"));
+  });
+
+  test('input errors return failure and preserve the output', () async {
+    final source = Directory(path.join(scratch.path, 'langs'));
+    final output = File(path.join(scratch.path, 'output', 'loader.dart'));
+    await output.create(recursive: true);
+    Future<void> fails(List<String> extra) async {
+      await output.writeAsString('previous');
+      final result = await Process.run(
+        'dart',
+        [generator, '-S', 'langs', '-O', 'output', '-o', 'loader.dart', ...extra],
+        workingDirectory: scratch.path,
+        runInShell: true,
+      );
+      expect(result.exitCode, 1, reason: '${result.stdout}\n${result.stderr}');
+      expect(result.stderr.toString(), isNotEmpty);
+      expect(await output.readAsString(), 'previous');
+    }
+
+    await fails([]);
+    await source.create();
+    await fails([]);
+    await fails(['-s', 'missing.json']);
+    final root = File(path.join(source.path, 'en.json'));
+    await root.writeAsString('{broken');
+    await fails([]);
+    await root.writeAsString('{"section":":/section.json"}');
+    await fails([]);
+    final fragments = Directory(path.join(source.path, 'en'));
+    await fragments.create();
+    await File(path.join(fragments.path, 'section.json')).writeAsString('{"section":":/section.json"}');
+    await fails([]);
   });
 }
