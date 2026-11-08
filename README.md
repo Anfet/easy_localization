@@ -32,7 +32,7 @@ This repository is a community-maintained fork of [aissat/easy_localization](htt
 
 ## Version 4.0.0 highlights
 
-Version 4.0.0 requires Dart 3.8 and Flutter 3.32. It adds a single localization owner that can initialize before `runApp`, awaitable locale changes with separate data and presentation outcomes, explicit translation reloads, strict missing-key auditing, and JavaScript/WASM browser locale support. The new owner also changes plural and base-language fallback defaults, and replaces the removed logger API with optional diagnostic callbacks.
+Version 4.0.0 requires Dart 3.12 and Flutter 3.44. It adds a single localization owner that can initialize before `runApp`, awaitable locale changes with separate data and presentation outcomes, explicit translation reloads, strict missing-key auditing, and JavaScript/WASM browser locale support. The new owner also changes plural and base-language fallback defaults, and replaces the removed logger API with optional diagnostic callbacks.
 
 Existing apps should review [Compatibility and migration](#compatibility-and-migration-to-400) before upgrading. The guide covers legacy behavior, loader requirements, errors, and the migration from `EasyLocalization.logger` and the synchronous locale setter.
 
@@ -798,7 +798,7 @@ The requested locale must be in `supportedLocales`. A translator remains usable 
 
 ## Compatibility and migration to 4.0.0
 
-The minimum SDKs are Dart 3.8 and Flutter 3.32. The new `EasyLocalizationConfig` uses language plural rules by default (`ignorePluralRules: false`); legacy `EasyLocalization`, `Localization.load` and `Localization.snapshot` retain `true`. Set `true` explicitly on the new path for dictionaries that depend on exact zero/one/two; set `false` on legacy Russian examples to use language rules. For example Russian 21/22/5 use one/few/many; the current fractional rounding rules still apply.
+The minimum SDKs are Dart 3.12 and Flutter 3.44. The new `EasyLocalizationConfig` uses language plural rules by default (`ignorePluralRules: false`); legacy `EasyLocalization`, `Localization.load` and `Localization.snapshot` retain `true`. Set `true` explicitly on the new path for dictionaries that depend on exact zero/one/two; set `false` on legacy Russian examples to use language rules. For example Russian 21/22/5 use one/few/many; the current fractional rounding rules still apply.
 
 `fallbackLocale` selects a supported startup locale; it does not enable key fallback. Enable `useFallbackTranslations` separately. New owners disable `useBaseLanguageFallback` by default; the legacy constructor enables it. When enabled for a region, strict owners load primary, then one language-and-script base, then configured fallback. A custom loader must return null only for confirmed missing resources, return `{}` for a successful empty resource, and throw for failures. A missing optional base is skipped; missing primary or configured fallback throws before commit. RootBundle loader throws on missing assets, so opt in only when the base asset exists or a custom loader reports confirmed absence. Legacy loading retains its historical all-null and base FlutterError handling. Duplicate normalized resources are loaded once per operation.
 

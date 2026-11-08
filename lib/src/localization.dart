@@ -18,7 +18,7 @@ class Localization {
   final _modifiers = <String, String Function(String?)>{
     'upper': (String? val) => val!.toUpperCase(),
     'lower': (String? val) => val!.toLowerCase(),
-    'capitalize': (String? val) => val == null || val.isEmpty ? val ?? '' : '${val[0].toUpperCase()}${val.substring(1)}'
+    'capitalize': (String? val) => val == null || val.isEmpty ? val ?? '' : '${val[0].toUpperCase()}${val.substring(1)}',
   };
 
   bool _useFallbackTranslationsForEmptyResources = false;
@@ -33,11 +33,13 @@ class Localization {
     Translations? fallbackTranslations,
     bool useFallbackTranslationsForEmptyResources = false,
     bool ignorePluralRules = true,
-  })  : _locale = locale,
-        _translations = translations == null ? null : Translations.copy(translations),
-        _fallbackTranslations = fallbackTranslations == null ? null : Translations.copy(fallbackTranslations),
-        _useFallbackTranslationsForEmptyResources = useFallbackTranslationsForEmptyResources,
-        _ignorePluralRules = ignorePluralRules;
+  }) : _locale = locale,
+       _translations = translations == null ? null : Translations.copy(translations),
+       _fallbackTranslations = fallbackTranslations == null ? null : Translations.copy(fallbackTranslations),
+       // ignore: prefer_initializing_formals
+       _useFallbackTranslationsForEmptyResources = useFallbackTranslationsForEmptyResources,
+       // ignore: prefer_initializing_formals
+       _ignorePluralRules = ignorePluralRules;
 
   static Localization? _instance;
 
@@ -65,12 +67,7 @@ class Localization {
     return translations == null ? false : true;
   }
 
-  String tr(
-    String key, {
-    List<String>? args,
-    Map<String, String>? namedArgs,
-    String? gender,
-  }) {
+  String tr(String key, {List<String>? args, Map<String, String>? namedArgs, String? gender}) {
     late String res;
 
     if (gender != null) {
@@ -153,14 +150,7 @@ class Localization {
     }
   }
 
-  String plural(
-    String key,
-    num value, {
-    List<String>? args,
-    Map<String, String>? namedArgs,
-    String? name,
-    NumberFormat? format,
-  }) {
+  String plural(String key, num value, {List<String>? args, Map<String, String>? namedArgs, String? name, NumberFormat? format}) {
     late String res;
 
     final pluralRule = _pluralRule(_locale.languageCode, value);
@@ -185,8 +175,6 @@ class Localization {
       case PluralCase.OTHER:
         res = _resolvePlural(key, 'other');
         break;
-      default:
-        throw ArgumentError.value(value, 'howMany', 'Invalid plural argument');
     }
 
     res = _replaceLinks(res);
