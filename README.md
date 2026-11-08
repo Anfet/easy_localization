@@ -142,7 +142,7 @@ class MyApp extends StatelessWidget {
 | child                   | true     |                           | Place for your main page widget.                                                                                                                                              |
 | supportedLocales        | true     |                           | List of supported locales.                                                                                                                                                    |
 | path                    | true     |                           | Path to your folder with localization files.                                                                                                                                  |
-| assetLoader             | false    | `RootBundleAssetLoader()` | Class loader for localization files. You can use custom loaders from [Easy Localization Loader](https://github.com/aissat/easy_localization_loader) or create your own class. |
+| assetLoader             | false    | `RootBundleAssetLoader.fromRootBundle()` | Class loader for localization files. You can use custom loaders from [Easy Localization Loader](https://github.com/aissat/easy_localization_loader) or create your own class. |
 | extraAssetLoaders       | false    | null                      | A List of asset loaders, in case of needing assets being loaded from a different module or package. (e.g. adding a package that uses [Easy Localization Loader]).             |
 | fallbackLocale          | false    |                           | Returns the locale when the locale is not in the list `supportedLocales`.                                                                                                     |
 | startLocale             | false    |                           | Overrides device locale.                                                                                                                                                      |
@@ -237,7 +237,7 @@ owner is no longer needed. Global access before readiness or after disposal thro
 `StateError`. Reusing the same config object reuses initialization; another config
 requires disposing the current owner first.
 
-For the legacy widget constructor, call `EasyLocalization.ensureInitialized()` before runApp. The standalone `initialize` path above does not need this call.
+For the legacy widget constructor, call `EasyLocalization.ensureInitialized()` before `runApp`. The no-argument call ensures the Flutter binding but does not load translation assets; the standalone `initialize(config)` path above loads translations before `runApp` and does not need this call.
 
 ```dart
 void main() async{
@@ -351,7 +351,7 @@ Text('gender').tr(context: context, gender: _gender ? "female" : "male"),
 You can translate with pluralization.
 To insert a number in the translated string, use `{}`. Number formatting supported, for more information read [NumberFormat](https://pub.dev/documentation/intl/latest/intl/NumberFormat-class.html) class documentation.
 
-In UI builds, pass `context` to the String or Text extension or to `plural()`, or use `context.plural()`, to subscribe to locale changes. Without context the result is a snapshot.
+A `plural()` or `.plural()` call made during a widget build under the localization root is recalculated when the root publishes a new presentation, even in retained routes; passing `context` is not required for this root rebuild. A result saved outside build is a snapshot and does not update. Pass `context` (or use `context.plural()`) when translating in a local scope such as `Localizations.override`.
 
 #### Arguments:
 
@@ -458,7 +458,7 @@ Example:
 }
 ```
 ```dart
-print('dateLogging'.tr(namedArguments: {'currentDate': DateTime.now().toIso8601String()})); //Output: INFO: the date today is 2020-11-27T16:40:42.657.
+print('dateLogging'.tr(namedArgs: {'currentDate': DateTime.now().toIso8601String()})); //Output: INFO: the date today is 2020-11-27T16:40:42.657.
 ```
 
 #### Formatting linked translations:
