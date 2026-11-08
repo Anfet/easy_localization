@@ -21,7 +21,7 @@ Entries through 3.0.9 preserve the history of the original project. Version 4.0.
 - Diagnostic callback exceptions are reported through `FlutterError.reportError` and do not change localization results.
 
 - Added `EasyLocalization.initialize` for localization before the widget tree, with a single owner shared by global translation calls and the root widget.
-- Added awaitable locale commands with separate resource/storage (`ready`) and presentation (`applied`) outcomes, plus `reloadTranslations` for changed loader data.
+- Added awaitable locale commands for resource loading and storage, with separate `waitForPresentation()` outcomes, plus `reloadTranslations` for changed loader data.
 - Added explicit fallback lookup through `trExists(includeFallback: true)` and strict missing-resource errors for the new owner.
 - Added `--strict` to the audit command, returning a non-zero exit code when static missing translation keys are found.
 - Added browser locale detection for Flutter Web compiled to JavaScript/WASM.
