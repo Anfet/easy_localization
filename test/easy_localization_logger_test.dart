@@ -44,22 +44,6 @@ class MissingBaseLoader extends AssetLoader {
   }
 }
 
-class NestedZoneLoader extends AssetLoader {
-  NestedZoneLoader(this.onZone)
-    : super(
-        linkedFileResolver: const JsonLinkedFileResolver(fileLoader: RootBundleFileLoader()),
-        fileLoader: const RootBundleFileLoader(),
-      );
-
-  final void Function(Zone) onZone;
-
-  @override
-  Future<Map<String, dynamic>?> load(String path, Locale locale) => runZoned(() {
-    onZone(Zone.current);
-    return RootBundleAssetLoader.fromRootBundle().load(path, locale);
-  });
-}
-
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() => SharedPreferences.setMockInitialValues({}));
