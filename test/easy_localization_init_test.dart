@@ -10,6 +10,7 @@ import 'easy_localization_instance_test.dart' show InstanceLoader;
 import 'utils/test_asset_loaders.dart';
 
 Future<void> main() async {
+  TestWidgetsFlutterBinding.ensureInitialized();
   SharedPreferences.setMockInitialValues({});
 
   await EasyLocalization.ensureInitialized();
@@ -69,6 +70,34 @@ Future<void> main() async {
     expect(() => EasyLocalization.instance, throwsStateError);
     expect(() => legacy.setLocale(const Locale('en')), throwsStateError);
     expect(snapshot.tr('test'), 'test');
+  });
+
+  testWidgets('legacy and borrowed roots select the same saved language', (tester) async {
+    SharedPreferences.setMockInitialValues({'locale': 'de'});
+    final loader = InstanceLoader();
+    final config = EasyLocalizationConfig(
+      supportedLocales: const [Locale('en'), Locale('de')],
+      fallbackLocale: const Locale('en'),
+      path: 'unused',
+      assetLoader: loader,
+    );
+    final owner = await EasyLocalization.initialize(config);
+    await tester.pumpWidget(EasyLocalization.withInstance(instance: owner, child: const SizedBox()));
+    expect(owner.locale, const Locale('de'));
+    await tester.pumpWidget(const SizedBox());
+    owner.dispose();
+    await tester.pumpWidget(
+      EasyLocalization(
+        supportedLocales: config.supportedLocales,
+        fallbackLocale: config.fallbackLocale,
+        path: config.path,
+        assetLoader: loader,
+        child: const SizedBox(),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(EasyLocalization.instance.locale, const Locale('de'));
+    await tester.pumpWidget(const SizedBox());
   });
 
   testWidgets('matching legacy root borrows ready owner and incompatible root is rejected', (tester) async {

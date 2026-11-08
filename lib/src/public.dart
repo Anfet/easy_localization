@@ -37,7 +37,7 @@ import 'exceptions.dart';
 /// {@endtemplate}
 String tr(
   String key, {
-  BuildContext? context,
+  @Deprecated('Use translations without context; scoped form is removed in 5.0') BuildContext? context,
   List<String>? args,
   Map<String, String>? namedArgs,
   String? gender,
@@ -47,7 +47,11 @@ String tr(
       : Localization.instance.tr(key, args: args, namedArgs: namedArgs, gender: gender);
 }
 
-bool trExists(String key, {BuildContext? context, bool includeFallback = false}) {
+bool trExists(
+  String key, {
+  @Deprecated('Use trExists without context; scoped form is removed in 5.0') BuildContext? context,
+  bool includeFallback = false,
+}) {
   return context != null
       ? (Localization.of(context) ?? (throw const LocalizationNotFoundException())).exists(key, includeFallback: includeFallback)
       : Localization.instance.exists(key, includeFallback: includeFallback);
@@ -110,13 +114,19 @@ String plural(
   String key,
   num value, {
   List<String>? args,
-  BuildContext? context,
+  @Deprecated('Use translations without context; scoped form is removed in 5.0') BuildContext? context,
   Map<String, String>? namedArgs,
   String? name,
   NumberFormat? format,
 }) {
   return context != null
-      ? (Localization.of(context) ?? (throw const LocalizationNotFoundException()))
-          .plural(key, value, args: args, namedArgs: namedArgs, name: name, format: format)
+      ? (Localization.of(context) ?? (throw const LocalizationNotFoundException())).plural(
+          key,
+          value,
+          args: args,
+          namedArgs: namedArgs,
+          name: name,
+          format: format,
+        )
       : Localization.instance.plural(key, value, args: args, namedArgs: namedArgs, name: name, format: format);
 }

@@ -35,7 +35,6 @@ void main() {
     bool onlyLanguage = false,
     Locale fallbackLocale = fallback,
     List<AssetLoader>? extras,
-    bool strict = true,
   }) => EasyLocalizationController(
     supportedLocales: const [region, fallback],
     useFallbackTranslations: true,
@@ -44,7 +43,6 @@ void main() {
     path: 'unused',
     useOnlyLangCode: onlyLanguage,
     useBaseLanguageFallback: enabled,
-    strictErrors: strict,
     extraAssetLoaders: extras,
     forceLocale: region,
     fallbackLocale: fallbackLocale,
@@ -81,7 +79,6 @@ void main() {
       }),
       path: 'unused',
       useOnlyLangCode: false,
-      strictErrors: true,
       forceLocale: const Locale('ru', 'RU'),
       fallbackLocale: const Locale('en'),
       onLoadError: (_) {},
@@ -115,15 +112,15 @@ void main() {
     missing.dispose();
   });
 
-  test('legacy base drops script and catches FlutterError', () async {
+  test('base loader FlutterError is propagated', () async {
+    final failure = FlutterError('missing');
     final loader = ResourceLoader({
       'sr_Latn_RS': {'key': 'primary'},
-      'sr': FlutterError('missing'),
+      'sr_Latn': failure,
       'en': {'key2': 'fallback'},
     });
-    final c = controller(loader, strict: false);
-    expect((await snapshot(c)).tr('key2'), 'fallback');
-    expect(loader.calls, ['sr_Latn_RS', 'sr', 'en']);
+    final c = controller(loader);
+    await expectLater(snapshot(c), throwsA(same(failure)));
     c.dispose();
   });
 

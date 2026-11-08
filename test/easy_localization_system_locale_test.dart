@@ -9,7 +9,10 @@ import 'package:shared_preferences_platform_interface/shared_preferences_platfor
 
 class LocaleLoader extends AssetLoader {
   LocaleLoader()
-      : super(linkedFileResolver: const JsonLinkedFileResolver(fileLoader: RootBundleFileLoader()), fileLoader: const RootBundleFileLoader());
+    : super(
+        linkedFileResolver: const JsonLinkedFileResolver(fileLoader: RootBundleFileLoader()),
+        fileLoader: const RootBundleFileLoader(),
+      );
   final pending = <String, Completer<Map<String, dynamic>?>>{};
   final held = <String>{};
   final failures = <String>{};
@@ -60,26 +63,32 @@ void main() {
     SharedPreferences.setMockInitialValues(saved);
     await EasyLocalization.ensureInitialized();
     loader = LocaleLoader();
-    await tester.pumpWidget(EasyLocalization(
-      supportedLocales: const [Locale('en'), Locale('fr'), Locale('de')],
-      fallbackLocale: const Locale('en'),
-      startLocale: startLocale,
-      path: 'unused',
-      assetLoader: loader,
-      child: Builder(
+    await tester.pumpWidget(
+      EasyLocalization(
+        supportedLocales: const [Locale('en'), Locale('fr'), Locale('de')],
+        fallbackLocale: const Locale('en'),
+        startLocale: startLocale,
+        path: 'unused',
+        assetLoader: loader,
+        child: Builder(
           builder: (context) => MaterialApp(
-                locale: context.locale,
-                supportedLocales: context.supportedLocales,
-                localizationsDelegates: context.localizationDelegates,
-                home: Builder(builder: (context) {
-                  appContext = context;
-                  return Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [Text(context.tr('first')), Text(context.tr('second'))]);
-                }),
-              )),
-    ));
+            locale: context.locale,
+            supportedLocales: context.supportedLocales,
+            localizationsDelegates: context.localizationDelegates,
+            home: Builder(
+              builder: (context) {
+                appContext = context;
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [Text(context.tr('first')), Text(context.tr('second'))],
+                );
+              },
+            ),
+          ),
+        ),
+      ),
+    );
     await tester.pumpAndSettle();
   }
 
@@ -106,7 +115,7 @@ void main() {
 
   for (final saved in [false, true]) {
     testWidgets('${saved ? 'saved selection' : 'start locale'} survives system changes and reset returns to system', (tester) async {
-      await start(tester, startLocale: saved ? const Locale('fr') : const Locale('de'), saved: saved ? {'locale': 'de'} : {});
+      await start(tester, startLocale: saved ? null : const Locale('de'), saved: saved ? {'locale': 'de'} : {});
       expect(appContext.locale, const Locale('de'));
       await system(tester, 'fr');
       expect(appContext.locale, const Locale('de'));
@@ -144,7 +153,7 @@ void main() {
     await start(tester, saved: {'locale': 'de'});
     await system(tester, 'fr');
     loader.failures.add('fr');
-    await expectLater(appContext.resetLocale(), throwsA(isA<FlutterError>()));
+    await expectLater(appContext.resetLocale(), throwsA(isA<StateError>()));
     expect(appContext.locale, const Locale('de'));
     expect((await SharedPreferences.getInstance()).getString('locale'), 'de');
     await system(tester, 'en');
@@ -174,7 +183,8 @@ void main() {
     final result = choice.then<Object?>((_) => null, onError: (Object error) => error);
     await controller.updateDeviceLocale(const Locale('de'));
     controlled.pending['fr']?.completeError(StateError('choice failed'));
-    expect(await result, isA<FlutterError>());
+    expect(await result, isA<StateError>());
+    await controller.replaySystemLocale();
     expect(controller.locale, const Locale('de'));
     expect(controller.translations?.get('first'), 'de first');
     controller.dispose();
@@ -186,7 +196,7 @@ void main() {
     SharedPreferencesStorePlatform.instance = store;
     SharedPreferences.resetStatic();
     try {
-      await EasyLocalization.ensureInitialized();
+      await EasyLocalizationController.readSavedLocale(const [Locale('en'), Locale('fr'), Locale('de')]);
       final controller = EasyLocalizationController(
         supportedLocales: const [Locale('en'), Locale('fr'), Locale('de')],
         useFallbackTranslations: false,
@@ -204,6 +214,7 @@ void main() {
       await controller.updateDeviceLocale(const Locale('de'));
       store.removeGate.complete(false);
       expect(await result, isA<StateError>());
+      await controller.replaySystemLocale();
       expect(controller.locale, const Locale('de'));
       expect(controller.translations?.get('first'), 'de first');
       controller.dispose();
@@ -258,6 +269,8 @@ void main() {
     await system(tester, 'fr');
     expect(appContext.locale, const Locale('en'));
     expect(find.text('en first'), findsOneWidget);
+    expect(EasyLocalization.instance.state.value.error, isA<StateError>());
+    expect(EasyLocalization.instance.state.value.errorStage, LocalizationErrorStage.resources);
     loader.held.add('fr');
     tester.binding.platformDispatcher.localesTestValue = const [Locale('fr')];
     await tester.pump();
@@ -266,6 +279,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(appContext.locale, const Locale('de'));
     expect(find.text('de first'), findsOneWidget);
+    expect(EasyLocalization.instance.state.value.error, isNull);
     loader.held.remove('fr');
     await system(tester, 'fr');
     expect(appContext.locale, const Locale('fr'));

@@ -81,7 +81,7 @@ void main() {
     store = Store();
     SharedPreferencesStorePlatform.instance = store;
     SharedPreferences.resetStatic();
-    await EasyLocalizationController.initEasyLocation();
+    await EasyLocalizationController.readSavedLocale(const [Locale('en'), Locale('de'), Locale('fr')]);
   });
   tearDown(() {
     SharedPreferencesStorePlatform.instance = original;
@@ -150,8 +150,8 @@ void main() {
     await initial;
     final choice = c.setLocale(const Locale('de'));
     final reload = c.reloadTranslations();
-    final choiceFailure = expectLater(choice, throwsA(isA<FlutterError>()));
-    final reloadFailure = expectLater(reload, throwsA(isA<FlutterError>()));
+    final choiceFailure = expectLater(choice, throwsA(isA<StateError>()));
+    final reloadFailure = expectLater(reload, throwsA(isA<StateError>()));
     loader.pending['de']!.completeError(StateError('failed'));
     await Future.wait([choiceFailure, reloadFailure]);
     expect(errors, 1);
@@ -309,7 +309,7 @@ void main() {
     await initial;
     final failed = c.setLocale(const Locale('de'));
     loader.pending['de']!.completeError(StateError('bad'));
-    await expectLater(failed, throwsA(isA<FlutterError>()));
+    await expectLater(failed, throwsA(isA<StateError>()));
     expect(c.locale, const Locale('en'));
     expect(c.translations?.get('value'), 'en');
     expect(errors, 1);
@@ -404,7 +404,7 @@ void main() {
     final started = Completer<void>();
     store.readGate = read;
     store.readStarted = started;
-    final initializing = EasyLocalizationController.initEasyLocation();
+    final initializing = EasyLocalizationController.readSavedLocale(const [Locale('en'), Locale('de'), Locale('fr')]);
     await started.future;
     final accepted = Completer<void>();
     c.addListener(() {
@@ -418,30 +418,30 @@ void main() {
     await initializing;
     await save;
     expect(c.savedLocale, const Locale('de'));
-    await EasyLocalizationController.initEasyLocation();
+    await EasyLocalizationController.readSavedLocale(const [Locale('en'), Locale('de'), Locale('fr')]);
     expect(c.savedLocale, const Locale('de'));
     final secondRead = Completer<void>();
     final secondStarted = Completer<void>();
     store.readGate = secondRead;
     store.readStarted = secondStarted;
-    final initializingAgain = EasyLocalizationController.initEasyLocation();
+    final initializingAgain = EasyLocalizationController.readSavedLocale(const [Locale('en'), Locale('de'), Locale('fr')]);
     await secondStarted.future;
     final delete = c.deleteSaveLocale();
     secondRead.complete();
     await initializingAgain;
     await delete;
     expect(c.savedLocale, isNull);
-    await EasyLocalizationController.initEasyLocation();
+    await EasyLocalizationController.readSavedLocale(const [Locale('en'), Locale('de'), Locale('fr')]);
     expect(c.savedLocale, isNull);
     final recovery = c.setLocale(const Locale('fr'));
     loader.complete('fr');
     await recovery;
     store.failRead = true;
-    await expectLater(EasyLocalizationController.initEasyLocation(), throwsStateError);
+    await expectLater(EasyLocalizationController.readSavedLocale(const [Locale('en'), Locale('de'), Locale('fr')]), throwsStateError);
     expect(c.savedLocale, const Locale('fr'));
     final deletionAfterFailure = c.deleteSaveLocale();
     await deletionAfterFailure;
-    await EasyLocalizationController.initEasyLocation();
+    await EasyLocalizationController.readSavedLocale(const [Locale('en'), Locale('de'), Locale('fr')]);
     expect(c.savedLocale, isNull);
     c.dispose();
   });
@@ -494,7 +494,7 @@ void main() {
     loader.complete('fr');
     await retry;
     expect(c.savedLocale, const Locale('fr'));
-    await EasyLocalizationController.initEasyLocation();
+    await EasyLocalizationController.readSavedLocale(const [Locale('en'), Locale('de'), Locale('fr')]);
     expect(c.savedLocale, const Locale('fr'));
     c.dispose();
   });

@@ -104,12 +104,13 @@ void main() {
       receivedStack = stackTrace;
     };
     await EasyLocalization.ensureInitialized();
+    EasyLocalization(path: 'path', supportedLocales: const [Locale('en')], child: const SizedBox());
     final loaded = controller(const JsonAssetLoader(), (_) {});
     await loaded.loadTranslations();
     Localization.load(const Locale('en'), translations: loaded.translations);
     Localization.instance.tr('absent');
-    await controller(FailingLoader(StateError('resource failed'), stack), (_) => loadErrors++).loadTranslations();
-    expect(verbose, contains('Localization initialized'));
+    await expectLater(controller(FailingLoader(StateError('resource failed'), stack), (_) => loadErrors++).loadTranslations(), throwsStateError);
+    expect(verbose, isNotEmpty);
     expect(warnings, contains('Localization key [absent] not found'));
     expect(errors.single, contains('resource failed'));
     expect(receivedStack, same(stack));
@@ -161,7 +162,6 @@ void main() {
         saveLocale: false,
         assetLoader: FailingLoader(resourceError, StackTrace.current),
         onLoadError: (_) => loadErrors++,
-        strictErrors: true,
       );
       await expectLater(loaded.loadTranslations(), throwsA(same(resourceError)));
       loaded.dispose();
@@ -180,23 +180,10 @@ void main() {
     FlutterError.onError = reported.add;
     EasyLocalization.onVerbose = (message, {stackTrace}) => throw callbackError;
     try {
-      await expectLater(controller(RootBundleAssetLoader.fromRootBundle(), (_) {}).loadTranslations(), completes);
+      EasyLocalization(path: 'path', supportedLocales: const [Locale('en')], child: const SizedBox());
       EasyLocalization.onVerbose = null;
       EasyLocalization.onWarning = (message, {stackTrace}) => throw callbackError;
-      await expectLater(
-        EasyLocalizationController(
-          forceLocale: const Locale('en', 'US'),
-          supportedLocales: const [Locale('en', 'US')],
-          path: 'path',
-          useOnlyLangCode: false,
-          useFallbackTranslations: true,
-          fallbackLocale: const Locale('fr'),
-          saveLocale: false,
-          assetLoader: const MissingBaseLoader(),
-          onLoadError: (_) {},
-        ).loadTranslations(),
-        completes,
-      );
+      Localization.snapshot(const Locale('en')).tr('absent');
       expect(reported, hasLength(2));
       expect(reported.map((details) => details.exception), everyElement(same(callbackError)));
     } finally {

@@ -4,9 +4,6 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:easy_localization/src/diagnostics.dart';
 import 'package:flutter/foundation.dart' show DiagnosticsProperty;
 import 'package:flutter/material.dart';
-import 'package:intl/intl_standalone.dart'
-    if (dart.library.html) 'package:intl/intl_browser.dart'
-    if (dart.library.js_interop) 'package:intl/intl_browser.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'translations.dart';
@@ -31,7 +28,6 @@ class EasyLocalizationController extends ChangeNotifier {
   int? _deferredReloadRequest;
   int? _acceptedRequest;
   int? _refreshRequest;
-  static Locale? _deviceLocale;
   List<Locale>? _observedDeviceLocales;
 
   late Locale _locale;
@@ -45,7 +41,6 @@ class EasyLocalizationController extends ChangeNotifier {
   final bool useBaseLanguageFallback;
   final bool saveLocale;
   final bool useOnlyLangCode;
-  final bool strictErrors;
   List<AssetLoader>? extraAssetLoaders;
   Translations? _translations, _baseTranslations, _fallbackTranslations;
   Locale? _baseLocale;
@@ -69,7 +64,6 @@ class EasyLocalizationController extends ChangeNotifier {
     Locale? fallbackLocale,
     Locale? forceLocale, // used for testing
     bool forceSystemMode = false,
-    this.strictErrors = false,
   }) {
     _fallbackLocale = fallbackLocale;
     _supportedLocales = supportedLocales;
@@ -126,9 +120,11 @@ class EasyLocalizationController extends ChangeNotifier {
     return fallback;
   }
 
-  Locale get systemTarget => strictErrors
-      ? selectPreferredLocale(_supportedLocales, _observedDeviceLocales ?? WidgetsBinding.instance.platformDispatcher.locales, _fallbackLocale!)
-      : selectLocaleFrom(_supportedLocales, deviceLocale, fallbackLocale: _fallbackLocale);
+  Locale get systemTarget => selectPreferredLocale(
+    _supportedLocales,
+    _observedDeviceLocales ?? WidgetsBinding.instance.platformDispatcher.locales,
+    _fallbackLocale ?? _supportedLocales.first,
+  );
 
   void observeDeviceLocales(List<Locale> locales) => _observedDeviceLocales = List.unmodifiable(locales);
 
@@ -192,9 +188,7 @@ class EasyLocalizationController extends ChangeNotifier {
           if (!_disposed && request == _request) onLoadError(failure);
         }
         if (_disposed || request != _request) return;
-        if (strictErrors) return Future.error(error, stackTrace);
-        if (!initial) return Future.error(failure, stackTrace);
-        return;
+        return Future.error(error, stackTrace);
       }
       if (_disposed || request != _request) return;
       _loading = false;
@@ -247,8 +241,8 @@ class EasyLocalizationController extends ChangeNotifier {
     );
     Future<Map<String, dynamic>> requiredResource(Locale locale, String layer) async {
       final result = await load(locale);
-      if (strictErrors && result == null) throw StateError('Missing $layer translations for $locale');
-      return Map<String, dynamic>.from(result ?? const {});
+      if (result == null) throw StateError('Missing $layer translations for $locale');
+      return Map<String, dynamic>.from(result);
     }
 
     final data = await requiredResource(target, 'primary');
@@ -259,19 +253,9 @@ class EasyLocalizationController extends ChangeNotifier {
     if (useFallbackTranslations && configured != null) {
       Map<String, dynamic>? base;
       if (useBaseLanguageFallback && target.countryCode != null && target.countryCode!.isNotEmpty) {
-        final baseLocale = strictErrors
-            ? Locale.fromSubtags(languageCode: target.languageCode, scriptCode: target.scriptCode)
-            : Locale(target.languageCode);
+        final baseLocale = Locale.fromSubtags(languageCode: target.languageCode, scriptCode: target.scriptCode);
         loadedBaseLocale = baseLocale;
-        if (strictErrors) {
-          base = await load(baseLocale);
-        } else {
-          try {
-            base = await load(baseLocale);
-          } on FlutterError catch (error) {
-            reportLocalizationDiagnostic(EasyLocalization.onWarning, error.message);
-          }
-        }
+        base = await load(baseLocale);
       }
       final fallbackData = await requiredResource(configured, 'fallback');
       if (base != null) baseTranslations = Translations(base);
@@ -468,17 +452,7 @@ class EasyLocalizationController extends ChangeNotifier {
     });
   }
 
-  static Future<void> initEasyLocation() => _enqueueStorage(() async {
-    final preferences = await SharedPreferences.getInstance();
-    await preferences.reload();
-    final strLocale = preferences.getString('locale');
-    final foundPlatformLocale = await findSystemLocale();
-    _savedLocale = strLocale?.toLocale();
-    _deviceLocale = foundPlatformLocale.toLocale();
-    reportLocalizationDiagnostic(EasyLocalization.onVerbose, 'Localization initialized');
-  });
-
-  Future<void> deleteSaveLocale() => !saveLocale && strictErrors
+  Future<void> deleteSaveLocale() => !saveLocale
       ? Future<void>.value()
       : _enqueueStorage(() async {
           SharedPreferences? preferences;
@@ -499,7 +473,6 @@ class EasyLocalizationController extends ChangeNotifier {
         });
 
   Locale get deviceLocale {
-    if (!strictErrors) return _deviceLocale ?? WidgetsBinding.instance.platformDispatcher.locale;
     final locales = _observedDeviceLocales ?? WidgetsBinding.instance.platformDispatcher.locales;
     return locales.isEmpty ? const Locale('und') : locales.first;
   }
@@ -511,7 +484,7 @@ class EasyLocalizationController extends ChangeNotifier {
   Future<void> resetLocale() async {
     if (_disposed) return;
     final target = systemTarget;
-    if (strictErrors && _systemMode && target == _locale && _translations != null) {
+    if (_systemMode && target == _locale && _translations != null) {
       _request++;
       _loading = false;
       await deleteSaveLocale();
@@ -536,18 +509,6 @@ class EasyLocalizationController extends ChangeNotifier {
     if (identical(_activeTransition, transition)) _activeTransition = null;
     if (identical(_userTransition, userTransition)) {
       _userTransition = null;
-      if (!strictErrors && !_disposed && request == _request && _systemMode && systemTarget != _locale) {
-        try {
-          await updateDeviceLocale(deviceLocale);
-        } catch (error, stackTrace) {
-          if (failure == null) {
-            failure = error;
-            failureStack = stackTrace;
-          } else if (error is! FlutterError) {
-            FlutterError.reportError(FlutterErrorDetails(exception: error, stack: stackTrace));
-          }
-        }
-      }
     }
     if (failure != null) return Future.error(failure, failureStack ?? StackTrace.current);
   }
@@ -581,13 +542,9 @@ class EasyLocalizationController extends ChangeNotifier {
   /// Updates the observed system locale and applies it while following the system.
   Future<void> updateDeviceLocale(Locale locale) async {
     if (_disposed) return;
-    if (strictErrors) {
-      observeDeviceLocales([locale]);
-    } else {
-      _deviceLocale = locale;
-    }
+    observeDeviceLocales([locale]);
     if (!_systemMode || _userTransition != null) return;
-    final target = strictErrors ? systemTarget : selectLocaleFrom(_supportedLocales, locale, fallbackLocale: _fallbackLocale);
+    final target = systemTarget;
     if (target == _locale && _translations != null && !_loading) return;
     final transition = _loadLocale(target, system: true);
     _activeTransition = transition;

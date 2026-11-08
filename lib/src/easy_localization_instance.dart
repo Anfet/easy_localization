@@ -61,7 +61,7 @@ class EasyLocalizationConfig {
     }
     return listEquals(supportedLocales, widget.supportedLocales) &&
         path == widget.path &&
-        fallbackLocale == widget.fallbackLocale &&
+        fallbackLocale == (widget.fallbackLocale ?? widget.supportedLocales.first) &&
         startLocale == widget.startLocale &&
         identical(assetLoader, widget.assetLoader) &&
         useOnlyLangCode == widget.useOnlyLangCode &&
@@ -178,7 +178,7 @@ class EasyLocalizationInstance with WidgetsBindingObserver {
   void dispose() {
     if (_disposed) return;
     _disposed = true;
-    if (_controller.strictErrors) WidgetsBinding.instance.removeObserver(this);
+    WidgetsBinding.instance.removeObserver(this);
     _attachment = null;
     _publishedPresentation = null;
     _controller.removeListener(_didCommit);
@@ -199,7 +199,7 @@ class EasyLocalizationInstance with WidgetsBindingObserver {
   EasyLocalizationInstance._(this._config, this._controller)
     : _state = ValueNotifier(LocalizationState(locale: _controller.locale, isSystemMode: _controller.isSystemMode)) {
     _controller.addListener(_didCommit);
-    if (_controller.strictErrors) WidgetsBinding.instance.addObserver(this);
+    WidgetsBinding.instance.addObserver(this);
   }
 
   @override
@@ -230,10 +230,8 @@ class EasyLocalizationInstance with WidgetsBindingObserver {
   Future<void> _reportSystemTransition(Future<void> transition) async {
     try {
       await transition;
-    } on FlutterError {
-      // The controller has already reported this load failure.
-    } catch (error, stackTrace) {
-      if (_data != null) FlutterError.reportError(FlutterErrorDetails(exception: error, stack: stackTrace));
+    } catch (error) {
+      if (!_disposed && _data != null) _publish(error: error, errorStage: LocalizationErrorStage.resources);
     }
   }
 
@@ -277,7 +275,6 @@ class EasyLocalizationInstance with WidgetsBindingObserver {
         fallbackLocale: config.fallbackLocale,
         forceLocale: target,
         forceSystemMode: explicit == null,
-        strictErrors: true,
         useFallbackTranslations: config.useFallbackTranslations,
         useBaseLanguageFallback: config.useBaseLanguageFallback,
         saveLocale: config.saveLocale,
@@ -366,7 +363,7 @@ class EasyLocalizationInstance with WidgetsBindingObserver {
         _publish();
       }
     } finally {
-      if (!_disposed && _controller.strictErrors) _startSystemTransition(_controller.replaySystemLocale);
+      if (!_disposed) _startSystemTransition(_controller.replaySystemLocale);
       if (pending.applied.isCompleted) _pending.remove(pending);
       final active = _active;
       if (!_disposed && (identical(active, pending) || (active != null && active.ready.isCompleted && active.applied.isCompleted))) {
@@ -378,6 +375,8 @@ class EasyLocalizationInstance with WidgetsBindingObserver {
   void _didCommit() {
     final translations = _controller.translations;
     if (translations == null || _disposed) return;
+    _error = null;
+    _errorStage = null;
     _data = Localization.snapshot(
       locale,
       translations: translations,
@@ -388,7 +387,7 @@ class EasyLocalizationInstance with WidgetsBindingObserver {
       useFallbackTranslationsForEmptyResources: _config.useFallbackTranslationsForEmptyResources,
     );
     final active = _active;
-    final committed = active != null && !active.ready.isCompleted && !(_controller.strictErrors && _controller.lastCommitWasSystemEvent);
+    final committed = active != null && !active.ready.isCompleted && !_controller.lastCommitWasSystemEvent;
     for (final pending in _pending.toList()) {
       if (!(committed && identical(pending, active)) && pending.committed && !pending.applied.isCompleted) {
         pending.applied.complete(LocalizationApplyOutcome.superseded);

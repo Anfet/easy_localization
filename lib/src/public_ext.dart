@@ -38,7 +38,12 @@ Text _withData(Text source, String data) => Text(
 /// ```
 extension TextTranslateExtension on Text {
   /// {@macro tr}
-  Text tr({List<String>? args, BuildContext? context, Map<String, String>? namedArgs, String? gender}) => _withData(
+  Text tr({
+    List<String>? args,
+    @Deprecated('Use translations without context; scoped form is removed in 5.0') BuildContext? context,
+    Map<String, String>? namedArgs,
+    String? gender,
+  }) => _withData(
     this,
     ez.tr(
       data ?? (throw ArgumentError('Text.rich cannot be translated; translate each TextSpan string instead')),
@@ -50,19 +55,25 @@ extension TextTranslateExtension on Text {
   );
 
   /// {@macro plural}
-  Text plural(num value, {BuildContext? context, List<String>? args, Map<String, String>? namedArgs, String? name, NumberFormat? format}) =>
-      _withData(
-        this,
-        ez.plural(
-          data ?? (throw ArgumentError('Text.rich cannot be translated; translate each TextSpan string instead')),
-          value,
-          context: context,
-          args: args,
-          namedArgs: namedArgs,
-          name: name,
-          format: format,
-        ),
-      );
+  Text plural(
+    num value, {
+    @Deprecated('Use translations without context; scoped form is removed in 5.0') BuildContext? context,
+    List<String>? args,
+    Map<String, String>? namedArgs,
+    String? name,
+    NumberFormat? format,
+  }) => _withData(
+    this,
+    ez.plural(
+      data ?? (throw ArgumentError('Text.rich cannot be translated; translate each TextSpan string instead')),
+      value,
+      context: context,
+      args: args,
+      namedArgs: namedArgs,
+      name: name,
+      format: format,
+    ),
+  );
 }
 
 /// Strings extension method for access to [tr()] and [plural()]
@@ -75,14 +86,27 @@ extension TextTranslateExtension on Text {
 /// ```
 extension StringTranslateExtension on String {
   /// {@macro tr}
-  String tr({List<String>? args, Map<String, String>? namedArgs, String? gender, BuildContext? context}) =>
-      ez.tr(this, context: context, args: args, namedArgs: namedArgs, gender: gender);
+  String tr({
+    List<String>? args,
+    Map<String, String>? namedArgs,
+    String? gender,
+    @Deprecated('Use translations without context; scoped form is removed in 5.0') BuildContext? context,
+  }) => ez.tr(this, context: context, args: args, namedArgs: namedArgs, gender: gender);
 
-  bool trExists({BuildContext? context, bool includeFallback = false}) => ez.trExists(this, context: context, includeFallback: includeFallback);
+  bool trExists({
+    @Deprecated('Use translations without context; scoped form is removed in 5.0') BuildContext? context,
+    bool includeFallback = false,
+  }) => ez.trExists(this, context: context, includeFallback: includeFallback);
 
   /// {@macro plural}
-  String plural(num value, {List<String>? args, BuildContext? context, Map<String, String>? namedArgs, String? name, NumberFormat? format}) =>
-      ez.plural(this, value, context: context, args: args, namedArgs: namedArgs, name: name, format: format);
+  String plural(
+    num value, {
+    List<String>? args,
+    @Deprecated('Use translations without context; scoped form is removed in 5.0') BuildContext? context,
+    Map<String, String>? namedArgs,
+    String? name,
+    NumberFormat? format,
+  }) => ez.plural(this, value, context: context, args: args, namedArgs: namedArgs, name: name, format: format);
 }
 
 /// BuildContext extension method for access to [locale], [supportedLocales], [fallbackLocale], [delegates] and [deleteSaveLocale()]
@@ -177,6 +201,7 @@ extension BuildContextEasyLocalizationExtension on BuildContext {
   /// Text(context.tr('msg_mixed', args: ['Easy localization'], namedArgs: {'lang': 'Dart'}), // args and namedArgs
   /// Text(context.tr('gender', gender: _gender ? "female" : "male"), // gender
   /// ```
+  @Deprecated('Use tr(key); scoped form is removed in 5.0')
   String tr(String key, {List<String>? args, Map<String, String>? namedArgs, String? gender}) {
     final localization = Localization.of(this);
 
@@ -187,6 +212,7 @@ extension BuildContextEasyLocalizationExtension on BuildContext {
     return localization.tr(key, args: args, namedArgs: namedArgs, gender: gender);
   }
 
+  @Deprecated('Use trExists(key); scoped form is removed in 5.0')
   bool trExists(String key, {bool includeFallback = false}) {
     final localization = Localization.of(this);
 
@@ -197,6 +223,7 @@ extension BuildContextEasyLocalizationExtension on BuildContext {
     return localization.exists(key, includeFallback: includeFallback);
   }
 
+  @Deprecated('Use plural(key, number); scoped form is removed in 5.0')
   String plural(String key, num number, {List<String>? args, Map<String, String>? namedArgs, String? name, NumberFormat? format}) {
     final localization = Localization.of(this);
 
