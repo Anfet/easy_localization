@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:easy_localization/easy_localization.dart';
+import 'package:easy_localization/src/easy_localization_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -699,5 +700,50 @@ void main() {
     expect(owner.dataTranslator, same(current));
     expect(owner.translators[const Locale('de')], isNull);
     expect(held?.tr('value'), 'de');
+  });
+  test('prepared reload publishes atomically and a superseding command preserves the cache', () async {
+    final owner = await EasyLocalization.initialize(
+      EasyLocalizationConfig(
+        supportedLocales: const [Locale('ru'), Locale('de')],
+        fallbackLocale: const Locale('ru'),
+        startLocale: const Locale('ru'),
+        preloadLocales: const [Locale('de')],
+        path: 'unused',
+        assetLoader: loader,
+        saveLocale: false,
+      ),
+    );
+    loader.data['ru'] = {'value': 'new ru'};
+    loader.data['de'] = {'value': 'new de'};
+    final observations = <String>[];
+    try {
+      EasyLocalizationController.onReloadPreparedForTesting = () {
+        observations.add('${owner.dataTranslator.tr('value')}/${owner.translators[const Locale('de')]?.tr('value')}');
+      };
+      await owner.reloadTranslations();
+      expect(observations, ['ru/de']);
+      expect(owner.dataTranslator.tr('value'), 'new ru');
+      expect(owner.translators[const Locale('de')]?.tr('value'), 'new de');
+
+      loader.data['ru'] = {'value': 'later ru'};
+      loader.data['de'] = {'value': 'later de'};
+      Future<void>? replacement;
+      EasyLocalizationController.onReloadPreparedForTesting = () {
+        replacement = owner.setLocale(const Locale('ru'));
+      };
+      await expectLater(owner.reloadTranslations(), throwsA(isA<LocalizationOperationSupersededException>()));
+      await replacement;
+      expect(owner.dataTranslator.tr('value'), 'new ru');
+      expect(owner.translators[const Locale('de')]?.tr('value'), 'new de');
+
+      final held = owner.translators[const Locale('de')];
+      EasyLocalizationController.onReloadPreparedForTesting = () => owner.translators.unload(const Locale('de'));
+      await expectLater(owner.reloadTranslations(), throwsA(isA<LocalizationOperationSupersededException>()));
+      expect(owner.dataTranslator.tr('value'), 'new ru');
+      expect(owner.translators[const Locale('de')], isNull);
+      expect(held?.tr('value'), 'new de');
+    } finally {
+      EasyLocalizationController.onReloadPreparedForTesting = null;
+    }
   });
 }

@@ -9,6 +9,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'translations.dart';
 
 class EasyLocalizationController extends ChangeNotifier {
+  @visibleForTesting
+  static void Function()? onReloadPreparedForTesting;
   static Locale? _savedLocale;
   static Future<void>? _storageQueue;
   int _request = 0;
@@ -162,7 +164,8 @@ class EasyLocalizationController extends ChangeNotifier {
     bool system = false,
     bool reset = false,
     bool systemEvent = false,
-    Future<void> Function(bool Function())? beforeCommit,
+    Future<void> Function()? prepareCommit,
+    void Function()? commitPrepared,
   }) async {
     final supersededInitial = initial && _loading && _activeTransition != null;
     final request = supersededInitial ? _request - 1 : ++_request;
@@ -177,7 +180,10 @@ class EasyLocalizationController extends ChangeNotifier {
       late _LocaleResources resources;
       try {
         resources = await _loadResources(target);
-        if (beforeCommit != null) await beforeCommit(() => !_disposed && request == _request);
+        if (prepareCommit != null) await prepareCommit();
+        if (prepareCommit != null) onReloadPreparedForTesting?.call();
+        if (_disposed || request != _request) return;
+        commitPrepared?.call();
       } catch (error, stackTrace) {
         if (_disposed || request != _request) return;
         _loading = false;
@@ -368,7 +374,7 @@ class EasyLocalizationController extends ChangeNotifier {
   /// The future completes after acceptance, or with an error if the current
   /// load fails. An active language load finishes first; a later request can
   /// supersede the refresh. Widgets update next frame.
-  Future<void> reloadTranslations({bool supersede = false, Future<void> Function(bool Function())? beforeCommit}) async {
+  Future<void> reloadTranslations({bool supersede = false, Future<void> Function()? prepareCommit, void Function()? commitPrepared}) async {
     if (_disposed) return;
     final active = _activeTransition;
     if (supersede && _loading && active != null) {
@@ -377,7 +383,8 @@ class EasyLocalizationController extends ChangeNotifier {
         refresh: _requestedRefresh,
         system: _requestedSystem,
         reset: _requestedReset,
-        beforeCommit: beforeCommit,
+        prepareCommit: prepareCommit,
+        commitPrepared: commitPrepared,
       );
       _refreshRequest = _request;
       _activeTransition = transition;
@@ -405,7 +412,7 @@ class EasyLocalizationController extends ChangeNotifier {
       }
       return;
     }
-    final transition = _loadLocale(_locale, refresh: true, beforeCommit: beforeCommit);
+    final transition = _loadLocale(_locale, refresh: true, prepareCommit: prepareCommit, commitPrepared: commitPrepared);
     _refreshRequest = _request;
     _activeTransition = transition;
     try {

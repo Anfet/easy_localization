@@ -159,12 +159,11 @@ class EasyLocalizationInstance with WidgetsBindingObserver {
     return _change(_controller.requestedLocale, () {
       final staged = translators._stageReload();
       staged.ignore();
+      late _TranslatorReload prepared;
       return _controller.reloadTranslations(
         supersede: true,
-        beforeCommit: (isCurrent) async {
-          final result = await staged;
-          if (isCurrent()) translators._publishReload(result);
-        },
+        prepareCommit: () async => prepared = await staged,
+        commitPrepared: () => translators._publishReload(prepared),
       );
     });
   }
