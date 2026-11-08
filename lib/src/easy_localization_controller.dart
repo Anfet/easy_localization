@@ -276,16 +276,6 @@ class EasyLocalizationController extends ChangeNotifier {
     super.dispose();
   }
 
-  Future<Map<String, dynamic>?> loadBaseLangTranslationData(Locale locale) async {
-    try {
-      return await loadTranslationData(Locale(locale.languageCode));
-    } on FlutterError catch (e) {
-      // Disregard asset not found FlutterError when attempting to load base language fallback
-      reportLocalizationDiagnostic(EasyLocalization.onWarning, e.message);
-    }
-    return null;
-  }
-
   Future<Map<String, dynamic>> loadTranslationData(Locale locale) async =>
       (await _combineAssetLoaders(
         path: path,

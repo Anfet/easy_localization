@@ -151,7 +151,7 @@ class MyApp extends StatelessWidget {
 | useBaseLanguageFallback | false | `true` (legacy widget), `false` (config) | Load a base language before the configured fallback when fallback translations are enabled. |
 | useFallbackTranslationsForEmptyResources | false    | `false`                   | If translation is empty in the locale file, try to use the fallbackLocale file. Does not take effect if `useFallbackTranslations` is false.                  |
 | useOnlyLangCode         | false    | `false`                   | Trigger for using only language code for reading localization files.</br></br>Example:</br>`en.json //useOnlyLangCode: true`</br>`en-US.json //useOnlyLangCode: false`        |
-| errorWidget             | false    | `FutureErrorWidget()`     | Shows a custom error widget when an error occurs.                                                                                                                             |
+| errorWidget             | false    | `ErrorWidget`     | Shows a custom error widget when an error occurs.                                                                                                                             |
 
 ## Usage
 
@@ -532,9 +532,7 @@ The built-in JSON resolver uses `language[-Script][-COUNTRY]/file.json`: for exa
 `zh-Hans-CN/errors.json`. A missing script-specific file is an error; another script is not used as a fallback.
 The same file may be linked from separate branches, while cycles and chains deeper than 32 links are errors.
 
-Custom `LinkedFileResolver` implementations with an existing `resolveLinkedFiles` override continue to work.
-To handle script-specific locales in a custom resolver, override `resolveLinkedFilesForLocale` and use its
-`scriptCode` argument. Existing direct calls to `resolveLinkedFiles` retain their previous paths.
+Custom `LinkedFileResolver` subclasses must add the optional `String? scriptCode` parameter to their `resolveLinkedFiles` override and forward it to `super.resolveLinkedFiles` when applicable. Overrides of `getLinkedLocalePath` must also accept `scriptCode`. Replace `resolveLinkedFilesForLocale` overrides and calls with `resolveLinkedFiles`.
 
 Each linked file must contain a valid object of translation keys (of the file type you are using [Other file types](#-loading-translations-from-other-resources)).  
 

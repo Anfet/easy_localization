@@ -6,6 +6,28 @@ import 'package:intl/intl.dart';
 import 'easy_localization_app.dart';
 import 'public.dart' as ez;
 
+Text _withData(Text source, String data) => Text(
+  data,
+  key: source.key,
+  style: source.style,
+  strutStyle: source.strutStyle,
+  textAlign: source.textAlign,
+  textDirection: source.textDirection,
+  locale: source.locale,
+  softWrap: source.softWrap,
+  overflow: source.overflow,
+  // Preserve the legacy property when no TextScaler was supplied.
+  // ignore: deprecated_member_use
+  textScaleFactor: source.textScaleFactor,
+  textScaler: source.textScaler,
+  maxLines: source.maxLines,
+  semanticsLabel: source.semanticsLabel,
+  semanticsIdentifier: source.semanticsIdentifier,
+  textWidthBasis: source.textWidthBasis,
+  textHeightBehavior: source.textHeightBehavior,
+  selectionColor: source.selectionColor,
+);
+
 /// Text widget extension method for access to [tr()] and [plural()]
 /// Pass context to use and subscribe to its localization scope. Ordinary widgets
 /// under the root rebuild on presentation changes; retained strings are snapshots.
@@ -16,70 +38,31 @@ import 'public.dart' as ez;
 /// ```
 extension TextTranslateExtension on Text {
   /// {@macro tr}
-  Text tr({List<String>? args, BuildContext? context, Map<String, String>? namedArgs, String? gender}) => Text(
-      ez.tr(
-        data ?? (throw ArgumentError('Text.rich cannot be translated; translate each TextSpan string instead')),
-        context: context,
-        args: args,
-        namedArgs: namedArgs,
-        gender: gender,
-      ),
-      key: key,
-      style: style,
-      strutStyle: strutStyle,
-      textAlign: textAlign,
-      textDirection: textDirection,
-      locale: locale,
-      softWrap: softWrap,
-      overflow: overflow,
-      // Preserve the legacy property when no TextScaler was supplied.
-      // ignore: deprecated_member_use
-      textScaleFactor: textScaleFactor,
-      textScaler: textScaler,
-      maxLines: maxLines,
-      semanticsLabel: semanticsLabel,
-      semanticsIdentifier: semanticsIdentifier,
-      textWidthBasis: textWidthBasis,
-      textHeightBehavior: textHeightBehavior,
-      selectionColor: selectionColor);
+  Text tr({List<String>? args, BuildContext? context, Map<String, String>? namedArgs, String? gender}) => _withData(
+    this,
+    ez.tr(
+      data ?? (throw ArgumentError('Text.rich cannot be translated; translate each TextSpan string instead')),
+      context: context,
+      args: args,
+      namedArgs: namedArgs,
+      gender: gender,
+    ),
+  );
 
   /// {@macro plural}
-  Text plural(
-    num value, {
-    BuildContext? context,
-    List<String>? args,
-    Map<String, String>? namedArgs,
-    String? name,
-    NumberFormat? format,
-  }) =>
-      Text(
-          ez.plural(
-            data ?? (throw ArgumentError('Text.rich cannot be translated; translate each TextSpan string instead')),
-            value,
-            context: context,
-            args: args,
-            namedArgs: namedArgs,
-            name: name,
-            format: format,
-          ),
-          key: key,
-          style: style,
-          strutStyle: strutStyle,
-          textAlign: textAlign,
-          textDirection: textDirection,
-          locale: locale,
-          softWrap: softWrap,
-          overflow: overflow,
-          // Preserve the legacy property when no TextScaler was supplied.
-          // ignore: deprecated_member_use
-          textScaleFactor: textScaleFactor,
-          textScaler: textScaler,
-          maxLines: maxLines,
-          semanticsLabel: semanticsLabel,
-          semanticsIdentifier: semanticsIdentifier,
-          textWidthBasis: textWidthBasis,
-          textHeightBehavior: textHeightBehavior,
-          selectionColor: selectionColor);
+  Text plural(num value, {BuildContext? context, List<String>? args, Map<String, String>? namedArgs, String? name, NumberFormat? format}) =>
+      _withData(
+        this,
+        ez.plural(
+          data ?? (throw ArgumentError('Text.rich cannot be translated; translate each TextSpan string instead')),
+          value,
+          context: context,
+          args: args,
+          namedArgs: namedArgs,
+          name: name,
+          format: format,
+        ),
+      );
 }
 
 /// Strings extension method for access to [tr()] and [plural()]
@@ -92,34 +75,14 @@ extension TextTranslateExtension on Text {
 /// ```
 extension StringTranslateExtension on String {
   /// {@macro tr}
-  String tr({
-    List<String>? args,
-    Map<String, String>? namedArgs,
-    String? gender,
-    BuildContext? context,
-  }) =>
+  String tr({List<String>? args, Map<String, String>? namedArgs, String? gender, BuildContext? context}) =>
       ez.tr(this, context: context, args: args, namedArgs: namedArgs, gender: gender);
 
   bool trExists({BuildContext? context, bool includeFallback = false}) => ez.trExists(this, context: context, includeFallback: includeFallback);
 
   /// {@macro plural}
-  String plural(
-    num value, {
-    List<String>? args,
-    BuildContext? context,
-    Map<String, String>? namedArgs,
-    String? name,
-    NumberFormat? format,
-  }) =>
-      ez.plural(
-        this,
-        value,
-        context: context,
-        args: args,
-        namedArgs: namedArgs,
-        name: name,
-        format: format,
-      );
+  String plural(num value, {List<String>? args, BuildContext? context, Map<String, String>? namedArgs, String? name, NumberFormat? format}) =>
+      ez.plural(this, value, context: context, args: args, namedArgs: namedArgs, name: name, format: format);
 }
 
 /// BuildContext extension method for access to [locale], [supportedLocales], [fallbackLocale], [delegates] and [deleteSaveLocale()]
@@ -151,8 +114,10 @@ extension BuildContextEasyLocalizationExtension on BuildContext {
   Future<void> reloadTranslations() => (EasyLocalization.of(this) ?? (throw const LocalizationNotFoundException())).reloadTranslations();
 
   /// Old Change app locale
-  @Deprecated('This is the func used in the old version of EasyLocalization. The modern func is `setLocale(val)` . '
-      'This feature was deprecated after v3.0.0')
+  @Deprecated(
+    'This is the func used in the old version of EasyLocalization. The modern func is `setLocale(val)` . '
+    'This feature was deprecated after v3.0.0',
+  )
   set locale(Locale val) => (EasyLocalization.of(this) ?? (throw const LocalizationNotFoundException())).setLocale(val);
 
   /// Get List of supported locales.
@@ -212,24 +177,14 @@ extension BuildContextEasyLocalizationExtension on BuildContext {
   /// Text(context.tr('msg_mixed', args: ['Easy localization'], namedArgs: {'lang': 'Dart'}), // args and namedArgs
   /// Text(context.tr('gender', gender: _gender ? "female" : "male"), // gender
   /// ```
-  String tr(
-    String key, {
-    List<String>? args,
-    Map<String, String>? namedArgs,
-    String? gender,
-  }) {
+  String tr(String key, {List<String>? args, Map<String, String>? namedArgs, String? gender}) {
     final localization = Localization.of(this);
 
     if (localization == null) {
       throw const LocalizationNotFoundException();
     }
 
-    return localization.tr(
-      key,
-      args: args,
-      namedArgs: namedArgs,
-      gender: gender,
-    );
+    return localization.tr(key, args: args, namedArgs: namedArgs, gender: gender);
   }
 
   bool trExists(String key, {bool includeFallback = false}) {
@@ -242,27 +197,13 @@ extension BuildContextEasyLocalizationExtension on BuildContext {
     return localization.exists(key, includeFallback: includeFallback);
   }
 
-  String plural(
-    String key,
-    num number, {
-    List<String>? args,
-    Map<String, String>? namedArgs,
-    String? name,
-    NumberFormat? format,
-  }) {
+  String plural(String key, num number, {List<String>? args, Map<String, String>? namedArgs, String? name, NumberFormat? format}) {
     final localization = Localization.of(this);
 
     if (localization == null) {
       throw const LocalizationNotFoundException();
     }
 
-    return localization.plural(
-      key,
-      number,
-      args: args,
-      namedArgs: namedArgs,
-      name: name,
-      format: format,
-    );
+    return localization.plural(key, number, args: args, namedArgs: namedArgs, name: name, format: format);
   }
 }

@@ -33,28 +33,42 @@ void main() async {
         'one': {'value': 'shared'},
         'two': {'value': 'shared'},
         'left': {
-          'common': {'value': 'shared'}
+          'common': {'value': 'shared'},
         },
         'right': {
-          'common': {'value': 'shared'}
+          'common': {'value': 'shared'},
         },
       });
       expect(ancestors, {'ancestor'});
     });
 
+    test('nested load failure keeps one context and the original stack', () async {
+      final files = _Files({
+        'i18n/en/first.json': {'child': ':/missing.json'},
+      });
+      try {
+        await JsonLinkedFileResolver(
+          fileLoader: files,
+        ).resolveLinkedFiles(basePath: 'i18n', languageCode: 'en', baseJson: {'parent': ':/first.json'});
+        fail('Expected a linked file error');
+      } catch (error, stack) {
+        expect(error, isA<StateError>());
+        expect('Error resolving'.allMatches(error.toString()).length, 1);
+        expect(error.toString(), contains('missing.json'));
+        expect(stack.toString(), contains('_Files.loadString'));
+      }
+    });
+
     test('detects a cycle and restores the active stack after an error', () async {
       final files = _Files({
         'i18n/en/a.json': {'next': ':/b.json'},
-        'i18n/en/b.json': {'next': ':/a.json'}
+        'i18n/en/b.json': {'next': ':/a.json'},
       });
       final ancestors = <String>{'ancestor'};
       await expectLater(
-        JsonLinkedFileResolver(fileLoader: files).resolveLinkedFiles(
-          basePath: 'i18n',
-          languageCode: 'en',
-          baseJson: {'next': ':/a.json'},
-          visited: ancestors,
-        ),
+        JsonLinkedFileResolver(
+          fileLoader: files,
+        ).resolveLinkedFiles(basePath: 'i18n', languageCode: 'en', baseJson: {'next': ':/a.json'}, visited: ancestors),
         throwsA(isA<StateError>().having((e) => e.toString(), 'message', contains('Cyclic linked files'))),
       );
       expect(ancestors, {'ancestor'});
@@ -66,8 +80,8 @@ void main() async {
           'i18n/en/$i.json': i == 33
               ? {'value': 'end'}
               : {
-                  'map': {'next': ':/${i + 1}.json'}
-                }
+                  'map': {'next': ':/${i + 1}.json'},
+                },
       });
       final resolver = JsonLinkedFileResolver(fileLoader: files);
       await expectLater(resolver.resolveLinkedFiles(basePath: 'i18n', languageCode: 'en', baseJson: {'next': ':/2.json'}), completes);
@@ -91,12 +105,15 @@ void main() async {
         for (final name in names) 'i18n/$name/first.json': {'nested': ':/second.json'},
         for (final name in names) 'i18n/$name/second.json': {'locale': name},
       });
-      final loader = RootBundleAssetLoader(fileLoader: files, linkedFileResolver: JsonLinkedFileResolver(fileLoader: files));
+      final loader = RootBundleAssetLoader(
+        fileLoader: files,
+        linkedFileResolver: JsonLinkedFileResolver(fileLoader: files),
+      );
       for (var i = 0; i < locales.length; i++) {
         expect(await loader.load('i18n', locales[i]), {
           'link': {
-            'nested': {'locale': names[i]}
-          }
+            'nested': {'locale': names[i]},
+          },
         });
       }
       files.contents.remove('i18n/zh-Hant/second.json');
@@ -108,7 +125,7 @@ void main() async {
       final files = _Files({
         'i18n/en.json': {
           'nested': {'value': 'map'},
-          'linked': ':/item.json'
+          'linked': ':/item.json',
         },
         'i18n/en/item.json': {'value': 'file'},
       });
@@ -124,15 +141,16 @@ void main() async {
       expect(resolver.calls, 3);
       resolver.calls = 0;
       expect(
-          await resolver.resolveLinkedFiles(
-            basePath: 'i18n',
-            languageCode: 'en',
-            baseJson: {
-              'nested': {'value': 'map'},
-              'linked': ':/item.json'
-            },
-          ),
-          expected);
+        await resolver.resolveLinkedFiles(
+          basePath: 'i18n',
+          languageCode: 'en',
+          baseJson: {
+            'nested': {'value': 'map'},
+            'linked': ':/item.json',
+          },
+        ),
+        expected,
+      );
       expect(resolver.calls, 3);
     });
 
@@ -140,7 +158,7 @@ void main() async {
       final files = _Files({
         'i18n/en.json': {},
         'i18n/en-US.json': {},
-        'i18n/en-US/item.json': {'ok': true}
+        'i18n/en-US/item.json': {'ok': true},
       });
       final legacy = _LegacyResolver(files);
       final jsonLegacy = _LegacyJsonResolver(files);
@@ -152,15 +170,13 @@ void main() async {
       expect(legacy.calls, 2);
       expect(jsonLegacy.calls, 2);
       expect(
-          await JsonLinkedFileResolver(fileLoader: files).resolveLinkedFiles(
-            basePath: 'i18n',
-            languageCode: 'en',
-            countryCode: 'US',
-            baseJson: {'item': ':/item.json'},
-          ),
-          {
-            'item': {'ok': true}
-          });
+        await JsonLinkedFileResolver(
+          fileLoader: files,
+        ).resolveLinkedFiles(basePath: 'i18n', languageCode: 'en', countryCode: 'US', baseJson: {'item': ':/item.json'}),
+        {
+          'item': {'ok': true},
+        },
+      );
     });
   });
 
@@ -389,13 +405,15 @@ class _LegacyResolver extends LinkedFileResolver {
   int calls = 0;
 
   @override
-  Future<Map<String, dynamic>> resolveLinkedFiles(
-      {required String basePath,
-      required String languageCode,
-      required Map<String, dynamic> baseJson,
-      Set<String>? visited,
-      int depth = 0,
-      String? countryCode}) async {
+  Future<Map<String, dynamic>> resolveLinkedFiles({
+    required String basePath,
+    required String languageCode,
+    required Map<String, dynamic> baseJson,
+    Set<String>? visited,
+    int depth = 0,
+    String? scriptCode,
+    String? countryCode,
+  }) async {
     calls++;
     return baseJson;
   }
@@ -406,16 +424,25 @@ class _LegacyJsonResolver extends JsonLinkedFileResolver {
   int calls = 0;
 
   @override
-  Future<Map<String, dynamic>> resolveLinkedFiles(
-      {required String basePath,
-      required String languageCode,
-      required Map<String, dynamic> baseJson,
-      Set<String>? visited,
-      int depth = 0,
-      String? countryCode}) {
+  Future<Map<String, dynamic>> resolveLinkedFiles({
+    required String basePath,
+    required String languageCode,
+    required Map<String, dynamic> baseJson,
+    Set<String>? visited,
+    int depth = 0,
+    String? scriptCode,
+    String? countryCode,
+  }) {
     calls++;
     return super.resolveLinkedFiles(
-        basePath: basePath, languageCode: languageCode, baseJson: baseJson, visited: visited, depth: depth, countryCode: countryCode);
+      basePath: basePath,
+      languageCode: languageCode,
+      baseJson: baseJson,
+      visited: visited,
+      depth: depth,
+      scriptCode: scriptCode,
+      countryCode: countryCode,
+    );
   }
 }
 
@@ -424,16 +451,25 @@ class _TransformingLegacyJsonResolver extends JsonLinkedFileResolver {
   int calls = 0;
 
   @override
-  Future<Map<String, dynamic>> resolveLinkedFiles(
-      {required String basePath,
-      required String languageCode,
-      required Map<String, dynamic> baseJson,
-      Set<String>? visited,
-      int depth = 0,
-      String? countryCode}) async {
+  Future<Map<String, dynamic>> resolveLinkedFiles({
+    required String basePath,
+    required String languageCode,
+    required Map<String, dynamic> baseJson,
+    Set<String>? visited,
+    int depth = 0,
+    String? scriptCode,
+    String? countryCode,
+  }) async {
     calls++;
     final resolved = await super.resolveLinkedFiles(
-        basePath: basePath, languageCode: languageCode, baseJson: baseJson, visited: visited, depth: depth, countryCode: countryCode);
+      basePath: basePath,
+      languageCode: languageCode,
+      baseJson: baseJson,
+      visited: visited,
+      depth: depth,
+      scriptCode: scriptCode,
+      countryCode: countryCode,
+    );
     resolved['transformed'] = true;
     return resolved;
   }

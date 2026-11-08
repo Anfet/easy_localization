@@ -61,7 +61,7 @@ class RootBundleAssetLoader extends AssetLoader {
     reportLocalizationDiagnostic(EasyLocalization.onVerbose, 'Load asset from $path');
 
     Map<String, dynamic> baseJson = json.decode(await fileLoader.loadString(localePath));
-    return await linkedFileResolver.resolveLinkedFilesForLocale(
+    return await linkedFileResolver.resolveLinkedFiles(
       basePath: path,
       languageCode: locale.languageCode,
       scriptCode: locale.scriptCode,

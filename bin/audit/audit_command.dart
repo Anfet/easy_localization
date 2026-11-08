@@ -31,9 +31,11 @@ class AuditCommand {
       if (!file.path.endsWith('.json')) continue;
 
       final local = basenameWithoutExtension(file.path);
-      final langCode = local.split('-').first;
-      final hasCountryCode = local.split('-').length > 1;
-      final countryCode = hasCountryCode ? local.split('-').last : null;
+      final parts = local.split('-');
+      final langCode = parts.first;
+      final hasScript = parts.length > 1 && parts[1].length == 4;
+      final scriptCode = hasScript ? parts[1] : null;
+      final countryCode = parts.length > (hasScript ? 2 : 1) ? parts.last : null;
       final jsonMap = json.decode(file.readAsStringSync()) as Map<String, dynamic>;
 
       // Process linked files if present using the shared resolver
@@ -41,6 +43,7 @@ class AuditCommand {
         basePath: translationsDir.path,
         languageCode: langCode,
         baseJson: jsonMap,
+        scriptCode: scriptCode,
         countryCode: countryCode,
       );
       result[local] = _flatten(resolvedJson);

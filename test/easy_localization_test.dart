@@ -17,27 +17,29 @@ void main() {
     });
     tearDown(() => EasyLocalization.onWarning = null);
     var r1 = EasyLocalizationController(
-        forceLocale: const Locale('en'),
-        path: 'path/en.json',
-        supportedLocales: const [Locale('en')],
-        useOnlyLangCode: true,
-        useFallbackTranslations: false,
-        saveLocale: false,
-        onLoadError: (FlutterError e) {
-          log(e.toString());
-        },
-        assetLoader: const JsonAssetLoader());
+      forceLocale: const Locale('en'),
+      path: 'path/en.json',
+      supportedLocales: const [Locale('en')],
+      useOnlyLangCode: true,
+      useFallbackTranslations: false,
+      saveLocale: false,
+      onLoadError: (FlutterError e) {
+        log(e.toString());
+      },
+      assetLoader: const JsonAssetLoader(),
+    );
     var r2 = EasyLocalizationController(
-        forceLocale: const Locale('en', 'us'),
-        supportedLocales: const [Locale('en', 'us')],
-        path: 'path/en-us.json',
-        useOnlyLangCode: false,
-        useFallbackTranslations: false,
-        onLoadError: (FlutterError e) {
-          log(e.toString());
-        },
-        saveLocale: false,
-        assetLoader: const JsonAssetLoader());
+      forceLocale: const Locale('en', 'us'),
+      supportedLocales: const [Locale('en', 'us')],
+      path: 'path/en-us.json',
+      useOnlyLangCode: false,
+      useFallbackTranslations: false,
+      onLoadError: (FlutterError e) {
+        log(e.toString());
+      },
+      saveLocale: false,
+      assetLoader: const JsonAssetLoader(),
+    );
     setUpAll(() async {
       await r1.loadTranslations();
       await r2.loadTranslations();
@@ -78,7 +80,7 @@ void main() {
       ).loadTranslations();
     });
 
-    test('localeFromString() succeeds', () async {
+    test('toLocale() succeeds', () async {
       expect(const Locale('ar'), 'ar'.toLocale());
       expect(const Locale('ar', 'DZ'), 'ar_DZ'.toLocale());
       expect(const Locale.fromSubtags(languageCode: 'ar', scriptCode: 'Arab'), 'ar_Arab'.toLocale());
@@ -108,9 +110,7 @@ void main() {
     });
 
     test('controller loads saved locale', () async {
-      SharedPreferences.setMockInitialValues({
-        'locale': 'en',
-      });
+      SharedPreferences.setMockInitialValues({'locale': 'en'});
       await EasyLocalization.ensureInitialized();
       final controller = EasyLocalizationController(
         supportedLocales: const [Locale('en'), Locale('fb')],
@@ -131,9 +131,7 @@ void main() {
 
     /// E.g. if user saved a locale that was removed in a later version
     test('controller loads fallback if saved locale is not supported', () async {
-      SharedPreferences.setMockInitialValues({
-        'locale': 'de',
-      });
+      SharedPreferences.setMockInitialValues({'locale': 'de'});
       await EasyLocalization.ensureInitialized();
       final controller = EasyLocalizationController(
         supportedLocales: const [Locale('en'), Locale('fb')],
@@ -184,14 +182,8 @@ void main() {
         const zhHant = Locale.fromSubtags(languageCode: 'zh', scriptCode: 'Hant');
         const zhHansCN = Locale.fromSubtags(languageCode: 'zh', scriptCode: 'Hans', countryCode: 'CN');
 
-        expect(
-          EasyLocalizationController.selectLocaleFrom([en, zh], zhHansCN),
-          zh,
-        );
-        expect(
-          EasyLocalizationController.selectLocaleFrom([zhHant, zhHans], zhHansCN),
-          zhHans,
-        );
+        expect(EasyLocalizationController.selectLocaleFrom([en, zh], zhHansCN), zh);
+        expect(EasyLocalizationController.selectLocaleFrom([zhHant, zhHans], zhHansCN), zhHans);
       });
 
       test('select best lenguage match if no perfect match exists', () {
@@ -201,11 +193,7 @@ void main() {
         const supportedLocale2 = Locale('zh', 'CN');
 
         expect(
-          EasyLocalizationController.selectLocaleFrom(
-            [supportedLocale1, supportedLocale2],
-            userDeviceLocale,
-            fallbackLocale: supportedLocale2,
-          ),
+          EasyLocalizationController.selectLocaleFrom([supportedLocale1, supportedLocale2], userDeviceLocale, fallbackLocale: supportedLocale2),
           supportedLocale1,
         );
       });
@@ -217,11 +205,7 @@ void main() {
         const supportedLocale2 = userDeviceLocale;
 
         expect(
-          EasyLocalizationController.selectLocaleFrom(
-            [supportedLocale1, supportedLocale2],
-            userDeviceLocale,
-            fallbackLocale: supportedLocale2,
-          ),
+          EasyLocalizationController.selectLocaleFrom([supportedLocale1, supportedLocale2], userDeviceLocale, fallbackLocale: supportedLocale2),
           supportedLocale2,
         );
       });
@@ -229,17 +213,18 @@ void main() {
 
     group('tr', () {
       var r = EasyLocalizationController(
-          forceLocale: const Locale('en'),
-          supportedLocales: const [Locale('en'), Locale('fb')],
-          fallbackLocale: const Locale('fb'),
-          path: 'path',
-          useOnlyLangCode: true,
-          useFallbackTranslations: true,
-          onLoadError: (FlutterError e) {
-            log(e.toString());
-          },
-          saveLocale: false,
-          assetLoader: const JsonAssetLoader());
+        forceLocale: const Locale('en'),
+        supportedLocales: const [Locale('en'), Locale('fb')],
+        fallbackLocale: const Locale('fb'),
+        path: 'path',
+        useOnlyLangCode: true,
+        useFallbackTranslations: true,
+        onLoadError: (FlutterError e) {
+          log(e.toString());
+        },
+        saveLocale: false,
+        assetLoader: const JsonAssetLoader(),
+      );
 
       setUpAll(() async {
         await r.loadTranslations();
@@ -250,30 +235,18 @@ void main() {
       });
 
       test('can resolve resource in any nest level', () {
-        expect(
-          Localization.instance.tr('nested.super.duper.nested'),
-          'nested.super.duper.nested',
-        );
+        expect(Localization.instance.tr('nested.super.duper.nested'), 'nested.super.duper.nested');
       });
       test('can resolve resource that has a key with dots', () {
-        expect(
-          Localization.instance.tr('nested.but.not.nested'),
-          'nested but not nested',
-        );
+        expect(Localization.instance.tr('nested.but.not.nested'), 'nested but not nested');
       });
 
       test('won\'t fail for missing key (no periods)', () {
-        expect(
-          Localization.instance.tr('Processing'),
-          'Processing',
-        );
+        expect(Localization.instance.tr('Processing'), 'Processing');
       });
 
       test('won\'t fail for missing key with periods', () {
-        expect(
-          Localization.instance.tr('Processing.'),
-          'Processing.',
-        );
+        expect(Localization.instance.tr('Processing.'), 'Processing.');
       });
 
       test('can resolve linked locale messages', () {
@@ -297,8 +270,10 @@ void main() {
       });
 
       test('can resolve nested named arguments', () {
-        expect(Localization.instance.tr('nestedNamedArguments', namedArgs: {'firstArg': 'this', 'secondArg': 'named argument', 'thirdArg': '!'}),
-            'this is a nested named argument!');
+        expect(
+          Localization.instance.tr('nestedNamedArguments', namedArgs: {'firstArg': 'this', 'secondArg': 'named argument', 'thirdArg': '!'}),
+          'this is a nested named argument!',
+        );
       });
 
       test('returns missing resource as provided', () {
@@ -332,10 +307,7 @@ void main() {
       });
 
       test('returns resource and replaces argument', () {
-        expect(
-          Localization.instance.tr('test_replace_one', args: ['one']),
-          'test replace one',
-        );
+        expect(Localization.instance.tr('test_replace_one', args: ['one']), 'test replace one');
       });
 
       test('returns resource and replaces argument in any nest level', () {
@@ -346,10 +318,7 @@ void main() {
       });
 
       test('returns resource and replaces argument sequentially', () {
-        expect(
-          Localization.instance.tr('test_replace_two', args: ['one', 'two']),
-          'test replace one two',
-        );
+        expect(Localization.instance.tr('test_replace_two', args: ['one', 'two']), 'test replace one two');
       });
 
       test('should raise exception if provided arguments length is different from the count of {} in the resource', () {
@@ -357,10 +326,7 @@ void main() {
       });
 
       test('return resource and replaces named argument', () {
-        expect(
-          Localization.instance.tr('test_replace_named', namedArgs: {'arg1': 'one', 'arg2': 'two'}),
-          'test named replace one two',
-        );
+        expect(Localization.instance.tr('test_replace_named', namedArgs: {'arg1': 'one', 'arg2': 'two'}), 'test named replace one two');
       });
 
       test('returns resource and replaces named argument in any nest level', () {
@@ -371,41 +337,30 @@ void main() {
       });
 
       test('gender returns the correct resource', () {
-        expect(
-          Localization.instance.tr('gender', gender: 'male'),
-          'Hi man ;)',
-        );
-        expect(
-          Localization.instance.tr('gender', gender: 'female'),
-          'Hello girl :)',
-        );
+        expect(Localization.instance.tr('gender', gender: 'male'), 'Hi man ;)');
+        expect(Localization.instance.tr('gender', gender: 'female'), 'Hello girl :)');
       });
 
       test('gender returns the correct resource and replaces args', () {
-        expect(
-          Localization.instance.tr('gender_and_replace', gender: 'male', args: ['one']),
-          'Hi one man ;)',
-        );
-        expect(
-          Localization.instance.tr('gender_and_replace', gender: 'female', args: ['one']),
-          'Hello one girl :)',
-        );
+        expect(Localization.instance.tr('gender_and_replace', gender: 'male', args: ['one']), 'Hi one man ;)');
+        expect(Localization.instance.tr('gender_and_replace', gender: 'female', args: ['one']), 'Hello one girl :)');
       });
     });
 
     group('tr useFallbackTranslationsForEmptyResources', () {
       var r = EasyLocalizationController(
-          forceLocale: const Locale('en'),
-          supportedLocales: const [Locale('en'), Locale('fb')],
-          fallbackLocale: const Locale('fb'),
-          path: 'path',
-          useOnlyLangCode: true,
-          useFallbackTranslations: true,
-          onLoadError: (FlutterError e) {
-            log(e.toString());
-          },
-          saveLocale: false,
-          assetLoader: const JsonAssetLoader());
+        forceLocale: const Locale('en'),
+        supportedLocales: const [Locale('en'), Locale('fb')],
+        fallbackLocale: const Locale('fb'),
+        path: 'path',
+        useOnlyLangCode: true,
+        useFallbackTranslations: true,
+        onLoadError: (FlutterError e) {
+          log(e.toString());
+        },
+        saveLocale: false,
+        assetLoader: const JsonAssetLoader(),
+      );
 
       setUpAll(() async {
         await r.loadTranslations();
@@ -441,17 +396,18 @@ void main() {
 
     group('plural', () {
       var r = EasyLocalizationController(
-          forceLocale: const Locale('en'),
-          supportedLocales: const [Locale('en'), Locale('fb')],
-          fallbackLocale: const Locale('fb'),
-          path: 'path',
-          useOnlyLangCode: true,
-          useFallbackTranslations: true,
-          onLoadError: (FlutterError e) {
-            log(e.toString());
-          },
-          saveLocale: false,
-          assetLoader: const JsonAssetLoader());
+        forceLocale: const Locale('en'),
+        supportedLocales: const [Locale('en'), Locale('fb')],
+        fallbackLocale: const Locale('fb'),
+        path: 'path',
+        useOnlyLangCode: true,
+        useFallbackTranslations: true,
+        onLoadError: (FlutterError e) {
+          log(e.toString());
+        },
+        saveLocale: false,
+        assetLoader: const JsonAssetLoader(),
+      );
 
       setUpAll(() async {
         await r.loadTranslations();
@@ -487,19 +443,13 @@ void main() {
 
       test('two as fallback and fallback translations priority', () {
         printLog.clear();
-        expect(
-          Localization.instance.plural('test_fallback_plurals', 2),
-          'fallback two',
-        );
+        expect(Localization.instance.plural('test_fallback_plurals', 2), 'fallback two');
         expect(printLog, isEmpty);
       });
 
       test('two as fallback and fallback translations priority', () {
         printLog.clear();
-        expect(
-          Localization.instance.plural('test_empty_fallback_plurals', 2),
-          '',
-        );
+        expect(Localization.instance.plural('test_empty_fallback_plurals', 2), '');
         expect(printLog, isEmpty);
       });
 
@@ -520,47 +470,36 @@ void main() {
       });
 
       test('zero with named args', () {
-        expect(
-          Localization.instance.plural('money_named_args', 0, namedArgs: {'name': 'John', 'money': '0'}),
-          'John has no money',
-        );
+        expect(Localization.instance.plural('money_named_args', 0, namedArgs: {'name': 'John', 'money': '0'}), 'John has no money');
       });
 
       test('one with named args', () {
-        expect(
-          Localization.instance.plural('money_named_args', 1, namedArgs: {'name': 'John', 'money': '1'}),
-          'John has 1 dollar',
-        );
+        expect(Localization.instance.plural('money_named_args', 1, namedArgs: {'name': 'John', 'money': '1'}), 'John has 1 dollar');
       });
 
       test('other with named args', () {
-        expect(
-          Localization.instance.plural('money_named_args', 3, namedArgs: {'name': 'John', 'money': '3'}),
-          'John has 3 dollars',
-        );
+        expect(Localization.instance.plural('money_named_args', 3, namedArgs: {'name': 'John', 'money': '3'}), 'John has 3 dollars');
       });
 
       test('named args and value name', () {
-        expect(
-          Localization.instance.plural('money_named_args', 3, namedArgs: {'name': 'John'}, name: 'money'),
-          'John has 3 dollars',
-        );
+        expect(Localization.instance.plural('money_named_args', 3, namedArgs: {'name': 'John'}, name: 'money'), 'John has 3 dollars');
       });
     });
 
     group('plural useFallbackTranslationsForEmptyResources', () {
       var r = EasyLocalizationController(
-          forceLocale: const Locale('en'),
-          supportedLocales: const [Locale('en'), Locale('fb')],
-          fallbackLocale: const Locale('fb'),
-          path: 'path',
-          useOnlyLangCode: true,
-          useFallbackTranslations: true,
-          onLoadError: (FlutterError e) {
-            log(e.toString());
-          },
-          saveLocale: false,
-          assetLoader: const JsonAssetLoader());
+        forceLocale: const Locale('en'),
+        supportedLocales: const [Locale('en'), Locale('fb')],
+        fallbackLocale: const Locale('fb'),
+        path: 'path',
+        useOnlyLangCode: true,
+        useFallbackTranslations: true,
+        onLoadError: (FlutterError e) {
+          log(e.toString());
+        },
+        saveLocale: false,
+        assetLoader: const JsonAssetLoader(),
+      );
 
       setUpAll(() async {
         await r.loadTranslations();
@@ -574,28 +513,19 @@ void main() {
 
       test('two as fallback for empty resource and fallback translations priority', () {
         printLog.clear();
-        expect(
-          Localization.instance.plural('test_empty_fallback_plurals', 2),
-          'fallback two',
-        );
+        expect(Localization.instance.plural('test_empty_fallback_plurals', 2), 'fallback two');
         expect(printLog, isEmpty);
       });
 
       test('reports empty plural resource with fallback', () {
         printLog.clear();
-        expect(
-          Localization.instance.plural('test_empty_fallback_plurals', -1),
-          'fallback other',
-        );
+        expect(Localization.instance.plural('test_empty_fallback_plurals', -1), 'fallback other');
         expect(printLog.first, contains('Localization key [test_empty_fallback_plurals.other] not found'));
       });
 
       test('reports empty plural resource', () {
         printLog.clear();
-        expect(
-          Localization.instance.plural('test_empty_plurals', -1),
-          'test_empty_plurals.other',
-        );
+        expect(Localization.instance.plural('test_empty_plurals', -1), 'test_empty_plurals.other');
         final logIterator = printLog.iterator;
         logIterator.moveNext();
         expect(logIterator.current, contains('Localization key [test_empty_plurals.other] not found'));

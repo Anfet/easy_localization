@@ -6,8 +6,8 @@ import 'plural_rules.dart';
 import 'translations.dart';
 
 class Localization {
-  Translations? _translations, _fallbackTranslations;
-  late Locale _locale;
+  final Translations? _translations, _fallbackTranslations;
+  final Locale _locale;
 
   /// The locale captured by this translation snapshot.
   Locale get locale => _locale;
@@ -22,10 +22,8 @@ class Localization {
     'capitalize': (String? val) => val == null || val.isEmpty ? val ?? '' : '${val[0].toUpperCase()}${val.substring(1)}',
   };
 
-  bool _useFallbackTranslationsForEmptyResources = false;
-  bool _ignorePluralRules = false;
-
-  Localization();
+  final bool _useFallbackTranslationsForEmptyResources;
+  final bool _ignorePluralRules;
 
   /// An independent translation snapshot. Later loads never change this object.
   Localization.snapshot(
@@ -217,7 +215,7 @@ class Localization {
       if (_fallbackTranslations == null || !fallback) {
         return key;
       } else {
-        resource = _fallbackTranslations?.get(key);
+        resource = _fallbackTranslations.get(key);
         if (resource == null || (_useFallbackTranslationsForEmptyResources && resource.isEmpty)) {
           if (logging) {
             reportLocalizationDiagnostic(EasyLocalization.onWarning, 'Fallback localization key [$key] not found');

@@ -6,6 +6,9 @@ Entries through 3.0.9 preserve the history of the original project. Version 4.0.
 
 #### Breaking changes
 
+- Custom linked file resolvers must accept `scriptCode` in `resolveLinkedFiles` and `getLinkedLocalePath`; `resolveLinkedFilesForLocale` was removed.
+- Removed deprecated `localeFromString` and `localeToString`, and the empty `Localization()` constructor. Use locale extensions and `Localization.snapshot` or `Localization.load`.
+
 - Requires Dart 3.12 and Flutter 3.44.
 - Removed the `EasyLocalization.logger` / `easy_logger` integration. Configure the optional `onVerbose`, `onWarning`, and `onError` callbacks instead; diagnostics are silent by default.
 - The new `EasyLocalizationConfig` owner uses language plural rules and disables base-language fallback by default. Legacy constructors and loading APIs retain their historical defaults.

@@ -3,13 +3,10 @@ class Translations {
   final Map<String?, dynamic> _nestedKeysCache;
 
   Translations(Map<String, dynamic>? translations)
-      : _translations =
-            translations == null ? null : Map<String, dynamic>.unmodifiable(translations.map((key, value) => MapEntry(key, _copy(value)))),
-        _nestedKeysCache = {};
+    : _translations = translations == null ? null : Map<String, dynamic>.unmodifiable(translations.map((key, value) => MapEntry(key, _copy(value)))),
+      _nestedKeysCache = {};
 
-  Translations.copy(Translations source)
-      : _translations = source._translations,
-        _nestedKeysCache = {};
+  Translations.copy(Translations source) : _translations = source._translations, _nestedKeysCache = {};
 
   static dynamic _copy(dynamic value) {
     if (value is Map) return Map<dynamic, dynamic>.unmodifiable(value.map((key, item) => MapEntry(key, _copy(item))));
@@ -41,8 +38,6 @@ class Translations {
 
     var value = _translations?[kHead];
 
-    // print(value);
-
     for (var i = 1; i < keys.length; i++) {
       if (value is! Map) return null;
       value = value[keys[i]];
@@ -57,10 +52,6 @@ class Translations {
 
     return null;
   }
-
-  // bool has(String key) => isNestedKey(key)
-  //     ? getNested(key) != null
-  //     : _translations.containsKey(key);
 
   bool isNestedCached(String key) => _nestedKeysCache.containsKey(key);
 

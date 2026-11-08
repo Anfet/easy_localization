@@ -18,11 +18,16 @@ void main() {
 
   tearDown(() => scratch.deleteSync(recursive: true));
 
-  Future<ProcessResult> audit({bool strict = false, List<String> extra = const []}) => Process.run(
-        'dart',
-        ['run', 'bin/audit.dart', '-t', translations.absolute.path, '-s', source.absolute.path, if (strict) '--strict', ...extra],
-        runInShell: Platform.isWindows,
-      );
+  Future<ProcessResult> audit({bool strict = false, List<String> extra = const []}) => Process.run('dart', [
+    'run',
+    'bin/audit.dart',
+    '-t',
+    translations.absolute.path,
+    '-s',
+    source.absolute.path,
+    if (strict) '--strict',
+    ...extra,
+  ], runInShell: Platform.isWindows);
 
   void writeSource(String content) => File(path.join(source.path, 'sample.dart')).writeAsStringSync(content);
 
@@ -41,6 +46,16 @@ void main() {
   test('complete translations succeed with and without strict', () async {
     writeSource("tr('present');");
     expectSuccess(await audit(), 0);
+    expectSuccess(await audit(strict: true), 0);
+  });
+
+  test('audit resolves links in script and region locale directories', () async {
+    File(path.join(translations.path, 'en.json')).deleteSync();
+    File(path.join(translations.path, 'fr.json')).deleteSync();
+    File(path.join(translations.path, 'zh-Hans-CN.json')).writeAsStringSync('{"section":":/section.json"}');
+    final linked = Directory(path.join(translations.path, 'zh-Hans-CN'))..createSync();
+    File(path.join(linked.path, 'section.json')).writeAsStringSync('{"title":"Title"}');
+    writeSource("tr('section.title');");
     expectSuccess(await audit(strict: true), 0);
   });
 
