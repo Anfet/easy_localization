@@ -1,9 +1,9 @@
 import 'dart:async';
 
-import 'package:easy_localization/easy_localization.dart';
-import 'package:easy_localization/src/easy_localization_controller.dart';
-import 'package:easy_localization/src/diagnostics.dart' show LocalizationLogCallback, reportLocalizationDiagnostic;
-export 'package:easy_localization/src/diagnostics.dart' show LocalizationLogCallback;
+import 'package:easy_localization_continued/easy_localization.dart';
+import 'package:easy_localization_continued/src/easy_localization_controller.dart';
+import 'package:easy_localization_continued/src/diagnostics.dart' show LocalizationLogCallback, reportLocalizationDiagnostic;
+export 'package:easy_localization_continued/src/diagnostics.dart' show LocalizationLogCallback;
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show AsyncCallback, ValueListenable, SynchronousFuture, listEquals;
 import 'package:flutter_localizations/flutter_localizations.dart';

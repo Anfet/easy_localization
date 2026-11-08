@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:easy_localization/src/file_loaders/file_loader.dart';
+import 'package:easy_localization_continued/src/file_loaders/file_loader.dart';
 
 /// File loader implementation for Dart CLI applications using dart:io
 class IOFileLoader implements FileLoader {

@@ -3,10 +3,10 @@
 Easy and Fast internationalization for your Flutter Apps
 </h1>
 
-[![Pub Version](https://img.shields.io/pub/v/easy_localization?style=flat-square&logo=dart)](https://pub.dev/packages/easy_localization)
-[![likes](https://badges.bar/easy_localization/likes)](https://pub.dev/packages/easy_localization/score)
-[![likes](https://badges.bar/easy_localization/popularity)](https://pub.dev/packages/easy_localization/score)
-[![likes](https://badges.bar/easy_localization/pub%20points)](https://pub.dev/packages/easy_localization/score)
+[![Pub Version](https://img.shields.io/pub/v/easy_localization_continued?style=flat-square&logo=dart)](https://pub.dev/packages/easy_localization_continued)
+[![likes](https://badges.bar/easy_localization_continued/likes)](https://pub.dev/packages/easy_localization_continued/score)
+[![likes](https://badges.bar/easy_localization_continued/popularity)](https://pub.dev/packages/easy_localization_continued/score)
+[![likes](https://badges.bar/easy_localization_continued/pub%20points)](https://pub.dev/packages/easy_localization_continued/score)
 ![GitHub issues](https://img.shields.io/github/issues/Anfet/easy_localization?style=flat-square)
 ![GitHub contributors](https://img.shields.io/github/contributors/Anfet/easy_localization?style=flat-square)
 ![GitHub stars](https://img.shields.io/github/stars/Anfet/easy_localization?style=flat-square)
@@ -19,7 +19,7 @@ This repository is a community-maintained fork of [aissat/easy_localization](htt
 ## Why easy_localization?
 
 - 🚀 Easy translations for many languages
-- 🔌 Load translations as JSON, CSV, Yaml, Xml using [Easy Localization Loader](https://github.com/aissat/easy_localization_loader)
+- 🔌 Load JSON translations or implement a custom asset loader for other sources
 - 💾 React and persist to locale changes
 - ⚡ Supports plural, gender, nesting, RTL locales and more
 - ↩️ Fallback locale keys redirection
@@ -44,7 +44,7 @@ Add to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  easy_localization: <last_version>
+  easy_localization_continued: ^4.0.0
 ```
 
 Create folder and add translation files like this
@@ -77,9 +77,7 @@ flutter:
 
 ### 🔌 Loading translations from other resources
 
-You can use JSON,CSV,HTTP,XML,Yaml files, etc.
-
-See [Easy Localization Loader](https://github.com/aissat/easy_localization_loader) for more info.
+The built-in loader reads JSON assets. Implement a custom `AssetLoader` for other sources. The upstream [Easy Localization Loader](https://github.com/aissat/easy_localization_loader) depends on `easy_localization` 3.x and cannot be used directly with this package; its loaders require porting.
 
 ### ⚠️ Note on **iOS**
 
@@ -102,7 +100,7 @@ Initialize once before `runApp` and use the same owner for the root and Flutter 
 
 ```dart
 import 'package:flutter/material.dart';
-import 'package:easy_localization/easy_localization.dart';
+import 'package:easy_localization_continued/easy_localization.dart';
 
 void main() async {
   final owner = await EasyLocalization.initialize(EasyLocalizationConfig(
@@ -138,8 +136,8 @@ class MyApp extends StatelessWidget {
 | child                   | true     |                           | Place for your main page widget.                                                                                                                                              |
 | supportedLocales        | true     |                           | List of supported locales.                                                                                                                                                    |
 | path                    | true     |                           | Path to your folder with localization files.                                                                                                                                  |
-| assetLoader             | false    | `RootBundleAssetLoader()` | Class loader for localization files. You can use custom loaders from [Easy Localization Loader](https://github.com/aissat/easy_localization_loader) or create your own class. |
-| extraAssetLoaders       | false    | null                      | A List of asset loaders, in case of needing assets being loaded from a different module or package. (e.g. adding a package that uses [Easy Localization Loader]).             |
+| assetLoader             | false    | `RootBundleAssetLoader()` | Class loader for localization files. Implement a custom loader for other sources. |
+| extraAssetLoaders       | false    | null                      | A list of compatible asset loaders for additional modules or packages.             |
 | fallbackLocale          | false    |                           | Returns the locale when the locale is not in the list `supportedLocales`.                                                                                                     |
 | startLocale             | false    |                           | Overrides device locale.                                                                                                                                                      |
 | saveLocale              | false    | `true`                    | Save locale in device storage.                                                                                                                                                |
@@ -158,7 +156,7 @@ disposing it. This in-memory loader returns a completed future, so this example
 needs neither `runAsync` nor asset bundle access:
 
 ```dart
-import 'package:easy_localization/easy_localization.dart';
+import 'package:easy_localization_continued/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -636,7 +634,7 @@ print(localization.fallbackLocale); // output: en_US
 
 ## 💻 Code generation
 
-Code generation supports only json files, for more information run in terminal `flutter pub run easy_localization:generate -h`
+Code generation supports only json files, for more information run in terminal `flutter pub run easy_localization_continued:generate -h`
 
 ### Command line arguments
 
@@ -655,7 +653,7 @@ Code generation supports only json files, for more information run in terminal `
 Steps:
 
 1. Open your terminal in the folder's path containing your project
-2. Run in terminal `flutter pub run easy_localization:generate`
+2. Run in terminal `flutter pub run easy_localization_continued:generate`
 3. Change asset loader and past import.
 
   ```dart
@@ -704,7 +702,7 @@ source file is specified. Linked JSON files are resolved during generation for b
 
 Steps:
 1. Open your terminal in the folder's path containing your project 
-2. Run in terminal `flutter pub run easy_localization:generate -f keys -o locale_keys.g.dart`
+2. Run in terminal `flutter pub run easy_localization_continued:generate -f keys -o locale_keys.g.dart`
 3. Past import.
 
 ```dart
@@ -727,7 +725,7 @@ Since 4.0.0, generated keys re-export the translation extensions. The keys outpu
 If you prefer to not generate keys you can see an audit of your translation keys to see the one present in your app code but not in your translations file by running the audit command.
 
 ```
-flutter pub run easy_localization:audit
+flutter pub run easy_localization_continued:audit
 ```
 
 If you are not using the default translations folder path (assets/translations) or the lib folder for your code you can specify your custom paths : 
@@ -738,7 +736,7 @@ If you are not using the default translations folder path (assets/translations) 
 | --source-dir                 | -s    | lib                   | Folder containing the app code files                                        |
 | --strict                     |       | false                 | Exit with code 2 when a static key is missing                               |
 
-For CI, run `flutter pub run easy_localization:audit --strict`. Exit code 0 means the audit completed without confirmed missing keys (or strict mode is off); 2 means strict mode found a missing static key; 1 means the audit could not complete, such as an invalid option, unreadable input, invalid JSON, or no JSON locales. The report and warnings go to stdout; errors go to stderr.
+For CI, run `flutter pub run easy_localization_continued:audit --strict`. Exit code 0 means the audit completed without confirmed missing keys (or strict mode is off); 2 means strict mode found a missing static key; 1 means the audit could not complete, such as an invalid option, unreadable input, invalid JSON, or no JSON locales. The report and warnings go to stdout; errors go to stderr.
 
 The audit uses a limited pattern scanner for literal keys in `tr` and `plural` calls, including String, Text and context forms. It reads literal `static const` values for `LocaleKeys` from Dart files in the source directory. Conflicting values, interpolation, dynamic expressions and unresolved constants are unverified; this is not a full Dart parser.
 
@@ -838,6 +836,10 @@ The requested locale must be in `supportedLocales`. A translator remains usable 
 
 
 ## Compatibility and migration to 4.0.0
+
+Replace the `easy_localization` dependency with `easy_localization_continued: ^4.0.0`, change imports from `package:easy_localization/easy_localization.dart` to `package:easy_localization_continued/easy_localization.dart`, and regenerate keys and loaders using `dart run easy_localization_continued:generate` with your existing arguments. Replace `easy_localization:generate` and `easy_localization:audit` in scripts with `easy_localization_continued:generate` and `easy_localization_continued:audit`. The entrypoint filename and current API calls remain the same; this does not promise full 3.x API compatibility. Constraints such as `^3.0.8` do not automatically select 4.0.0.
+
+Migrate apps and shared packages together so app, portal and partner use the same library. The upstream `easy_localization_loader` depends on `easy_localization: ^3.0.8`: changing a dependency key or override does not make its `AssetLoader` the new package's type. Port each upstream loader to the new import and the current required `AssetLoader` super constructor (`fileLoader` and `linkedFileResolver`), including its missing-resource and error contract described below.
 
 The minimum SDKs are Dart 3.12 and Flutter 3.44. Remove the `ignorePluralRules` argument when migrating; all constructors use the plural rules described above.
 

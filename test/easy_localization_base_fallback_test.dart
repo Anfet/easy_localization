@@ -1,8 +1,8 @@
 import 'dart:async';
 
-import 'package:easy_localization/easy_localization.dart';
-import 'package:easy_localization/src/easy_localization_controller.dart';
-import 'package:easy_localization/src/translations.dart';
+import 'package:easy_localization_continued/easy_localization.dart';
+import 'package:easy_localization_continued/src/easy_localization_controller.dart';
+import 'package:easy_localization_continued/src/translations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 

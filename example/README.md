@@ -1,6 +1,6 @@
-# easy_localization example
+# easy_localization_continued example
 
-This app demonstrates translated text, plurals, currency formatting, and switching or resetting the language.
+This app demonstrates translated text, plurals, currency formatting, and switching or resetting the language. It resolves `easy_localization_continued` from `../`. Regenerate its artifacts with `dart run easy_localization_continued:generate` using the JSON and keys formats; see the package README for migration and custom loader requirements.
 
 ```sh
 cd example

@@ -1,5 +1,5 @@
-import 'package:easy_localization/src/localization.dart';
-import 'package:easy_localization/src/translations.dart';
+import 'package:easy_localization_continued/src/localization.dart';
+import 'package:easy_localization_continued/src/translations.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 

@@ -1,5 +1,4 @@
-import 'package:easy_localization/easy_localization.dart';
-//import 'package:easy_localization_loader/easy_localization_loader.dart'; // import custom loaders
+import 'package:easy_localization_continued/easy_localization.dart';
 import 'package:flutter/material.dart';
 
 import 'generated/locale_keys.g.dart';
@@ -15,16 +14,8 @@ final localizationConfig = EasyLocalizationConfig(
   // useOnlyLangCode: true,
   // useBaseLanguageFallback: true, // Requires base assets or a loader that returns null for confirmed absence.
 
-  // optional assetLoader default used is RootBundleAssetLoader which uses flutter's assetloader
-  // install easy_localization_loader for enable custom loaders
-  // assetLoader: RootBundleAssetLoader()
-  // assetLoader: HttpAssetLoader()
-  // assetLoader: FileAssetLoader()
-  // assetLoader: CsvAssetLoader()
-  // assetLoader: YamlAssetLoader() //multiple files
-  // assetLoader: YamlSingleAssetLoader() //single file
-  // assetLoader: XmlAssetLoader() //multiple files
-  // assetLoader: XmlSingleAssetLoader() //single file
+  // The default is RootBundleAssetLoader. Custom loaders must implement the
+  // current AssetLoader contract; upstream loaders require porting.
   // assetLoader: CodegenLoader()
 );
 

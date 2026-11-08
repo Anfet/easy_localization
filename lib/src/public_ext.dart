@@ -1,5 +1,5 @@
-import 'package:easy_localization/src/exceptions.dart';
-import 'package:easy_localization/src/localization.dart';
+import 'package:easy_localization_continued/src/exceptions.dart';
+import 'package:easy_localization_continued/src/localization.dart';
 import 'package:flutter/widgets.dart';
 import 'package:intl/intl.dart';
 

@@ -2,8 +2,8 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:args/args.dart';
-import 'package:easy_localization/src/file_loaders/io_file_loader.dart';
-import 'package:easy_localization/src/linked_file_resolver.dart';
+import 'package:easy_localization_continued/src/file_loaders/io_file_loader.dart';
+import 'package:easy_localization_continued/src/linked_file_resolver.dart';
 import 'package:path/path.dart' as path;
 
 const _preservedKeywords = ['few', 'many', 'one', 'other', 'two', 'zero', 'male', 'female'];
@@ -170,11 +170,11 @@ Future<void> generateFile(List<FileSystemEntity> files, Directory outputPath, Ge
 
 void _writeKeys(StringBuffer classBuilder, Map<String, dynamic> translations, bool? skipUnnecessaryKeys) {
   var file = '''
-// DO NOT EDIT. This is code generated via package:easy_localization/generate.dart
+// DO NOT EDIT. This is code generated via package:easy_localization_continued/generate.dart
 
 // ignore_for_file: constant_identifier_names
 
-export 'package:easy_localization/easy_localization.dart'
+export 'package:easy_localization_continued/easy_localization.dart'
     show StringTranslateExtension, TextTranslateExtension, BuildContextEasyLocalizationExtension;
 
 abstract class LocaleKeys {
@@ -222,13 +222,13 @@ String _resolve(Map<String, dynamic> translations, bool? skipUnnecessaryKeys, [S
 
 void _writeJson(StringBuffer classBuilder, Map<String, Map<String, dynamic>> translations) {
   var gFile = '''
-// DO NOT EDIT. This is code generated via package:easy_localization/generate.dart
+// DO NOT EDIT. This is code generated via package:easy_localization_continued/generate.dart
 
 // ignore_for_file: prefer_single_quotes, avoid_renaming_method_parameters, constant_identifier_names
 
 import 'dart:ui';
 
-import 'package:easy_localization/easy_localization.dart'
+import 'package:easy_localization_continued/easy_localization.dart'
     show AssetLoader, JsonLinkedFileResolver, RootBundleFileLoader;
 
 class CodegenLoader extends AssetLoader{
