@@ -75,15 +75,16 @@ class Localization {
       res = _resolve(key);
     }
 
-    res = _replaceLinks(res);
+    res = _replaceLinks(res, keys: {key});
 
     res = _replaceNamedArgs(res, namedArgs);
 
     return _replaceArgs(res, args);
   }
 
-  String _replaceLinks(String res, {bool logging = true}) {
-    // TODO: add recursion detection and a resolve stack.
+  String _replaceLinks(String res, {bool logging = true, Set<String>? keys, Set<String>? cycleWarnings}) {
+    final resolvingKeys = keys ?? <String>{};
+    final reportedCycles = cycleWarnings ?? <String>{};
     final matches = _linkKeyMatcher.allMatches(res);
     var result = res;
 
@@ -96,7 +97,17 @@ class Localization {
       // Remove the leading @:, @.case: and the brackets
       final linkPlaceholder = link.replaceAll(linkPrefix, '').replaceAll(_bracketsMatcher, '');
 
-      var translated = _resolve(linkPlaceholder);
+      if (resolvingKeys.contains(linkPlaceholder)) {
+        if (logging && reportedCycles.isEmpty) {
+          reportLocalizationDiagnostic(EasyLocalization.onWarning, 'Cyclic linked translation detected at [$linkPlaceholder]');
+          reportedCycles.add(linkPlaceholder);
+        }
+        continue;
+      }
+
+      resolvingKeys.add(linkPlaceholder);
+      var translated = _replaceLinks(_resolve(linkPlaceholder), logging: logging, keys: resolvingKeys, cycleWarnings: reportedCycles);
+      resolvingKeys.remove(linkPlaceholder);
 
       if (formatterName != null) {
         if (_modifiers.containsKey(formatterName)) {
@@ -179,7 +190,7 @@ class Localization {
         break;
     }
 
-    res = _replaceLinks(res);
+    res = _replaceLinks(res, keys: {key});
 
     final formattedValue = format == null ? '$value' : format.format(value);
 

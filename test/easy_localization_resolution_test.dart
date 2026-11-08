@@ -1,3 +1,4 @@
+import 'package:easy_localization/src/easy_localization_app.dart';
 import 'package:easy_localization/src/localization.dart';
 import 'package:easy_localization/src/translations.dart';
 import 'package:flutter/widgets.dart';
@@ -71,6 +72,37 @@ void main() {
     expect(localization.tr('dotted'), 'Nested value');
     expect(localization.tr('bracketed'), 'Nested value');
   });
+
+  test('linked translations resolve nested and sibling links in one call', () {
+    final localization = Localization.snapshot(
+      const Locale('en'),
+      translations: Translations({
+        'label': 'Email',
+        'field': '@:label',
+        'placeholder': 'Enter @:field',
+        'upper': '@.upper:field',
+        'siblings': '@:label / @:field',
+      }),
+    );
+
+    expect(localization.tr('placeholder'), 'Enter Email');
+    expect(localization.tr('upper'), 'EMAIL');
+    expect(localization.tr('siblings'), 'Email / Email');
+  });
+
+  test('cyclic linked translations remain unresolved and warn once', () {
+    final warnings = <String>[];
+    EasyLocalization.onWarning = (message, {stackTrace}) => warnings.add(message);
+    try {
+      final localization = Localization.snapshot(const Locale('en'), translations: Translations({'a': 'x @:b', 'b': 'y @:a'}));
+
+      expect(localization.tr('a'), 'x y @:a');
+      expect(warnings, ['Cyclic linked translation detected at [a]']);
+    } finally {
+      EasyLocalization.onWarning = null;
+    }
+  });
+
   test('plural expands links before replacing named and positional arguments', () {
     Localization.load(
       const Locale('en'),
