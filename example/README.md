@@ -28,3 +28,12 @@ void main() async {
 ```
 
 See the [package README](../README.md) for the full API.
+
+The [Alchemist golden test](test/localization_golden_test.dart) initializes a fresh owner for each locale, loads Roboto, and checks translated text before capturing readable Windows goldens. From this directory:
+
+```sh
+flutter pub get
+flutter test --no-pub test/localization_golden_test.dart
+```
+
+To regenerate its Windows baselines, append `--update-goldens` to the test command and review the images. See the [testing recipe](../README.md#testing) for the wrapper.

@@ -228,6 +228,47 @@ second independent test with another locale and dictionary. Real bundle or plugi
 operations can require `tester.runAsync`; this memory loader does not. If you use
 `saveLocale: true`, set up mock preferences before initializing the owner.
 
+For [Alchemist](https://pub.dev/packages/alchemist), use its [custom pumping](https://github.com/Betterment/alchemist#custom-pumping-behavior) to initialize a fresh owner before the golden subtree. With `MemoryLoader` above and `alchemist` in dev dependencies:
+
+```dart
+import 'package:alchemist/alchemist.dart';
+
+goldenTest(
+  'translated title',
+  fileName: 'translated_title',
+  builder: () => Builder(builder: (_) => Text(tr('title'))),
+  pumpWidget: (tester, widget) async {
+    final owner = await EasyLocalization.initialize(EasyLocalizationConfig(
+      supportedLocales: const [Locale('en')],
+      fallbackLocale: const Locale('en'),
+      startLocale: const Locale('en'),
+      path: 'unused',
+      saveLocale: false,
+      assetLoader: MemoryLoader({'title': 'Hello'}),
+    ));
+    addTearDown(() async {
+      await tester.pumpWidget(const SizedBox.shrink());
+      owner.dispose();
+    });
+    await tester.pumpWidget(EasyLocalization.withInstance(
+      instance: owner,
+      child: MaterialApp(
+        locale: owner.presentationLocale,
+        supportedLocales: owner.supportedLocales,
+        localizationsDelegates: owner.delegates,
+        home: widget,
+      ),
+    ));
+  },
+  whilePerforming: (tester) async {
+    expect(find.text('Hello'), findsOneWidget);
+    return null;
+  },
+);
+```
+
+Register this inside `main()`. The [complete Windows example](example/test/localization_golden_test.dart) loads Roboto, checks English and Russian plurals, and compares readable platform goldens. From `example`, run `flutter pub get`, then `flutter test --no-pub test/localization_golden_test.dart`; add `--update-goldens` to regenerate the baselines.
+
 ### 🔥 Initialize library
 
 For translations before `runApp`, initialize one owner with an explicit supported

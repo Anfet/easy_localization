@@ -33,6 +33,7 @@ dependencies:
 #    git: https://github.com/aissat/easy_localization_loader.git
 
 dev_dependencies:
+  alchemist: ^0.14.1
   shared_preferences: ^2.0.0
   flutter_test:
     sdk: flutter
