@@ -197,57 +197,71 @@ void main() {
   });
 
   testWidgets('slow and failed delegates preserve whole presentation and late superseded resources cannot apply', (tester) async {
-    final delegate = _Delegate();
-    final instance = await owner(_Loader(), delegate);
-    try {
-      await tester.pumpWidget(
-        EasyLocalization.withInstance(
-          instance: instance,
-          child: const _App(home: _Leaf(label: 'home')),
-        ),
-      );
-      await tester.pumpAndSettle();
-      final gate = Completer<_Resource>();
-      delegate.gates['de'] = gate;
-      final de = instance.setLocale(const Locale('de'));
-      await de;
-      final dePresentation = instance.waitForPresentation();
-      await tester.pump();
-      expect(instance.dataTranslator.tr('value'), 'de-2');
-      expect(tr('value'), 'en-1');
-      expect(find.text('en-1 home'), findsOneWidget);
-      expect(instance.state.value.isLoading, isTrue);
-      final ar = instance.setLocale(const Locale('ar'));
-      await ar;
-      final arPresentation = instance.waitForPresentation();
-      await tester.pumpAndSettle();
-      expect(await dePresentation, LocalizationApplyOutcome.superseded);
-      expect(await arPresentation, LocalizationApplyOutcome.applied);
-      gate.complete(const _Resource(Locale('de')));
-      await tester.pumpAndSettle();
-      expect(find.text('ar-3 home'), findsOneWidget);
-      expect(tr('value'), 'ar-3');
-      delegate.gates.remove('de');
-      delegate.fail = true;
-      final failed = instance.setLocale(const Locale('de'));
-      await failed;
-      final failedPresentation = instance.waitForPresentation();
-      await tester.pumpAndSettle();
-      expect(await failedPresentation, LocalizationApplyOutcome.failed);
-      expect(instance.state.value.errorStage, LocalizationErrorStage.flutterDelegates);
-      expect(tr('value'), 'ar-3');
-      expect(Localizations.localeOf(tester.element(find.text('ar-3 home'))), const Locale('ar'));
-      delegate.fail = false;
-      final retry = instance.setLocale(const Locale('de'));
-      await retry;
-      final retryPresentation = instance.waitForPresentation();
-      await tester.pumpAndSettle();
-      expect(await retryPresentation, LocalizationApplyOutcome.applied);
-      expect(find.text('de-4 home'), findsOneWidget);
-      expect(instance.state.value.error, isNull);
-    } finally {
-      await tester.pumpWidget(const SizedBox());
-      instance.dispose();
+    for (final useOwner in [false, true]) {
+      final delegate = _Delegate();
+      final instance = await owner(_Loader(), delegate);
+      try {
+        await tester.pumpWidget(
+          EasyLocalization.withInstance(
+            instance: instance,
+            child: _App(
+              instance: useOwner ? instance : null,
+              home: const _Leaf(label: 'home'),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final gate = Completer<_Resource>();
+        delegate.gates['de'] = gate;
+        final de = instance.setLocale(const Locale('de'));
+        await de;
+        final dePresentation = instance.waitForPresentation();
+        await tester.pump();
+        expect(instance.dataTranslator.tr('value'), 'de-2');
+        expect(instance.presentationLocale, const Locale('en'));
+        expect(instance.supportedLocales, contains(const Locale('ar')));
+        expect(instance.fallbackLocale, const Locale('en'));
+        expect(tr('value'), 'en-1');
+        expect(find.text('en-1 home'), findsOneWidget);
+        expect(instance.state.value.isLoading, isTrue);
+        final ar = instance.setLocale(const Locale('ar'));
+        await ar;
+        final arPresentation = instance.waitForPresentation();
+        await tester.pumpAndSettle();
+        expect(await dePresentation, LocalizationApplyOutcome.superseded);
+        expect(await arPresentation, LocalizationApplyOutcome.applied);
+        gate.complete(const _Resource(Locale('de')));
+        await tester.pumpAndSettle();
+        expect(find.text('ar-3 home'), findsOneWidget);
+        expect(tr('value'), 'ar-3');
+        expect(instance.presentationLocale, const Locale('ar'));
+        final current = tester.element(find.text('ar-3 home'));
+        expect(Localizations.localeOf(current), const Locale('ar'));
+        expect(Directionality.of(current), ui.TextDirection.rtl);
+        expect(Localizations.of<_Resource>(current, _Resource)?.locale, const Locale('ar'));
+        delegate.gates.remove('de');
+        delegate.fail = true;
+        final failed = instance.setLocale(const Locale('de'));
+        await failed;
+        final failedPresentation = instance.waitForPresentation();
+        await tester.pumpAndSettle();
+        expect(await failedPresentation, LocalizationApplyOutcome.failed);
+        expect(instance.state.value.errorStage, LocalizationErrorStage.flutterDelegates);
+        expect(tr('value'), 'ar-3');
+        expect(instance.presentationLocale, const Locale('ar'));
+        expect(Localizations.localeOf(tester.element(find.text('ar-3 home'))), const Locale('ar'));
+        delegate.fail = false;
+        final retry = instance.setLocale(const Locale('de'));
+        await retry;
+        final retryPresentation = instance.waitForPresentation();
+        await tester.pumpAndSettle();
+        expect(await retryPresentation, LocalizationApplyOutcome.applied);
+        expect(find.text('de-4 home'), findsOneWidget);
+        expect(instance.state.value.error, isNull);
+      } finally {
+        await tester.pumpWidget(const SizedBox());
+        instance.dispose();
+      }
     }
   });
 
@@ -522,13 +536,14 @@ class _DuplicateDelegate extends LocalizationsDelegate<_Resource> {
 class _App extends StatelessWidget {
   final Widget home;
   final GlobalKey<NavigatorState>? navigator;
-  const _App({required this.home, this.navigator});
+  final EasyLocalizationInstance? instance;
+  const _App({required this.home, this.navigator, this.instance});
   @override
   Widget build(BuildContext context) => MaterialApp(
     navigatorKey: navigator,
-    locale: context.locale,
-    supportedLocales: context.supportedLocales,
-    localizationsDelegates: context.localizationDelegates,
+    locale: instance?.presentationLocale ?? context.locale,
+    supportedLocales: instance?.supportedLocales ?? context.supportedLocales,
+    localizationsDelegates: instance?.delegates ?? context.localizationDelegates,
     home: home,
   );
 }

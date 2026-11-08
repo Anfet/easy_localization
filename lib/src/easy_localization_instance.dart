@@ -102,6 +102,26 @@ class LocalizationState {
 class EasyLocalizationInstance with WidgetsBindingObserver {
   EasyLocalizationConfig get config => _config;
   Locale get locale => _controller.locale;
+
+  /// Locales and device selection available without a BuildContext.
+  List<Locale> get supportedLocales => _config.supportedLocales;
+  Locale get fallbackLocale => _config.fallbackLocale;
+  Locale? get savedLocale => _controller.savedLocale;
+  Locale get deviceLocale => _controller.deviceLocale;
+
+  /// Locale of the published Flutter resource set, or committed locale while detached.
+  Locale get presentationLocale => _publishedPresentation?.locale ?? locale;
+
+  /// Delegates paired with [presentationLocale], including registered custom resources.
+  List<LocalizationsDelegate<dynamic>> get delegates =>
+      _publishedPresentation?.delegates ??
+      List.unmodifiable([
+        if (_data != null) _PreparedDelegate(type: Localization, value: _data, revision: _committedRevision),
+        ..._config.additionalDelegates,
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ]);
   bool get isSystemMode => _controller.isSystemMode;
   Localization get dataTranslator => _data ?? (throw StateError('Call EasyLocalization.initialize before accessing translations'));
   ValueListenable<LocalizationState> get state => _state;
@@ -160,6 +180,7 @@ class EasyLocalizationInstance with WidgetsBindingObserver {
     _disposed = true;
     if (_controller.strictErrors) WidgetsBinding.instance.removeObserver(this);
     _attachment = null;
+    _publishedPresentation = null;
     _controller.removeListener(_didCommit);
     _controller.dispose();
     for (final pending in _pending.toList()) {
@@ -447,6 +468,7 @@ class EasyLocalizationInstance with WidgetsBindingObserver {
 
   void _detach() {
     _attachment = null;
+    _publishedPresentation = null;
     _presentation = null;
     _presentedData = null;
     _appliedLocale = null;
@@ -466,6 +488,7 @@ class EasyLocalizationInstance with WidgetsBindingObserver {
   final Set<_LocalizationPending> _pending = {};
   Localization? _data;
   Localization? _presentedData;
+  _PreparedLocalization? _publishedPresentation;
   _LocalizationPending? _active;
   int _revision = 0;
   int _committedRevision = 0;

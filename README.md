@@ -189,6 +189,11 @@ TextField(decoration: InputDecoration(hintText: 'hint'.tr()));
 TextButton(onPressed: submit, child: Text('submit'.tr()));
 ```
 
+Alternatively, a widget rebuilt under the root can use `localization.presentationLocale`,
+`localization.supportedLocales`, and `localization.delegates` as the corresponding
+MaterialApp values. `localization.locale` reflects committed data and may advance
+while the Flutter resources are still loading.
+
 Keep custom asynchronous delegates inside that config to include them in the same
 atomic presentation. While they load, Flutter resources and global `tr`/`plural`
 keep showing the previous presentation; `dataTranslator` already reads committed

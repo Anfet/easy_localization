@@ -198,8 +198,9 @@ class _EasyLocalizationState extends State<EasyLocalization> with WidgetsBinding
     }
     _prepare();
     final prepared = _prepared;
-    if (prepared != null && _owner._canPresent(prepared.revision) && !identical(prepared, _presentation)) {
-      _presentation = prepared;
+    if (prepared != null && _owner._canPresent(prepared.revision) && !identical(prepared, _owner._publishedPresentation)) {
+      _owner._publishedPresentation = prepared;
+      _prepared = null;
       Localization.publish(prepared.snapshot);
       // Mark retained descendants before updateChild; keys, Elements and State survive.
       void rebuild(Element element) {
@@ -210,12 +211,15 @@ class _EasyLocalizationState extends State<EasyLocalization> with WidgetsBinding
       (context as Element).visitChildren(rebuild);
       final attachment = _attachment;
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && identical(attachment, _owner._attachment) && identical(_presentation, prepared) && _owner._canPresent(prepared.revision)) {
+        if (mounted &&
+            identical(attachment, _owner._attachment) &&
+            identical(_owner._publishedPresentation, prepared) &&
+            _owner._canPresent(prepared.revision)) {
           _owner._didApply(prepared.revision, prepared.locale);
         }
       });
     }
-    final presentation = _presentation;
+    final presentation = _owner._publishedPresentation;
     final loadError = translationsLoadError;
     return _EasyLocalizationProvider(
       widget,
@@ -389,12 +393,11 @@ class _EasyLocalizationState extends State<EasyLocalization> with WidgetsBinding
       reportLocalizationDiagnostic(EasyLocalization.onError, 'Flutter localization delegate failed: $error', stackTrace: stack);
       _failedRequest = _owner._revision;
       _owner._failedPresentation(error);
-      if (_presentation == null) setState(() => translationsLoadError = FlutterError(error.toString()));
+      if (_owner._publishedPresentation == null) setState(() => translationsLoadError = FlutterError(error.toString()));
     }
   }
 
   _PreparedLocalization? _prepared;
-  _PreparedLocalization? _presentation;
   int _preparingRevision = -1;
   final Object _attachment = Object();
   int? _failedRequest;
