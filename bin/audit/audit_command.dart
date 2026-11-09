@@ -8,10 +8,10 @@ import '../io_file_loader.dart';
 
 class AuditCommand {
   /// Returns whether any locale has confirmed missing translations.
-  Future<bool> run({required String transDir, required String srcDir}) async {
+  Future<bool> run({required String transDir, required String srcDir, bool strict = false}) async {
     final translations = await _loadTranslations(Directory(transDir));
     if (translations.isEmpty) throw StateError('No JSON locales found in "$transDir".');
-    return _report(translations, _scanSourceForKeys(Directory(srcDir)));
+    return _report(translations, _scanSourceForKeys(Directory(srcDir)), strict: strict);
   }
 
   Future<Map<String, Map<String, dynamic>>> _loadTranslations(Directory directory) async {
@@ -182,7 +182,7 @@ class AuditCommand {
     return value;
   }
 
-  bool _report(Map<String, Map<String, dynamic>> translations, List<_Usage> usages) {
+  bool _report(Map<String, Map<String, dynamic>> translations, List<_Usage> usages, {required bool strict}) {
     var hasMissing = false;
     stdout.writeln('=== Keys Audit ===');
     const forms = ['zero', 'one', 'two', 'few', 'many', 'other'];
@@ -233,7 +233,10 @@ class AuditCommand {
           stdout.writeln('    – $key');
         }
       }
-      if (incomplete.isNotEmpty) stdout.writeln('  🟡 Plural groups without other: ${incomplete.join(', ')}');
+      if (incomplete.isNotEmpty) {
+        stdout.writeln('  🟡 Plural groups without other: ${incomplete.join(', ')}');
+        if (strict) hasMissing = true;
+      }
     }
     return hasMissing;
   }

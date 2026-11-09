@@ -85,7 +85,7 @@ ArgParser _generateArgParser(GenerateOptions? generateOptions) {
   parser.addOption(
     'source-dir',
     abbr: 'S',
-    defaultsTo: 'resources/langs',
+    defaultsTo: 'assets/translations',
     callback: (String? x) => generateOptions!.sourceDir = x,
     help: 'Folder containing localization files',
   );

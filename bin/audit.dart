@@ -28,7 +28,7 @@ Future<void> main(List<String> args) async {
       return;
     }
 
-    final hasMissing = await AuditCommand().run(transDir: transDir, srcDir: srcDir);
+    final hasMissing = await AuditCommand().run(transDir: transDir, srcDir: srcDir, strict: argResults['strict'] as bool);
     if (argResults['strict'] as bool && hasMissing) exitCode = 2;
   } catch (e) {
     stderr.writeln('Error: $e');

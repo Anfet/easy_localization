@@ -100,6 +100,21 @@ void main() {
     expectSuccess(await audit(strict: true), 0);
   });
 
+  test('plural without other warns normally and fails strict mode', () async {
+    for (final file in translations.listSync().whereType<File>()) {
+      file.writeAsStringSync('{"count":{"one":"one"}}');
+    }
+    writeSource("plural('count', 2);");
+
+    final normal = await audit();
+    expectSuccess(normal, 0);
+    expect(normal.stdout, contains('Plural groups without other: count'));
+
+    final strict = await audit(strict: true);
+    expectSuccess(strict, 2);
+    expect(strict.stdout, contains('Plural groups without other: count'));
+  });
+
   test('missing extensions and invalid resource types fail strict', () async {
     for (final file in translations.listSync().whereType<File>()) {
       file.writeAsStringSync('{"number":42,"count":{"one":4}}');

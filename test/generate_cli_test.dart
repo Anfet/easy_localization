@@ -84,6 +84,21 @@ void main() {
     expect(skipped, isNot(contains('static const one =')));
   });
 
+  test('defaults to assets/translations when source-dir is omitted', () async {
+    final source = Directory(path.join(scratch.path, 'assets', 'translations'));
+    await source.create(recursive: true);
+    await File(path.join(source.path, 'en.json')).writeAsString('{"hello":"Hello"}');
+    final output = Directory(path.join(scratch.path, 'output'));
+    final result = await Process.run(
+      'dart',
+      [generator, '-O', 'output', '-o', 'loader.dart', '-f', 'json'],
+      workingDirectory: scratch.path,
+      runInShell: true,
+    );
+    expect(result.exitCode, 0, reason: '${result.stdout}\n${result.stderr}');
+    expect(await File(path.join(output.path, 'loader.dart')).readAsString(), contains('Hello'));
+  });
+
   test('resolves linked files for loaders and keys, including script locales', () async {
     final source = Directory(path.join(scratch.path, 'langs'));
     await source.create();
