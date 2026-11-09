@@ -230,7 +230,8 @@ void main() {
         runInShell: true,
       );
       expect(result.exitCode, 0, reason: '${result.stdout} ${result.stderr}');
-      expect(await File(path.join(scratch.path, 'output files', 'loader.dart')).readAsString(), expected);
+      final actual = await File(path.join(scratch.path, 'output files', 'loader.dart')).readAsString();
+      expect(actual.replaceAll('\r\n', '\n'), expected.replaceAll('\r\n', '\n'));
     }
   });
 
