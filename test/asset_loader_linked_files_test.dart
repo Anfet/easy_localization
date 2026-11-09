@@ -3,10 +3,12 @@ import 'dart:developer';
 
 import 'package:easy_localization_continued/easy_localization.dart';
 import 'package:easy_localization_continued/src/easy_localization_controller.dart';
-import 'package:easy_localization_continued/src/file_loaders/file_loader.dart';
+import '../bin/io_file_loader.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import '../bin/io_file_loader.dart';
 
 void main() async {
   // Initialize the test environment
@@ -193,7 +195,10 @@ void main() async {
           onLoadError: (FlutterError e) {
             log(e.toString());
           },
-          assetLoader: RootBundleAssetLoader.fromIOFile(),
+          assetLoader: const RootBundleAssetLoader(
+            linkedFileResolver: JsonLinkedFileResolver(fileLoader: IOFileLoader()),
+            fileLoader: IOFileLoader(),
+          ),
         );
 
         await controller.loadTranslations();
@@ -217,7 +222,10 @@ void main() async {
           onLoadError: (FlutterError e) {
             log(e.toString());
           },
-          assetLoader: RootBundleAssetLoader.fromIOFile(),
+          assetLoader: const RootBundleAssetLoader(
+            linkedFileResolver: JsonLinkedFileResolver(fileLoader: IOFileLoader()),
+            fileLoader: IOFileLoader(),
+          ),
         );
 
         await controller.loadTranslations();
@@ -244,7 +252,10 @@ void main() async {
           onLoadError: (FlutterError e) {
             log(e.toString());
           },
-          assetLoader: RootBundleAssetLoader.fromIOFile(),
+          assetLoader: const RootBundleAssetLoader(
+            linkedFileResolver: JsonLinkedFileResolver(fileLoader: IOFileLoader()),
+            fileLoader: IOFileLoader(),
+          ),
         );
 
         await controller.loadTranslations();
@@ -267,7 +278,10 @@ void main() async {
           onLoadError: (FlutterError e) {
             log(e.toString());
           },
-          assetLoader: RootBundleAssetLoader.fromIOFile(),
+          assetLoader: const RootBundleAssetLoader(
+            linkedFileResolver: JsonLinkedFileResolver(fileLoader: IOFileLoader()),
+            fileLoader: IOFileLoader(),
+          ),
         );
 
         await controller.loadTranslations();
@@ -290,7 +304,10 @@ void main() async {
           onLoadError: (FlutterError e) {
             log(e.toString());
           },
-          assetLoader: RootBundleAssetLoader.fromIOFile(),
+          assetLoader: const RootBundleAssetLoader(
+            linkedFileResolver: JsonLinkedFileResolver(fileLoader: IOFileLoader()),
+            fileLoader: IOFileLoader(),
+          ),
         );
 
         await controller.loadTranslations();
@@ -322,7 +339,10 @@ void main() async {
             // Don't just log, rethrow the error so we can catch it in tests
             throw e;
           },
-          assetLoader: RootBundleAssetLoader.fromIOFile(),
+          assetLoader: const RootBundleAssetLoader(
+            linkedFileResolver: JsonLinkedFileResolver(fileLoader: IOFileLoader()),
+            fileLoader: IOFileLoader(),
+          ),
         );
 
         try {
@@ -346,7 +366,10 @@ void main() async {
             // Don't just log, rethrow the error so we can catch it in tests
             throw e;
           },
-          assetLoader: RootBundleAssetLoader.fromIOFile(),
+          assetLoader: const RootBundleAssetLoader(
+            linkedFileResolver: JsonLinkedFileResolver(fileLoader: IOFileLoader()),
+            fileLoader: IOFileLoader(),
+          ),
         );
 
         try {
@@ -371,7 +394,10 @@ void main() async {
           onLoadError: (FlutterError e) {
             log(e.toString());
           },
-          assetLoader: RootBundleAssetLoader.fromIOFile(),
+          assetLoader: const RootBundleAssetLoader(
+            linkedFileResolver: JsonLinkedFileResolver(fileLoader: IOFileLoader()),
+            fileLoader: IOFileLoader(),
+          ),
         );
 
         await controller.loadTranslations();

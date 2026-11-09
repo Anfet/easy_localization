@@ -10,7 +10,7 @@ Entries through 3.0.9 preserve the history of the original project. Version 4.0.
 
 - Generated keys re-export the translation extensions and are now Flutter-facing artifacts, rather than standalone Dart libraries.
 - Custom linked file resolvers must accept `scriptCode` in `resolveLinkedFiles` and `getLinkedLocalePath`; `resolveLinkedFilesForLocale` was removed.
-- Removed deprecated `localeFromString` and `localeToString`, and the empty `Localization()` constructor. Use locale extensions and `Localization.snapshot` or `Localization.load`.
+- Removed deprecated `localeFromString` and `localeToString`, and the empty `Localization()` constructor. Use locale extensions and `Localization.snapshot`.
 
 - Requires Dart 3.12 and Flutter 3.44.
 - Removed the `EasyLocalization.logger` / `easy_logger` integration. Configure the optional `onVerbose`, `onWarning`, and `onError` callbacks instead; diagnostics are silent by default.

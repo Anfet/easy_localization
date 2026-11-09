@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:args/args.dart';
-import 'package:easy_localization_continued/src/file_loaders/io_file_loader.dart';
+import 'io_file_loader.dart';
 import 'package:easy_localization_continued/src/linked_file_resolver.dart';
 import 'package:path/path.dart' as path;
 

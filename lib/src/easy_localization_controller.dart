@@ -6,8 +6,6 @@ import 'package:flutter/foundation.dart' show DiagnosticsProperty;
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'translations.dart';
-
 class EasyLocalizationController extends ChangeNotifier {
   @visibleForTesting
   static void Function()? onReloadPreparedForTesting;

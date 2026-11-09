@@ -1,8 +1,8 @@
 import 'package:easy_localization_continued/easy_localization.dart';
 import 'package:flutter/widgets.dart';
+import 'package:meta/meta.dart';
 
 import 'package:easy_localization_continued/src/diagnostics.dart';
-import 'translations.dart';
 
 class Localization {
   final Translations? _translations, _baseTranslations, _fallbackTranslations;
@@ -49,10 +49,12 @@ class Localization {
   static Localization get instance => _instance ?? (throw StateError('Call EasyLocalization.initialize before accessing translations'));
 
   /// Publishes a complete snapshot for the legacy global translation helpers.
+  @internal
   static void publish(Localization? snapshot) => _instance = snapshot;
 
   static Localization? of(BuildContext context) => Localizations.of<Localization>(context, Localization);
 
+  @internal
   static bool load(
     Locale locale, {
     Translations? translations,

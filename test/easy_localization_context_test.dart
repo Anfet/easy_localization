@@ -1,8 +1,6 @@
 import 'dart:io';
 import 'dart:ui' as ui;
 
-import 'package:easy_localization_continued/src/translations.dart';
-
 import 'package:easy_localization_continued/easy_localization.dart';
 import 'package:flutter/material.dart';
 

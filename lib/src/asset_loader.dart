@@ -3,8 +3,6 @@ import 'dart:convert';
 import 'dart:ui';
 import 'package:easy_localization_continued/easy_localization.dart';
 import 'package:easy_localization_continued/src/diagnostics.dart';
-import 'package:easy_localization_continued/src/file_loaders/file_loader.dart';
-import 'package:easy_localization_continued/src/file_loaders/io_file_loader.dart';
 
 /// Loads translation resources from a custom source.
 ///
@@ -35,13 +33,6 @@ class RootBundleAssetLoader extends AssetLoader {
     return const RootBundleAssetLoader(
       linkedFileResolver: JsonLinkedFileResolver(fileLoader: RootBundleFileLoader()),
       fileLoader: RootBundleFileLoader(),
-    );
-  }
-
-  factory RootBundleAssetLoader.fromIOFile() {
-    return const RootBundleAssetLoader(
-      linkedFileResolver: JsonLinkedFileResolver(fileLoader: IOFileLoader()),
-      fileLoader: IOFileLoader(),
     );
   }
 
