@@ -266,6 +266,26 @@ void main() {
     }
   });
 
+  test('system locale follows reload that superseded a slow reset', () async {
+    binding.platformDispatcher.localesTestValue = const [Locale('de')];
+    final owner = await EasyLocalization.initialize(config(start: const Locale('ru'), save: false));
+    final resetGate = Completer<Map<String, dynamic>?>();
+    loader.gates['de'] = [resetGate];
+    final reset = owner.resetLocale();
+    final cancelled = expectLater(reset, throwsA(isA<LocalizationOperationSupersededException>()));
+    await owner.reloadTranslations();
+
+    binding.platformDispatcher.localesTestValue = const [Locale('ru')];
+    await Future<void>.delayed(Duration.zero);
+    expect(owner.locale, const Locale('ru'));
+    expect(owner.dataTranslator.tr('value'), 'ru');
+
+    resetGate.complete({'value': 'stale reset'});
+    await cancelled;
+    expect(owner.locale, const Locale('ru'));
+    expect(owner.dataTranslator.tr('value'), 'ru');
+  });
+
   test('system load supersedes an uncommitted reload and owns its revision', () async {
     binding.platformDispatcher.localesTestValue = const [Locale('de')];
     final owner = await EasyLocalization.initialize(config(save: false));

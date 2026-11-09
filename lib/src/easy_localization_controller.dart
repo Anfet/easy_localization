@@ -378,6 +378,8 @@ class EasyLocalizationController extends ChangeNotifier {
     if (_disposed) return;
     final active = _activeTransition;
     if (supersede && _loading && active != null) {
+      final userTransition = _userTransition == null ? null : Object();
+      if (userTransition != null) _userTransition = userTransition;
       final transition = _loadLocale(
         requestedLocale,
         refresh: _requestedRefresh,
@@ -388,6 +390,7 @@ class EasyLocalizationController extends ChangeNotifier {
       );
       _refreshRequest = _request;
       _activeTransition = transition;
+      if (userTransition != null) return _finishUserTransition(userTransition, transition, _request);
       try {
         await transition;
       } finally {
