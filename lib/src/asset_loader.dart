@@ -26,8 +26,7 @@ abstract class AssetLoader {
 /// default used is RootBundleAssetLoader which uses flutter's assetloader
 ///
 class RootBundleAssetLoader extends AssetLoader {
-  const RootBundleAssetLoader({required LinkedFileResolver linkedFileResolver, required FileLoader fileLoader})
-    : super(linkedFileResolver: linkedFileResolver, fileLoader: fileLoader);
+  const RootBundleAssetLoader({required super.linkedFileResolver, required super.fileLoader});
 
   factory RootBundleAssetLoader.fromRootBundle() {
     return const RootBundleAssetLoader(

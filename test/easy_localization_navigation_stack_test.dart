@@ -113,7 +113,7 @@ class _App extends StatelessWidget {
 }
 
 class _Screen extends StatefulWidget {
-  const _Screen({Key? key, required this.name, this.next}) : super(key: key);
+  const _Screen({super.key, required this.name, this.next});
   final String name;
   final Widget? next;
 

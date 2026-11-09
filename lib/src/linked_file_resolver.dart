@@ -22,13 +22,13 @@ abstract class LinkedFileResolver {
 
   /// Builds the linked file path for the locale under [basePath].
   String getLinkedLocalePath(String basePath, String filePath, String languageCode, {String? scriptCode, String? countryCode}) {
-    final locale = [languageCode, if (scriptCode != null && scriptCode.isNotEmpty) scriptCode, if (countryCode != null) countryCode].join('-');
+    final locale = [languageCode, if (scriptCode != null && scriptCode.isNotEmpty) scriptCode, ?countryCode].join('-');
     return '$basePath/$locale/$filePath';
   }
 }
 
 class JsonLinkedFileResolver extends LinkedFileResolver {
-  const JsonLinkedFileResolver({required FileLoader fileLoader}) : super(fileLoader: fileLoader);
+  const JsonLinkedFileResolver({required super.fileLoader});
 
   @override
   Future<Map<String, dynamic>> resolveLinkedFiles({

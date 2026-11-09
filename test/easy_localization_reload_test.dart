@@ -7,12 +7,15 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class MutableLoader extends AssetLoader {
   MutableLoader()
-      : super(linkedFileResolver: const JsonLinkedFileResolver(fileLoader: RootBundleFileLoader()), fileLoader: const RootBundleFileLoader());
+    : super(
+        linkedFileResolver: const JsonLinkedFileResolver(fileLoader: RootBundleFileLoader()),
+        fileLoader: const RootBundleFileLoader(),
+      );
   final data = <String, Map<String, dynamic>>{
     'en': {
       'value': 'Old',
       'removed': 'Remove',
-      'nested': {'key': 'Nested old'}
+      'nested': {'key': 'Nested old'},
     },
     'fr': {'value': 'French', 'removed': 'Fallback'},
   };
@@ -26,43 +29,49 @@ class MutableLoader extends AssetLoader {
 }
 
 class TranslationView extends StatelessWidget {
-  const TranslationView({Key? key}) : super(key: key);
+  const TranslationView({super.key});
 
   @override
-  Widget build(BuildContext context) => Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.center, children: [
-        Text(context.tr('value')),
-        Text(context.tr('nested.key')),
-        Text(context.tr('removed')),
-        Text(context.tr('added')),
-      ]);
+  Widget build(BuildContext context) => Column(
+    mainAxisSize: MainAxisSize.min,
+    crossAxisAlignment: CrossAxisAlignment.center,
+    children: [Text(context.tr('value')), Text(context.tr('nested.key')), Text(context.tr('removed')), Text(context.tr('added'))],
+  );
 }
 
 void main() {
   Future<void> mount(WidgetTester tester, MutableLoader loader, void Function(BuildContext) capture) async {
     SharedPreferences.setMockInitialValues({});
     await EasyLocalization.ensureInitialized();
-    await tester.pumpWidget(EasyLocalization(
-      supportedLocales: const [Locale('en'), Locale('fr')],
-      startLocale: const Locale('en'),
-      fallbackLocale: const Locale('fr'),
-      useFallbackTranslations: true,
-      path: 'unused',
-      assetLoader: loader,
-      child: Builder(
+    await tester.pumpWidget(
+      EasyLocalization(
+        supportedLocales: const [Locale('en'), Locale('fr')],
+        startLocale: const Locale('en'),
+        fallbackLocale: const Locale('fr'),
+        useFallbackTranslations: true,
+        path: 'unused',
+        assetLoader: loader,
+        child: Builder(
           builder: (context) => MaterialApp(
-                locale: context.locale,
-                supportedLocales: context.supportedLocales,
-                localizationsDelegates: context.localizationDelegates,
-                home: Builder(builder: (context) {
-                  capture(context);
-                  return const Scaffold(
-                      body: Column(
-                          mainAxisSize: MainAxisSize.max,
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [TranslationView(), TranslationView(), TextField()]));
-                }),
-              )),
-    ));
+            locale: context.locale,
+            supportedLocales: context.supportedLocales,
+            localizationsDelegates: context.localizationDelegates,
+            home: Builder(
+              builder: (context) {
+                capture(context);
+                return const Scaffold(
+                  body: Column(
+                    mainAxisSize: MainAxisSize.max,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [TranslationView(), TranslationView(), TextField()],
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+      ),
+    );
     await tester.pumpAndSettle();
   }
 
@@ -70,20 +79,24 @@ void main() {
     final loader = MutableLoader();
     late BuildContext context;
     await mount(tester, loader, (value) => context = value);
-    Navigator.of(context).push(MaterialPageRoute<void>(
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
         builder: (_) => const Scaffold(
-              body: Column(
-                  mainAxisSize: MainAxisSize.max,
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [TranslationView(), TranslationView(), TextField()]),
-            )));
+          body: Column(
+            mainAxisSize: MainAxisSize.max,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [TranslationView(), TranslationView(), TextField()],
+          ),
+        ),
+      ),
+    );
     await tester.pumpAndSettle();
     expect(find.text('Nested old'), findsNWidgets(2));
     await tester.enterText(find.byType(TextField), 'kept');
     loader.data['en'] = {
       'value': 'New',
       'added': 'Added',
-      'nested': {'key': 'Nested new'}
+      'nested': {'key': 'Nested new'},
     };
     await context.reloadTranslations();
     await tester.pumpAndSettle();

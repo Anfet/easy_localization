@@ -300,7 +300,7 @@ class EasyLocalizationController extends ChangeNotifier {
     // need scriptCode, it might be better to use ignoreCountryCode as the variable name of useOnlyLangCode
     final Locale desiredLocale = useOnlyLangCode ? Locale.fromSubtags(languageCode: locale.languageCode, scriptCode: locale.scriptCode) : locale;
 
-    List<AssetLoader> loaders = [assetLoader, if (extraAssetLoaders != null) ...extraAssetLoaders];
+    List<AssetLoader> loaders = [assetLoader, ...?extraAssetLoaders];
 
     for (final loader in loaders) {
       loaderFutures.add(loader.load(path, desiredLocale));
@@ -444,7 +444,7 @@ class EasyLocalizationController extends ChangeNotifier {
     final previous = _storageQueue;
     final result = previous == null ? operation() : previous.then((_) => operation());
     late Future<void> settled;
-    settled = result.then<void>((_) {}, onError: (Object _, StackTrace __) {}).whenComplete(() {
+    settled = result.then<void>((_) {}, onError: (Object _, StackTrace _) {}).whenComplete(() {
       if (identical(_storageQueue, settled)) _storageQueue = null;
     });
     _storageQueue = settled;

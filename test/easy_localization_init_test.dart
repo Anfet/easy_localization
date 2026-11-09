@@ -211,7 +211,7 @@ Future<void> main() async {
 class I18nObserver extends StatefulWidget {
   final Widget child;
 
-  const I18nObserver({Key? key, required this.child}) : super(key: key);
+  const I18nObserver({super.key, required this.child});
 
   @override
   State<I18nObserver> createState() => _I18nObserverState();

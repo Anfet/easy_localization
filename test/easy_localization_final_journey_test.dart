@@ -272,7 +272,7 @@ class _Leaf extends StatelessWidget {
 }
 
 class _Page extends StatefulWidget {
-  const _Page({Key? key, required this.scroll, required this.focus, required this.input}) : super(key: key);
+  const _Page({super.key, required this.scroll, required this.focus, required this.input});
   final ScrollController scroll;
   final FocusNode focus;
   final TextEditingController input;

@@ -66,7 +66,7 @@ class LocaleTranslators {
       (_) {
         if (identical(_pending[locale], pending)) _pending.remove(locale);
       },
-      onError: (Object _, StackTrace __) {
+      onError: (Object _, StackTrace _) {
         if (identical(_pending[locale], pending)) _pending.remove(locale);
       },
     );

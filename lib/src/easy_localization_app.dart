@@ -31,7 +31,7 @@ class EasyLocalization extends StatefulWidget {
   }
 
   /// Borrows a ready owner. Removing this root leaves the owner usable.
-  EasyLocalization.withInstance({Key? key, required EasyLocalizationInstance instance, required this.child})
+  EasyLocalization.withInstance({super.key, required EasyLocalizationInstance instance, required this.child})
     : _providedInstance = instance,
       supportedLocales = instance.config.supportedLocales,
       path = instance.config.path,
@@ -45,8 +45,7 @@ class EasyLocalization extends StatefulWidget {
       extraAssetLoaders = instance.config.extraAssetLoaders,
       additionalDelegates = instance.config.additionalDelegates,
       saveLocale = instance.config.saveLocale,
-      errorWidget = null,
-      super(key: key);
+      errorWidget = null;
 
   final EasyLocalizationInstance? _providedInstance;
 
@@ -123,7 +122,7 @@ class EasyLocalization extends StatefulWidget {
   final Widget Function(FlutterError? message)? errorWidget;
 
   EasyLocalization({
-    Key? key,
+    super.key,
     required this.child,
     required this.supportedLocales,
     required this.path,
@@ -143,8 +142,7 @@ class EasyLocalization extends StatefulWidget {
     this.errorWidget,
   }) : _providedInstance = null,
        assert(supportedLocales.isNotEmpty),
-       assert(path.isNotEmpty),
-       super(key: key) {
+       assert(path.isNotEmpty) {
     reportLocalizationDiagnostic(EasyLocalization.onVerbose, 'Start');
   }
 
@@ -405,9 +403,8 @@ class _EasyLocalizationProvider extends InheritedWidget {
   /// Get List of supported locales
   List<Locale> get supportedLocales => parent.supportedLocales;
 
-  _EasyLocalizationProvider(this.parent, this._localeState, this._owner, {Key? key, required this.presentation, required Widget child})
-    : currentLocale = presentation?.locale ?? _localeState.locale,
-      super(key: key, child: child);
+  _EasyLocalizationProvider(this.parent, this._localeState, this._owner, {required this.presentation, required super.child})
+    : currentLocale = presentation?.locale ?? _localeState.locale;
 
   /// Get current locale
   Locale get locale => currentLocale ?? _localeState.locale;

@@ -8,8 +8,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../bin/io_file_loader.dart';
-
 void main() async {
   // Initialize the test environment
   TestWidgetsFlutterBinding.ensureInitialized();

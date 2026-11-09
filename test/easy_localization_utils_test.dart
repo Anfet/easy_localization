@@ -7,7 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 var printLog = [];
 dynamic overridePrint(Function() testFn) => () {
   var spec = ZoneSpecification(
-    print: (_, __, ___, String msg) {
+    print: (_, _, _, String msg) {
       // Add to log instead of printing to stdout
       printLog.add(msg);
     },
