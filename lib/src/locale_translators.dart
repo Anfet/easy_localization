@@ -13,10 +13,13 @@ class LocaleTranslators {
     }
     final missing = requested.where((locale) => !_ready.containsKey(locale)).toList();
     final epoch = _loadEpoch;
-    final generations = {for (final locale in missing) locale: _generation[locale] ?? 0};
+    final generations = {for (final locale in requested) locale: _generation[locale] ?? 0};
     final snapshots = await Future.wait(missing.map(_loadShared), eagerError: true);
     _owner._checkLive();
     if (_loadEpoch != epoch) throw const LocalizationOperationSupersededException();
+    for (final locale in requested.difference(missing.toSet())) {
+      if ((_generation[locale] ?? 0) != generations[locale]) throw const LocalizationOperationSupersededException();
+    }
     for (var i = 0; i < missing.length; i++) {
       final locale = missing[i];
       if ((_generation[locale] ?? 0) != generations[locale] && !identical(_ready[locale], snapshots[i])) {

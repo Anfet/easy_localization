@@ -243,6 +243,32 @@ void main() {
     expect(owner.translators[const Locale('ru')], same(held));
     await expectLater(owner.translators.load([const Locale('fr')]), throwsArgumentError);
   });
+  test('batch checks ready participants before publishing new snapshots', () async {
+    final owner = await initialize();
+    await owner.translators.load([const Locale('ru')]);
+    final held = owner.translators[const Locale('ru')];
+    final first = Completer<Map<String, dynamic>?>();
+    loader.pending['en'] = [first];
+    final loading = owner.translators.load([const Locale('ru'), const Locale('en')]);
+    final cancelled = expectLater(loading, throwsA(isA<LocalizationOperationSupersededException>()));
+    owner.translators.unload(const Locale('ru'));
+    first.complete({'value': 'English'});
+    await cancelled;
+    expect(owner.translators[const Locale('ru')], isNull);
+    expect(owner.translators[const Locale('en')], isNull);
+    expect(held?.tr('value'), 'Русский');
+
+    await owner.translators.load([const Locale('ru')]);
+    final ready = owner.translators[const Locale('ru')];
+    final second = Completer<Map<String, dynamic>?>();
+    loader.pending['en'] = [second];
+    final successful = owner.translators.load([const Locale('ru'), const Locale('en')]);
+    second.complete({'value': 'new English'});
+    await successful;
+    expect(owner.translators[const Locale('ru')], same(ready));
+    expect(owner.translators[const Locale('en')]?.tr('value'), 'new English');
+  });
+
   test('older overlapping batch cannot replace a newer snapshot or publish its other locale', () async {
     final owner = await EasyLocalization.initialize(
       EasyLocalizationConfig(
