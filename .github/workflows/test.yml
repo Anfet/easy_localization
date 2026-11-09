@@ -23,8 +23,21 @@ jobs:
     - name: Analyze the project's Dart code
       run: flutter analyze
 
-    - name: Run tests
-      run: flutter test
-
-    - name: Run tests coverage
+    - name: Run tests with coverage
       run: flutter test --coverage
+
+    - name: Install example dependencies
+      working-directory: example
+      run: flutter pub get
+
+    - name: Analyze example code
+      working-directory: example
+      run: flutter analyze lib test
+
+    - name: Run example smoke test
+      working-directory: example
+      run: flutter test test/widget_test.dart
+
+    - name: Run example layout test
+      working-directory: example
+      run: flutter test test/localization_layout_test.dart
