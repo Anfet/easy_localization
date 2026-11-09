@@ -172,6 +172,68 @@ void main() {
     }
   });
 
+  test('rejects invalid or duplicate JSON locale filenames without replacing output', () async {
+    final source = Directory(path.join(scratch.path, 'langs'));
+    await source.create();
+    final output = File(path.join(scratch.path, 'output', 'loader.dart'));
+    await output.create(recursive: true);
+    for (final names in [
+      ['En.US.json'],
+      [r'en$.json'],
+      ['en-US.json', 'en_US.json'],
+    ]) {
+      for (final name in names) {
+        await File(path.join(source.path, name)).writeAsString('{"hello":"Hello"}');
+      }
+      await output.writeAsString('previous');
+      final result = await Process.run(
+        'dart',
+        [generator, '-S', 'langs', '-O', 'output', '-o', 'loader.dart', '-f', 'json'],
+        workingDirectory: scratch.path,
+        runInShell: true,
+      );
+      expect(result.exitCode, 1, reason: '${result.stdout} ${result.stderr}');
+      for (final name in names) {
+        expect(result.stderr.toString(), contains(name));
+        await File(path.join(source.path, name)).delete();
+      }
+      expect(await output.readAsString(), 'previous');
+    }
+    await File(path.join(source.path, 'en.US.json')).writeAsString('{"hello":"Hello"}');
+    expect(await generate(source, 'keys', sourceFile: 'en.US.json'), contains("hello = 'hello'"));
+  });
+
+  test('generates the compiled loader fixture with relative and absolute paths', () async {
+    final fixture = Directory(path.absolute('test/fixtures/generated_loader'));
+    final expected = await File(path.join(fixture.path, 'codegen_loader.g.dart')).readAsString();
+    final source = Directory(path.join(scratch.path, 'source files'));
+    await source.create();
+    for (final locale in ['en', 'zh-Hans-CN']) {
+      await File(path.join(source.path, '$locale.json')).writeAsString('{"section":":/section.json"}');
+      final fragments = Directory(path.join(source.path, locale));
+      await fragments.create();
+      await File(path.join(fragments.path, 'section.json')).writeAsString('{"title":"$locale"}');
+    }
+    for (final absolute in [false, true]) {
+      final result = await Process.run(
+        'dart',
+        [
+          generator,
+          '-S',
+          absolute ? source.path : 'source files',
+          '-O',
+          absolute ? path.join(scratch.path, 'output files') : 'output files',
+          '-o',
+          'loader.dart',
+        ],
+        workingDirectory: scratch.path,
+        runInShell: true,
+      );
+      expect(result.exitCode, 0, reason: '${result.stdout} ${result.stderr}');
+      expect(await File(path.join(scratch.path, 'output files', 'loader.dart')).readAsString(), expected);
+    }
+  });
+
   test('input errors return failure and preserve the output', () async {
     final source = Directory(path.join(scratch.path, 'langs'));
     final output = File(path.join(scratch.path, 'output', 'loader.dart'));
