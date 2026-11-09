@@ -1,8 +1,10 @@
 name: easy_localization_continued
-description: Easy and Fast internationalizing and localization your Flutter Apps, this package simplify the internationalizing process .
+description: Fast and easy internationalization and localization for Flutter apps.
 # author: AISSAT abdelwahab <mr.aissat@gmail.com>
 homepage: https://github.com/Anfet/easy_localization
+repository: https://github.com/Anfet/easy_localization
 issue_tracker: https://github.com/Anfet/easy_localization/issues
+topics: [localization, i18n, l10n, internationalization]
 # publish_to: none
 
 version: 4.0.0
