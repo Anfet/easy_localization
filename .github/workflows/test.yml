@@ -43,4 +43,7 @@ jobs:
       run: flutter test test/localization_layout_test.dart
 
     - name: Check package publication
-      run: flutter pub publish --dry-run
+      run: |
+        git restore --source=HEAD --worktree -- example/linux/flutter/generated_plugins.cmake
+        git diff --exit-code HEAD --
+        flutter pub publish --dry-run
