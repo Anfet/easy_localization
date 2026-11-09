@@ -128,7 +128,7 @@ void main() {
   });
 
   test('unknown constants and interpolated keys remain unverified', () async {
-    writeSource(r"tr(LocaleKeys.unknown); Text('item.$name').tr();");
+    writeSource(r"tr(LocaleKeys.unknown); Text('item.$name').tr(); Text(variable, style: style).tr();");
     final result = await audit(strict: true);
     expectSuccess(result, 0);
     expect(result.stdout, contains('cannot be verified'));
@@ -172,6 +172,29 @@ void main() {
     expectSuccess(await audit(strict: true), 0);
     writeSource('''final example = "tr('present')"; tr('absent');''');
     expectSuccess(await audit(strict: true), 2);
+  });
+
+  test('static API forms and interpolation report missing keys', () async {
+    for (final expression in [r'''"value ${tr('KEY')}"''', "loc.tr('KEY')", "snapshot.tr('KEY')", "Text('KEY', style: style).tr()"]) {
+      writeSource(expression.replaceAll('KEY', 'present'));
+      expectSuccess(await audit(strict: true), 0);
+      writeSource(expression.replaceAll('KEY', 'absent'));
+      final missing = await audit(strict: true);
+      expectSuccess(missing, 2);
+      expect(missing.stdout, contains('absent'));
+    }
+  });
+
+  test('nested interpolation scans expressions but ignores examples and comments', () async {
+    writeSource(r'''
+      final example = "tr('ignored')";
+      /* outer /* tr('ignored') */ tr('ignored') */
+      final value = "${call("text ${tr('absent')}", /* tr('ignored') */ 'quoted')}";
+    ''');
+    final result = await audit(strict: true);
+    expectSuccess(result, 2);
+    expect(result.stdout, contains('absent'));
+    expect(result.stdout, isNot(contains('ignored')));
   });
 
   test('conflicting LocaleKeys values remain unverified', () async {

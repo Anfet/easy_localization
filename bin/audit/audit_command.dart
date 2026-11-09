@@ -52,8 +52,8 @@ class AuditCommand {
         }
       }
     }
-    final textReceiver = RegExp(r'\bText\s*\(([^()]*)\)\s*\.\s*(tr|plural)\s*\(');
-    final receiver = RegExp(r'\b(\w+(?:\s*\.\s*\w+)?)\s*\.\s*(tr|plural)\s*\(');
+    final textReceiver = RegExp(r'\bText\s*\(([^,()]+)(?:[^()]|\([^()]*\))*\)\s*\.\s*(tr|plural)\s*\(');
+    final receiver = RegExp(r'(?<![\w.])(Q+|\w+(?:\s*\.\s*\w+)?)\s*\.\s*(tr|plural)\s*\(');
     final function = RegExp(r'(?<![\w.])(?:context\s*\.\s*)?\b(tr|plural)\s*\(');
     final usages = <_Usage>[];
 
@@ -85,7 +85,6 @@ class AuditCommand {
       for (final pattern in [textReceiver, receiver, function]) {
         final matches = pattern.allMatches(masked).toList();
         for (final match in matches) {
-          if (pattern == receiver && match[1] == 'context') continue;
           var depth = 1;
           var end = match.end;
           while (end < masked.length && depth > 0) {
@@ -100,7 +99,7 @@ class AuditCommand {
           var expression = '';
           var arguments = content.substring(argsStart, argsEnd);
           var argumentMask = maskedArgs;
-          if (pattern == function) {
+          if (pattern == function || (pattern == receiver && content[match.start] != "'" && content[match.start] != '"')) {
             var nesting = 0;
             var separator = maskedArgs.length;
             for (var i = 0; i < maskedArgs.length; i++) {
@@ -130,45 +129,64 @@ class AuditCommand {
   String _maskSource(String source) {
     final chars = source.split('');
     var i = 0;
-    while (i < source.length) {
-      if (source.startsWith('//', i)) {
-        while (i < source.length && source[i] != '\n') {
+
+    void scanCode({bool interpolation = false}) {
+      var braces = 0;
+      while (i < source.length) {
+        if (interpolation && source[i] == '}' && braces == 0) {
           chars[i++] = ' ';
+          return;
         }
-      } else if (source.startsWith('/*', i)) {
-        var depth = 0;
-        do {
-          if (source.startsWith('/*', i)) {
-            depth++;
-            chars[i++] = ' ';
-            chars[i++] = ' ';
-          } else if (source.startsWith('*/', i)) {
-            depth--;
-            chars[i++] = ' ';
-            chars[i++] = ' ';
-          } else {
+        if (source.startsWith('//', i)) {
+          while (i < source.length && source[i] != '\n') {
             chars[i++] = ' ';
           }
-        } while (i < source.length && depth > 0);
-      } else if (source[i] == "'" || source[i] == '"') {
-        final quote = source[i];
-        final triple = source.startsWith(quote * 3, i);
-        final delimiter = triple ? quote * 3 : quote;
-        final raw = i > 0 && source[i - 1] == 'r';
-        for (var n = 0; n < delimiter.length; n++) {
-          chars[i++] = 'Q';
+        } else if (source.startsWith('/*', i)) {
+          var depth = 0;
+          do {
+            if (source.startsWith('/*', i)) {
+              depth++;
+              chars[i++] = ' ';
+              chars[i++] = ' ';
+            } else if (source.startsWith('*/', i)) {
+              depth--;
+              chars[i++] = ' ';
+              chars[i++] = ' ';
+            } else {
+              chars[i++] = ' ';
+            }
+          } while (i < source.length && depth > 0);
+        } else if (source[i] == "'" || source[i] == '"') {
+          final quote = source[i];
+          final delimiter = source.startsWith(quote * 3, i) ? quote * 3 : quote;
+          final raw = i > 0 && source[i - 1] == 'r' && (i < 2 || !RegExp(r'[\w$]').hasMatch(source[i - 2]));
+          for (var n = 0; n < delimiter.length; n++) {
+            chars[i++] = 'Q';
+          }
+          while (i < source.length && !source.startsWith(delimiter, i)) {
+            if (!raw && source[i] == r'\' && i + 1 < source.length) {
+              chars[i++] = 'Q';
+              chars[i++] = 'Q';
+            } else if (!raw && source.startsWith(r'${', i)) {
+              chars[i++] = ' ';
+              chars[i++] = ' ';
+              scanCode(interpolation: true);
+            } else {
+              chars[i++] = 'Q';
+            }
+          }
+          for (var n = 0; n < delimiter.length && i < source.length; n++) {
+            chars[i++] = 'Q';
+          }
+        } else {
+          if (interpolation && source[i] == '{') braces++;
+          if (interpolation && source[i] == '}') braces--;
+          i++;
         }
-        while (i < source.length && !source.startsWith(delimiter, i)) {
-          if (!raw && source[i] == r'\' && i + 1 < source.length) chars[i++] = 'Q';
-          chars[i++] = 'Q';
-        }
-        for (var n = 0; n < delimiter.length && i < source.length; n++) {
-          chars[i++] = 'Q';
-        }
-      } else {
-        i++;
       }
     }
+
+    scanCode();
     return chars.join();
   }
 
