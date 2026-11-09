@@ -190,7 +190,7 @@ void main() {
       await tester.pumpWidget(
         EasyLocalization.withInstance(
           instance: owner,
-          child: MaterialApp(
+          child: Builder(builder: (context) => MaterialApp(
             locale: owner.presentationLocale,
             supportedLocales: owner.supportedLocales,
             localizationsDelegates: owner.delegates,
@@ -201,7 +201,7 @@ void main() {
                 children: [Text(tr('title')), Text('items'.plural(2))],
               ),
             ),
-          ),
+          )),
         ),
       );
       await tester.pumpAndSettle();
@@ -244,12 +244,12 @@ goldenTest(
     });
     await tester.pumpWidget(EasyLocalization.withInstance(
       instance: owner,
-      child: MaterialApp(
+      child: Builder(builder: (context) => MaterialApp(
         locale: owner.presentationLocale,
         supportedLocales: owner.supportedLocales,
         localizationsDelegates: owner.delegates,
         home: widget,
-      ),
+      )),
     ));
   },
   whilePerforming: (tester) async {
@@ -283,7 +283,8 @@ custom delegates in `EasyLocalizationConfig(additionalDelegates: [MyDelegate()])
 (or the legacy constructor's `additionalDelegates`). Wire all three provider values:
 
 ```dart
-MaterialApp(
+// In MyApp.build, under EasyLocalization.withInstance:
+return MaterialApp(
   locale: localization.presentationLocale,
   supportedLocales: localization.supportedLocales,
   localizationsDelegates: localization.delegates,
@@ -295,7 +296,7 @@ TextField(decoration: InputDecoration(hintText: 'hint'.tr()));
 TextButton(onPressed: submit, child: Text('submit'.tr()));
 ```
 
-Alternatively, a widget rebuilt under the root can use `localization.presentationLocale`,
+Build MaterialApp in a widget under the root so it is recreated on presentation changes. A MaterialApp created before that build captures its parameters and will not update. A widget rebuilt under the root can use `localization.presentationLocale`,
 `localization.supportedLocales`, and `localization.delegates` as the corresponding
 MaterialApp values. `localization.locale` reflects committed data and may advance
 while the Flutter resources are still loading.
@@ -308,7 +309,7 @@ data. Delegate errors preserve the previous presentation and appear in
 Issue another command to retry. A `ValueListenableBuilder<LocalizationState>` can
 show progress while `state.isLoading` and display errors.
 
-Await a command for resources and storage, then await `localization.waitForPresentation()` when visible completion matters. Its outcome can be `applied`, `superseded`, `detached`, `failed`, or `disposed`; only `applied` confirms presentation. Borrowed owners survive root removal. Strings computed outside build remain captured values. For a local scope use a scoped adapter or an explicit translator.
+Await a command for resources and storage, then await `localization.waitForPresentation()` when visible completion matters. Its outcome can be `applied`, `superseded`, `detached`, `failed`, or `disposed`; `applied` confirms root publication when the consumer is wired as above; it does not inspect an arbitrary MaterialApp. Borrowed owners survive root removal. Strings computed outside build remain captured values. For a local scope use a scoped adapter or an explicit translator.
 
 `initialize` ensures the Flutter binding and completes after all selected resources
 and the required startup write. It chooses `startLocale` first, otherwise the saved
@@ -692,6 +693,7 @@ Steps:
   void main() async {
     final owner = await EasyLocalization.initialize(EasyLocalizationConfig(
       supportedLocales: const [Locale('en', 'US'), Locale('ar', 'DZ')],
+      fallbackLocale: const Locale('en', 'US'),
       path: 'assets/translations',
       assetLoader: CodegenLoader(),
     ));
@@ -710,6 +712,7 @@ If you want to add localization support from other modules and packages you can 
   void main() async {
     final owner = await EasyLocalization.initialize(EasyLocalizationConfig(
       supportedLocales: const [Locale('en', 'US'), Locale('ar', 'DZ')],
+      fallbackLocale: const Locale('en', 'US'),
       path: 'assets/translations',
       assetLoader: CodegenLoader(),
       extraAssetLoaders: [
@@ -787,6 +790,7 @@ EasyLocalization.onWarning = (message, {stackTrace}) { /* send to your logger */
 EasyLocalization.onError = (message, {stackTrace}) { /* send to your logger */ };
 final config = EasyLocalizationConfig(
   supportedLocales: const [Locale('en', 'US')],
+  fallbackLocale: const Locale('en', 'US'),
   path: 'assets/translations',
 );
 await EasyLocalization.ensureInitialized(config);

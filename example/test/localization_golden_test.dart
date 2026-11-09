@@ -65,12 +65,14 @@ void main() {
             await tester.pumpWidget(
               EasyLocalization.withInstance(
                 instance: owner,
-                child: MaterialApp(
-                  locale: owner.presentationLocale,
-                  supportedLocales: owner.supportedLocales,
-                  localizationsDelegates: owner.delegates,
-                  theme: ThemeData(fontFamily: 'Roboto'),
-                  home: widget,
+                child: Builder(
+                  builder: (context) => MaterialApp(
+                    locale: owner.presentationLocale,
+                    supportedLocales: owner.supportedLocales,
+                    localizationsDelegates: owner.delegates,
+                    theme: ThemeData(fontFamily: 'Roboto'),
+                    home: widget,
+                  ),
                 ),
               ),
             );
