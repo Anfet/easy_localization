@@ -16,6 +16,8 @@ void main() {
       );
       expect(snapshot.exists('missing'), isFalse);
       expect(snapshot.exists('missing', includeFallback: true), isTrue);
+      expect(snapshot.exists('empty'), !skipEmpty);
+      expect(snapshot.exists('emptyWithFallback'), !skipEmpty);
       expect(snapshot.exists('empty', includeFallback: true), !skipEmpty);
       expect(snapshot.exists('emptyWithFallback', includeFallback: true), isTrue);
       expect(snapshot.exists('fallbackEmpty', includeFallback: true), !skipEmpty);
@@ -88,6 +90,33 @@ void main() {
     expect(localization.tr('placeholder'), 'Enter Email');
     expect(localization.tr('upper'), 'EMAIL');
     expect(localization.tr('siblings'), 'Email / Email');
+  });
+
+  test('linked keys with common prefixes are replaced independently', () {
+    final localization = Localization.snapshot(
+      const Locale('en'),
+      translations: Translations({'a': 'A', 'ab': 'B', 'source': '@:a @:ab @:a @.lower:ab'}),
+    );
+    expect(localization.tr('source'), 'A B A b');
+  });
+
+  test('arguments remain literal in translations and plurals', () {
+    final localization = Localization.snapshot(
+      const Locale('en'),
+      translations: Translations({
+        'positional': '{} / {}',
+        'named': '{a} / {b}',
+        'items': {'one': '{} / {} / {a} / {b}'},
+      }),
+    );
+    expect(localization.tr('positional', args: ['{}', 'B']), '{} / B');
+    for (final named in [
+      {'a': '{b}', 'b': 'B'},
+      {'b': 'B', 'a': '{b}'},
+    ]) {
+      expect(localization.tr('named', namedArgs: named), '{b} / B');
+      expect(localization.plural('items', 1, args: ['{}', 'B'], namedArgs: named), '{} / B / {b} / B');
+    }
   });
 
   test('cyclic linked translations remain unresolved and warn once', () {

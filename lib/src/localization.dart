@@ -12,7 +12,6 @@ class Localization {
   /// The locale captured by this translation snapshot.
   Locale get locale => _locale;
 
-  final RegExp _replaceArgRegex = RegExp('{}');
   final RegExp _linkKeyMatcher = RegExp(r'(?:@(?:\.[a-z]+)?:(?:[\w\-|]+(?:\.[\w\-|]+)*|\([\w\-|.]+\)))');
   final RegExp _linkKeyPrefixMatcher = RegExp(r'^@(?:\.([a-z]+))?:');
   final RegExp _bracketsMatcher = RegExp('[()]');
@@ -87,18 +86,13 @@ class Localization {
 
     res = _replaceLinks(res, keys: {key});
 
-    res = _replaceNamedArgs(res, namedArgs);
-
-    return _replaceArgs(res, args);
+    return _replaceArgs(res, args, namedArgs);
   }
 
   String _replaceLinks(String res, {bool logging = true, Set<String>? keys, Set<String>? cycleWarnings}) {
     final resolvingKeys = keys ?? <String>{};
     final reportedCycles = cycleWarnings ?? <String>{};
-    final matches = _linkKeyMatcher.allMatches(res);
-    var result = res;
-
-    for (final match in matches) {
+    return res.replaceAllMapped(_linkKeyMatcher, (match) {
       final link = match[0]!;
       final linkPrefixMatches = _linkKeyPrefixMatcher.allMatches(link);
       final linkPrefix = linkPrefixMatches.first[0]!;
@@ -112,7 +106,7 @@ class Localization {
           reportLocalizationDiagnostic(EasyLocalization.onWarning, 'Cyclic linked translation detected at [$linkPlaceholder]');
           reportedCycles.add(linkPlaceholder);
         }
-        continue;
+        return link;
       }
 
       resolvingKeys.add(linkPlaceholder);
@@ -132,24 +126,22 @@ class Localization {
         }
       }
 
-      result = translated.isEmpty ? result : result.replaceAll(link, translated);
-    }
-
-    return result;
+      return translated.isEmpty ? link : translated;
+    });
   }
 
-  String _replaceArgs(String res, List<String>? args) {
-    if (args == null || args.isEmpty) return res;
-    for (var str in args) {
-      res = res.replaceFirst(_replaceArgRegex, str);
-    }
-    return res;
-  }
-
-  String _replaceNamedArgs(String res, Map<String, String>? args) {
-    if (args == null || args.isEmpty) return res;
-    args.forEach((String key, String value) => res = res.replaceAll('{$key}', value));
-    return res;
+  String _replaceArgs(String res, List<String>? args, Map<String, String>? namedArgs) {
+    final tokens = <String>{if (args != null && args.isNotEmpty) '{}', ...?namedArgs?.keys.map((key) => '{$key}')};
+    if (tokens.isEmpty) return res;
+    final matcher = RegExp(tokens.map(RegExp.escape).join('|'));
+    var index = 0;
+    return res.replaceAllMapped(matcher, (match) {
+      final token = match[0] ?? '';
+      final namedValue = namedArgs?[token.substring(1, token.length - 1)];
+      if (namedValue != null) return namedValue;
+      if (token == '{}' && args != null && index < args.length) return args[index++];
+      return token;
+    });
   }
 
   String plural(String key, num value, {List<String>? args, Map<String, String>? namedArgs, String? name, NumberFormat? format}) {
@@ -193,9 +185,7 @@ class Localization {
     if (name != null) {
       namedArgs = {...?namedArgs, name: formattedValue};
     }
-    res = _replaceNamedArgs(res, namedArgs);
-
-    return _replaceArgs(res, args ?? [formattedValue]);
+    return _replaceArgs(res, args ?? [formattedValue], namedArgs);
   }
 
   String _gender(String key, {required String gender}) {
@@ -221,8 +211,8 @@ class Localization {
 
   bool exists(String key, {bool includeFallback = false}) {
     final primary = _translations?.get(key);
-    if (!includeFallback) return primary != null;
     if (primary != null && (!_useFallbackTranslationsForEmptyResources || primary.isNotEmpty)) return true;
+    if (!includeFallback) return false;
     final base = _baseTranslations?.get(key);
     if (base != null && (!_useFallbackTranslationsForEmptyResources || base.isNotEmpty)) return true;
     final fallback = _fallbackTranslations?.get(key);
