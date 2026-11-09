@@ -7,6 +7,8 @@ export 'package:easy_localization_continued/easy_localization.dart'
 
 abstract class LocaleKeys {
   static const title = 'title';
+  static const section_child = 'section.child';
+  static const section = 'section';
   static const items = 'items';
 
 }

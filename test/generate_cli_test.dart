@@ -45,6 +45,7 @@ void main() {
     final fixtures = {
       'en.json': {
         'englishOnly': 'English',
+        'abstract': 'valid',
         'nested': {'child': 'value'},
         'count': {'one': 'one', 'other': 'other'},
       },
@@ -71,6 +72,7 @@ void main() {
     expect(keys, contains('show StringTranslateExtension, TextTranslateExtension, BuildContextEasyLocalizationExtension;'));
     expect(keys, await generate(second, 'keys'));
     expect(keys, contains('englishOnly'));
+    expect(keys, contains("abstract = 'abstract'"));
     expect(keys, isNot(contains('frenchOnly')));
     final french = await generate(first, 'keys', sourceFile: 'fr.json');
     expect(french, contains('frenchOnly'));
@@ -98,6 +100,36 @@ void main() {
     expect(loader, isNot(contains(':/')));
     final keys = await generate(source, 'keys');
     expect(keys, contains("section_title = 'section.title'"));
+  });
+
+  test('invalid generated identifiers preserve the previous keys file', () async {
+    final source = Directory(path.join(scratch.path, 'langs'));
+    await source.create();
+    final input = File(path.join(source.path, 'en.json'));
+    final output = File(path.join(scratch.path, 'output', 'keys.dart'));
+    await output.create(recursive: true);
+    for (final translations in [
+      {'auth.login': 'value'},
+      {'bad-key': 'value'},
+      {'class': 'value'},
+      {'hashCode': 'value'},
+      {
+        'a_b': 'value',
+        'a': {'b': 'value'},
+      },
+    ]) {
+      await input.writeAsString(jsonEncode(translations));
+      await output.writeAsString('previous');
+      final result = await Process.run(
+        'dart',
+        [generator, '-S', 'langs', '-O', 'output', '-o', 'keys.dart', '-f', 'keys'],
+        workingDirectory: scratch.path,
+        runInShell: true,
+      );
+      expect(result.exitCode, 1, reason: '$translations: ${result.stdout} ${result.stderr}');
+      expect(result.stderr.toString(), isNotEmpty);
+      expect(await output.readAsString(), 'previous');
+    }
   });
 
   test('input errors return failure and preserve the output', () async {

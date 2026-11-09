@@ -6,6 +6,48 @@ import 'package:easy_localization_continued/src/file_loaders/io_file_loader.dart
 import 'package:easy_localization_continued/src/linked_file_resolver.dart';
 import 'package:path/path.dart' as path;
 
+const _invalidIdentifiers = {
+  'assert',
+  'break',
+  'case',
+  'catch',
+  'class',
+  'const',
+  'continue',
+  'default',
+  'do',
+  'else',
+  'enum',
+  'extends',
+  'false',
+  'final',
+  'finally',
+  'for',
+  'if',
+  'in',
+  'is',
+  'new',
+  'null',
+  'rethrow',
+  'return',
+  'super',
+  'switch',
+  'this',
+  'throw',
+  'true',
+  'try',
+  'var',
+  'void',
+  'while',
+  'with',
+  'typedef',
+  'LocaleKeys',
+  'hashCode',
+  'runtimeType',
+  'noSuchMethod',
+  'toString',
+};
+
 const _preservedKeywords = ['few', 'many', 'one', 'other', 'two', 'zero', 'male', 'female'];
 
 Future<void> main(List<String> args) async {
@@ -180,12 +222,12 @@ export 'package:easy_localization_continued/easy_localization.dart'
 abstract class LocaleKeys {
 ''';
 
-  file += _resolve(translations, skipUnnecessaryKeys);
+  file += _resolve(translations, skipUnnecessaryKeys, <String>{});
 
   classBuilder.writeln(file);
 }
 
-String _resolve(Map<String, dynamic> translations, bool? skipUnnecessaryKeys, [String? accKey]) {
+String _resolve(Map<String, dynamic> translations, bool? skipUnnecessaryKeys, Set<String> names, [String? accKey]) {
   var fileContent = '';
 
   final sortedKeys = translations.keys.toList();
@@ -205,15 +247,20 @@ String _resolve(Map<String, dynamic> translations, bool? skipUnnecessaryKeys, [S
         nextAccKey = '$accKey.$key';
       }
 
-      fileContent += _resolve(translations[key], skipUnnecessaryKeys, nextAccKey);
+      fileContent += _resolve(translations[key], skipUnnecessaryKeys, names, nextAccKey);
     }
 
-    if (!_preservedKeywords.contains(key)) {
-      accKey != null && !ignoreKey
-          ? fileContent += '  static const ${accKey.replaceAll('.', '_')}_$key = \'$accKey.$key\';\n'
-          : !ignoreKey
-          ? fileContent += '  static const $key = \'$key\';\n'
-          : null;
+    if (!_preservedKeywords.contains(key) && !ignoreKey) {
+      final name = accKey == null ? key : '${accKey.replaceAll('.', '_')}_$key';
+      final value = accKey == null ? key : '$accKey.$key';
+      if (!RegExp(r'^[a-zA-Z_$][a-zA-Z0-9_$]*$').hasMatch(name) || _invalidIdentifiers.contains(name)) {
+        throw FormatException('Unsupported generated identifier "$name" for key "$value"');
+      }
+      if (!names.add(name)) {
+        throw FormatException('Duplicate generated identifier "$name" for key "$value"');
+      }
+      final escapedValue = value.replaceAll(r'$', r'\$');
+      fileContent += "  static const $name = '$escapedValue';\n";
     }
   }
 

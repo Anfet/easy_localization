@@ -24,6 +24,8 @@ void main() {
     addTearDown(() => EasyLocalization.instance.dispose());
 
     expect(LocaleKeys.title.tr(), 'Welcome');
+    expect(LocaleKeys.section_child, 'section.child');
+    expect(LocaleKeys.section_child.tr(), 'Nested welcome');
     expect(LocaleKeys.items.plural(2), '2 items');
     expect(const Text(LocaleKeys.title).tr().data, 'Welcome');
   });
