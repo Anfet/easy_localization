@@ -509,6 +509,8 @@ class EasyLocalizationController extends ChangeNotifier {
     if (_systemMode && target == _locale && _translations != null) {
       _request++;
       _loading = false;
+      _userTransition = null;
+      _activeTransition = null;
       await deleteSaveLocale();
       return;
     }

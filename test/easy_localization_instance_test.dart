@@ -276,6 +276,50 @@ void main() {
     expect(owner.locale, const Locale('de'));
   });
 
+  test('reset releases a pending choice for system updates and preserves the next choice', () async {
+    for (final failOld in [false, true]) {
+      binding.platformDispatcher.localesTestValue = const [Locale('en')];
+      final owner = await EasyLocalization.initialize(
+        config(supported: const [Locale('en'), Locale('de'), Locale('fr')], fallback: const Locale('en')),
+      );
+      final oldGate = Completer<Map<String, dynamic>?>();
+      loader.gates['de'] = [oldGate];
+      final oldChoice = owner.setLocale(const Locale('de'));
+      final cancelled = expectLater(oldChoice, throwsA(isA<LocalizationOperationSupersededException>()));
+      await owner.resetLocale();
+      await cancelled;
+
+      binding.platformDispatcher.localesTestValue = const [Locale('fr')];
+      await Future<void>.delayed(Duration.zero);
+      expect(owner.locale, const Locale('fr'));
+      expect(owner.state.value.isLoading, isFalse);
+      expect(store.data['flutter.locale'], isNull);
+
+      final newGate = Completer<Map<String, dynamic>?>();
+      loader.gates['de'] = [newGate];
+      final newChoice = owner.setLocale(const Locale('de'));
+      if (failOld) {
+        oldGate.completeError(StateError('old load failed'));
+      } else {
+        oldGate.complete({'value': 'old'});
+      }
+      await Future<void>.delayed(Duration.zero);
+      expect(owner.locale, const Locale('fr'));
+      expect(owner.state.value.isLoading, isTrue);
+      expect(store.data['flutter.locale'], isNull);
+      binding.platformDispatcher.localesTestValue = const [Locale('en')];
+      await Future<void>.delayed(Duration.zero);
+      expect(owner.locale, const Locale('fr'));
+      newGate.complete({'value': 'new'});
+      await newChoice;
+      expect(owner.locale, const Locale('de'));
+      expect(owner.dataTranslator.tr('value'), 'new');
+      expect(store.data['flutter.locale'], 'de');
+      owner.dispose();
+      store.data.clear();
+    }
+  });
+
   test('reset receipt stays independent of later system replay success and failure', () async {
     for (final failReplay in [false, true]) {
       binding.platformDispatcher.localesTestValue = const [Locale('de')];
