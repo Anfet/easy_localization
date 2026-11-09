@@ -17,7 +17,7 @@ class _Loader extends AssetLoader {
   @override
   Future<Map<String, dynamic>?> load(String path, Locale locale) {
     loads++;
-    return gate?.future ?? Future.value({'value': 'ok'});
+    return gate?.future ?? Future.value({'value': path});
   }
 }
 
@@ -110,7 +110,7 @@ void main() {
     }
   });
 
-  testWidgets('equal lists and UI updates retain owner; a new key permits new configuration', (tester) async {
+  testWidgets('equal lists retain owner; unmount then a new key permits new configuration', (tester) async {
     final loader = _Loader();
     Widget root(Key key, String path, String text) => EasyLocalization(
       key: key,
@@ -137,6 +137,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('three'), findsOneWidget);
     expect(EasyLocalization.instance, isNot(same(owner)));
+    expect(EasyLocalization.instance.config.path, 'second');
+    expect(EasyLocalization.instance.dataTranslator.tr('value'), 'second');
     await tester.pumpWidget(const SizedBox());
   });
 }

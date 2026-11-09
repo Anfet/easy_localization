@@ -285,11 +285,11 @@ class _EasyLocalizationState extends State<EasyLocalization> {
   void didUpdateWidget(EasyLocalization oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (!identical(widget._providedInstance, oldWidget._providedInstance)) {
-      throw StateError('Unmount the root before replacing its localization owner');
+      throw StateError('Unmount the localization root completely, then mount a new root in a later frame to replace its owner');
     }
     final config = _legacyConfig;
     if (config != null && (widget.supportedLocales.isEmpty || widget.fallbackLocale != _legacyFallbackLocale || !config._matches(widget))) {
-      throw StateError('Recreate the localization root with a new key to change its configuration');
+      throw StateError('Unmount the localization root completely, then mount a new root with a new key in a later frame to change its configuration');
     }
   }
 

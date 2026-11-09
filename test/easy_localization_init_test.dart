@@ -39,8 +39,8 @@ Future<void> main() async {
       assetLoader: loader,
     );
     final owner = await EasyLocalization.initialize(config);
-    Widget root() => EasyLocalization.withInstance(instance: owner, child: const SizedBox());
-    await tester.pumpWidget(root());
+    Widget root(Key key) => EasyLocalization.withInstance(key: key, instance: owner, child: const SizedBox());
+    await tester.pumpWidget(root(const ValueKey(1)));
     final gate = Completer<Map<String, dynamic>?>();
     loader.gates['de'] = [gate];
     final changing = owner.setLocale(const Locale('de'));
@@ -49,7 +49,9 @@ Future<void> main() async {
     await changing;
 
     expect(EasyLocalization.instance, same(owner));
-    await tester.pumpWidget(root());
+    await tester.pumpWidget(root(const ValueKey(2)));
+    expect(EasyLocalization.instance, same(owner));
+    expect(owner.dataTranslator.tr('value'), 'de');
     expect(owner.locale, const Locale('de'));
     await tester.pumpWidget(const SizedBox());
     owner.dispose();
