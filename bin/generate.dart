@@ -175,11 +175,24 @@ Future<void> generateFile(List<FileSystemEntity> files, Directory outputPath, Ge
   const loader = IOFileLoader();
   const resolver = JsonLinkedFileResolver(fileLoader: loader);
   final translations = <String, Map<String, dynamic>>{};
+  final localeFiles = <String, String>{};
   for (final file in options.format == 'keys' ? files.take(1) : files) {
     final locale = path.basenameWithoutExtension(file.path);
+    final normalized = locale.replaceAll('-', '_');
+    if (options.format == 'json') {
+      final filename = path.basename(file.path);
+      if (!RegExp(r'^[a-zA-Z0-9_]+$').hasMatch(normalized)) {
+        throw FormatException('Unsupported JSON locale filename: $filename');
+      }
+      final previous = localeFiles[normalized];
+      if (previous != null) {
+        throw FormatException('Duplicate JSON locale filenames: $previous and $filename');
+      }
+      localeFiles[normalized] = filename;
+    }
     final parts = locale.split('-');
     final hasScript = parts.length > 1 && parts[1].length == 4;
-    translations[locale.replaceAll('-', '_')] = await resolver.resolveLinkedFiles(
+    translations[normalized] = await resolver.resolveLinkedFiles(
       basePath: path.dirname(file.path),
       languageCode: parts.first,
       scriptCode: hasScript ? parts[1] : null,
