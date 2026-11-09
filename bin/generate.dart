@@ -131,7 +131,6 @@ ArgParser _generateArgParser(GenerateOptions? generateOptions) {
 class GenerateOptions {
   String? sourceDir;
   String? sourceFile;
-  String? templateLocale;
   String? outputDir;
   String? outputFile;
   String? format;
@@ -305,23 +304,3 @@ class CodegenLoader extends AssetLoader{
   gFile += 'static const Map<String, Map<String,dynamic>> mapLocales = {${listLocales.join(', ')}};';
   classBuilder.writeln(gFile);
 }
-
-// _writeCsv(StringBuffer classBuilder, List<FileSystemEntity> files) async {
-//   List<String> listLocales = List();
-//   final fileData = File(files.first.path);
-
-//   // CSVParser csvParser = CSVParser(await fileData.readAsString());
-
-//   // List listLangs = csvParser.getLanguages();
-//   for(String localeName in listLangs){
-//     listLocales.add('"$localeName": $localeName');
-//     String mapString = JsonEncoder.withIndent("  ").convert(csvParser.getLanguageMap(localeName)) ;
-
-//     classBuilder.writeln(
-//       '  static const Map<String,dynamic> $localeName = ${mapString};\n');
-//   }
-
-//   classBuilder.writeln(
-//       '  static const Map<String, Map<String,dynamic>> mapLocales = \{${listLocales.join(', ')}\};');
-
-// }
