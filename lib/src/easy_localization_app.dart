@@ -206,6 +206,7 @@ class _EasyLocalizationState extends State<EasyLocalization> {
       localizationController,
       _owner,
       presentation: presentation,
+      fallbackLocale: widget._providedInstance == null ? _legacyFallbackLocale : _owner.config.fallbackLocale,
       child: loadError != null
           ? widget.errorWidget?.call(loadError) ?? ErrorWidget(loadError)
           : presentation == null
@@ -219,6 +220,23 @@ class _EasyLocalizationState extends State<EasyLocalization> {
     reportLocalizationDiagnostic(EasyLocalization.onVerbose, 'Init state');
     super.initState();
     final provided = widget._providedInstance;
+    if (provided == null) {
+      _legacyFallbackLocale = widget.fallbackLocale;
+      _legacyConfig = EasyLocalizationConfig(
+        supportedLocales: widget.supportedLocales,
+        path: widget.path,
+        fallbackLocale: widget.fallbackLocale ?? widget.supportedLocales.first,
+        startLocale: widget.startLocale,
+        assetLoader: widget.assetLoader,
+        extraAssetLoaders: widget.extraAssetLoaders ?? const [],
+        additionalDelegates: widget.additionalDelegates,
+        useOnlyLangCode: widget.useOnlyLangCode,
+        useFallbackTranslations: widget.useFallbackTranslations,
+        useBaseLanguageFallback: widget.useBaseLanguageFallback,
+        useFallbackTranslationsForEmptyResources: widget.useFallbackTranslationsForEmptyResources,
+        saveLocale: widget.saveLocale,
+      );
+    }
     final ready = EasyLocalizationInstance._instance;
     if (provided != null || ready != null) {
       final owner = provided ?? ready;
@@ -227,22 +245,9 @@ class _EasyLocalizationState extends State<EasyLocalization> {
       _attachOwner(owner);
       return;
     }
-    final config = EasyLocalizationConfig(
-      supportedLocales: widget.supportedLocales,
-      path: widget.path,
-      fallbackLocale: widget.fallbackLocale ?? widget.supportedLocales.first,
-      startLocale: widget.startLocale,
-      assetLoader: widget.assetLoader,
-      extraAssetLoaders: widget.extraAssetLoaders ?? const [],
-      additionalDelegates: widget.additionalDelegates,
-      useOnlyLangCode: widget.useOnlyLangCode,
-      useFallbackTranslations: widget.useFallbackTranslations,
-      useBaseLanguageFallback: widget.useBaseLanguageFallback,
-      useFallbackTranslationsForEmptyResources: widget.useFallbackTranslationsForEmptyResources,
-      saveLocale: widget.saveLocale,
-    );
     _ownsInstance = true;
-    _initializeLegacy(config);
+    final config = _legacyConfig;
+    if (config != null) _initializeLegacy(config);
   }
 
   Future<void> _initializeLegacy(EasyLocalizationConfig config) async {
@@ -281,6 +286,10 @@ class _EasyLocalizationState extends State<EasyLocalization> {
     super.didUpdateWidget(oldWidget);
     if (!identical(widget._providedInstance, oldWidget._providedInstance)) {
       throw StateError('Unmount the root before replacing its localization owner');
+    }
+    final config = _legacyConfig;
+    if (config != null && (widget.supportedLocales.isEmpty || !config._matches(widget))) {
+      throw StateError('Recreate the localization root with a new key to change its configuration');
     }
   }
 
@@ -353,6 +362,8 @@ class _EasyLocalizationState extends State<EasyLocalization> {
   int? _failedRequest;
   late EasyLocalizationController localizationController;
   late EasyLocalizationInstance _owner;
+  EasyLocalizationConfig? _legacyConfig;
+  Locale? _legacyFallbackLocale;
   bool _ownsInstance = false;
   bool _rootAttached = false;
   FlutterError? translationsLoadError;
@@ -401,22 +412,28 @@ class _EasyLocalizationProvider extends InheritedWidget {
   List<LocalizationsDelegate> get delegates => presentation?.delegates ?? const [];
 
   /// Get List of supported locales
-  List<Locale> get supportedLocales => parent.supportedLocales;
+  List<Locale> get supportedLocales => _owner.config.supportedLocales;
 
-  _EasyLocalizationProvider(this.parent, this._localeState, this._owner, {required this.presentation, required super.child})
-    : currentLocale = presentation?.locale ?? _localeState.locale;
+  _EasyLocalizationProvider(
+    this.parent,
+    this._localeState,
+    this._owner, {
+    required this.presentation,
+    required this.fallbackLocale,
+    required super.child,
+  }) : currentLocale = presentation?.locale ?? _localeState.locale;
 
   /// Get current locale
   Locale get locale => currentLocale ?? _localeState.locale;
 
   /// Get fallback locale
-  Locale? get fallbackLocale => parent.fallbackLocale;
+  final Locale? fallbackLocale;
 
   // Locale get startLocale => parent.startLocale;
 
   /// Change app locale
   Future<void> setLocale(Locale locale) async {
-    assert(parent.supportedLocales.contains(locale));
+    assert(_owner.config.supportedLocales.contains(locale));
     await _owner.setLocale(locale);
   }
 
