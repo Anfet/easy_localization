@@ -12,14 +12,23 @@ class LocaleTranslators {
       _validate(locale);
     }
     final missing = requested.where((locale) => !_ready.containsKey(locale)).toList();
+    final epoch = _loadEpoch;
     final generations = {for (final locale in missing) locale: _generation[locale] ?? 0};
     final snapshots = await Future.wait(missing.map(_loadShared), eagerError: true);
     _owner._checkLive();
-    for (final locale in missing) {
-      if ((_generation[locale] ?? 0) != generations[locale]) throw const LocalizationOperationSupersededException();
+    if (_loadEpoch != epoch) throw const LocalizationOperationSupersededException();
+    for (var i = 0; i < missing.length; i++) {
+      final locale = missing[i];
+      if ((_generation[locale] ?? 0) != generations[locale] && !identical(_ready[locale], snapshots[i])) {
+        throw const LocalizationOperationSupersededException();
+      }
     }
     for (var i = 0; i < missing.length; i++) {
-      _ready[missing[i]] = snapshots[i];
+      final locale = missing[i];
+      if (!identical(_ready[locale], snapshots[i])) {
+        _ready[locale] = snapshots[i];
+        _generation[locale] = (_generation[locale] ?? 0) + 1;
+      }
     }
   }
 
@@ -74,6 +83,11 @@ class LocaleTranslators {
   }
 
   Future<_TranslatorReload> _stageReload() async {
+    _loadEpoch++;
+    for (final pending in _pending.values) {
+      pending.cancel();
+    }
+    _pending.clear();
     final locales = _ready.keys.toList();
     final generations = {for (final locale in locales) locale: _generation[locale] ?? 0};
     final snapshots = await Future.wait(locales.map(_snapshot), eagerError: true);
@@ -104,6 +118,7 @@ class LocaleTranslators {
   final Map<Locale, Localization> _ready = {};
   final Map<Locale, _TranslatorLoad> _pending = {};
   final Map<Locale, int> _generation = {};
+  int _loadEpoch = 0;
 }
 
 class _TranslatorLoad {

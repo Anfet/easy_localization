@@ -243,6 +243,70 @@ void main() {
     expect(owner.translators[const Locale('ru')], same(held));
     await expectLater(owner.translators.load([const Locale('fr')]), throwsArgumentError);
   });
+  test('older overlapping batch cannot replace a newer snapshot or publish its other locale', () async {
+    final owner = await EasyLocalization.initialize(
+      EasyLocalizationConfig(
+        supportedLocales: const [Locale('en'), Locale('ru'), Locale('fr')],
+        fallbackLocale: const Locale('en'),
+        startLocale: const Locale('en'),
+        path: 'unused',
+        assetLoader: loader,
+        saveLocale: false,
+      ),
+    );
+    final oldRu = Completer<Map<String, dynamic>?>();
+    final oldFr = Completer<Map<String, dynamic>?>();
+    final newRu = Completer<Map<String, dynamic>?>();
+    loader.pending['ru'] = [oldRu, newRu];
+    loader.pending['fr'] = [oldFr];
+    final oldBatch = owner.translators.load([const Locale('ru'), const Locale('fr')]);
+    final cancelled = expectLater(oldBatch, throwsA(isA<LocalizationOperationSupersededException>()));
+    oldRu.complete({'value': 'old'});
+    await Future<void>.delayed(Duration.zero);
+    final fresh = owner.translators.load([const Locale('ru')]);
+    newRu.complete({'value': 'fresh'});
+    await fresh;
+    oldFr.complete({'value': 'old fr'});
+    await cancelled;
+    expect(owner.translators[const Locale('ru')]?.tr('value'), 'fresh');
+    expect(owner.translators[const Locale('fr')], isNull);
+  });
+
+  test('failed reload cancels older cache load and leaves ready and once snapshots intact', () async {
+    final owner = await EasyLocalization.initialize(
+      EasyLocalizationConfig(
+        supportedLocales: const [Locale('en'), Locale('ru'), Locale('fr')],
+        fallbackLocale: const Locale('en'),
+        startLocale: const Locale('en'),
+        path: 'unused',
+        assetLoader: loader,
+        saveLocale: false,
+      ),
+    );
+    await owner.translators.load([const Locale('ru')]);
+    final ready = owner.translators[const Locale('ru')];
+    final current = owner.dataTranslator;
+    final old = Completer<Map<String, dynamic>?>();
+    final independent = Completer<Map<String, dynamic>?>();
+    final failure = Completer<Map<String, dynamic>?>();
+    loader.pending['fr'] = [old, independent];
+    loader.pending['en'] = [failure];
+    final loading = owner.translators.load([const Locale('fr')]);
+    final cancelled = expectLater(loading, throwsA(isA<LocalizationOperationSupersededException>()));
+    final once = owner.translators.once(const Locale('fr'));
+    final reload = owner.reloadTranslations();
+    final failed = expectLater(reload, throwsStateError);
+    failure.completeError(StateError('failed reload'));
+    await failed;
+    await cancelled;
+    old.complete({'value': 'late'});
+    independent.complete({'value': 'independent'});
+    expect((await once).tr('value'), 'independent');
+    await Future<void>.delayed(Duration.zero);
+    expect(owner.translators[const Locale('fr')], isNull);
+    expect(owner.translators[const Locale('ru')], same(ready));
+    expect(owner.dataTranslator, same(current));
+  });
   testWidgets('explicit locale takes precedence over scoped context for String and Text', (tester) async {
     final owner = await initialize();
     await owner.translators.load([const Locale('ru')]);
