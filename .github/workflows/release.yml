@@ -21,7 +21,7 @@ jobs:
     timeout-minutes: 5
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - uses: dart-lang/setup-dart@v1
 
@@ -31,9 +31,6 @@ jobs:
 
       - name: Install dependencies
         run: dart pub get
-
-      - name: code format
-        run: dart format lib/*/*.dart lib/*.dart
 
       - name: Publish
         run: dart pub publish --force
