@@ -341,10 +341,16 @@ class EasyLocalizationController extends ChangeNotifier {
       return;
     }
     if (value is! String || !RegExp(r'^[a-zA-Z]{2,8}(?:_[a-zA-Z]{4})?(?:_(?:[a-zA-Z]{2}|[0-9]{3}))?$').hasMatch(value)) {
-      throw FormatException('Invalid saved locale', value);
+      _savedLocale = null;
+      reportLocalizationDiagnostic(EasyLocalization.onWarning, 'Saved locale $value ignored: invalid format');
+      return;
     }
     final restored = value.toLocale();
-    if (!supportedLocales.contains(restored)) throw StateError('Saved locale $value is not supported');
+    if (!supportedLocales.contains(restored)) {
+      _savedLocale = null;
+      reportLocalizationDiagnostic(EasyLocalization.onWarning, 'Saved locale $value ignored: not supported');
+      return;
+    }
     _savedLocale = restored;
   }).then((_) => _savedLocale);
 

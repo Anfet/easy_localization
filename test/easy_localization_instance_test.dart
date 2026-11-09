@@ -358,16 +358,28 @@ void main() {
     expect(loader.calls, isEmpty);
   });
 
-  test('invalid or unsupported saved selections fail without deletion or fallback', () async {
+  test('invalid or unsupported saved selections use system or fallback without changing storage', () async {
+    final warnings = <String>[];
+    final previousWarning = EasyLocalization.onWarning;
+    EasyLocalization.onWarning = (message, {stackTrace}) => warnings.add(message);
+    addTearDown(() => EasyLocalization.onWarning = previousWarning);
     for (final value in [42, '', 'ru____RU', 'fr', 'ru-Latn-RU']) {
-      store.data['flutter.locale'] = value;
-      SharedPreferences.resetStatic();
-      await expectLater(EasyLocalization.initialize(config()), throwsA(anyOf(isA<FormatException>(), isA<StateError>())));
-      expect(() => EasyLocalization.instance, throwsStateError);
-      expect(store.data['flutter.locale'], value);
+      for (final system in [const Locale('de'), const Locale('fr')]) {
+        store.data['flutter.locale'] = value;
+        store.operations.clear();
+        warnings.clear();
+        SharedPreferences.resetStatic();
+        binding.platformDispatcher.localesTestValue = [system];
+        final owner = await EasyLocalization.initialize(config());
+        expect(owner.locale, system == const Locale('de') ? const Locale('de') : const Locale('ru'), reason: '$value, $system');
+        expect(owner.isSystemMode, isTrue, reason: '$value, $system');
+        expect(store.data['flutter.locale'], value);
+        expect(store.operations.where((op) => op == 'remove' || op.startsWith('set:')), isEmpty);
+        expect(warnings, hasLength(1));
+        expect(warnings.single, contains('Saved locale $value ignored:'));
+        owner.dispose();
+      }
     }
-    expect(loader.calls, isEmpty);
-    expect(store.operations.where((op) => op == 'remove' || op.startsWith('set:')), isEmpty);
   });
 
   test('legacy language, country and script storage forms restore exactly', () async {
