@@ -394,6 +394,35 @@ class _StartupState extends State<Startup> {
 
 Call `runApp(Startup(config: config))`. Ensure the startup widget stays mounted until initialization completes; dispose a successfully initialized owner when it is no longer needed.
 
+For the legacy `EasyLocalization` root, an initial loading error is shown before a localization owner or provider is ready. Keep the root key in its parent and create a new key to retry; do not call context or global localization APIs from the error widget. `reloadTranslations()` is for an owner that has already initialized.
+
+```dart
+class LegacyStartup extends StatefulWidget {
+  const LegacyStartup({super.key});
+
+  @override
+  State<LegacyStartup> createState() => _LegacyStartupState();
+}
+
+class _LegacyStartupState extends State<LegacyStartup> {
+  Key rootKey = UniqueKey();
+
+  @override
+  Widget build(BuildContext context) => EasyLocalization(
+    key: rootKey,
+    supportedLocales: const [Locale('en')],
+    path: 'assets/translations',
+    errorWidget: (_) => MaterialApp(
+      home: TextButton(
+        onPressed: () => setState(() => rootKey = UniqueKey()),
+        child: const Text('Retry'),
+      ),
+    ),
+    child: const MyApp(),
+  );
+}
+```
+
 ### 🔥 Translate with `tr()`
 
 ```dart

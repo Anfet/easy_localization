@@ -67,40 +67,6 @@ void main() {
     });
   }
 
-  testWidgets('initial load failure can be retried from error widget', (tester) async {
-    SharedPreferences.setMockInitialValues({});
-    await EasyLocalization.ensureInitialized();
-    final loader = Loader();
-    await tester.pumpWidget(EasyLocalization(
-      supportedLocales: const [Locale('en')],
-      startLocale: const Locale('en'),
-      saveLocale: false,
-      path: 'unused',
-      assetLoader: loader,
-      errorWidget: (_) => MaterialApp(
-          home: Builder(
-              builder: (context) => TextButton(
-                    onPressed: () => context.reloadTranslations(),
-                    child: const Text('retry'),
-                  ))),
-      child: Builder(
-          builder: (c) => MaterialApp(
-              locale: c.locale,
-              supportedLocales: c.supportedLocales,
-              localizationsDelegates: c.localizationDelegates,
-              home: Builder(builder: (c) => Text(c.tr('value'))))),
-    ));
-    loader.requests['en']!.completeError(StateError('bad'));
-    await tester.pumpAndSettle();
-    expect(find.text('retry'), findsOneWidget);
-    loader.requests.remove('en');
-    await tester.tap(find.text('retry'));
-    await tester.pump();
-    loader.requests['en']!.complete({'value': 'English'});
-    await tester.pumpAndSettle();
-    expect(find.text('English'), findsOneWidget);
-  });
-
   testWidgets('transition waits for loading, retains state on failure, and ignores disposal', (tester) async {
     SharedPreferences.setMockInitialValues({});
     await EasyLocalization.ensureInitialized();
