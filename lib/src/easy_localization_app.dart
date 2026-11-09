@@ -288,7 +288,7 @@ class _EasyLocalizationState extends State<EasyLocalization> {
       throw StateError('Unmount the root before replacing its localization owner');
     }
     final config = _legacyConfig;
-    if (config != null && (widget.supportedLocales.isEmpty || !config._matches(widget))) {
+    if (config != null && (widget.supportedLocales.isEmpty || widget.fallbackLocale != _legacyFallbackLocale || !config._matches(widget))) {
       throw StateError('Recreate the localization root with a new key to change its configuration');
     }
   }

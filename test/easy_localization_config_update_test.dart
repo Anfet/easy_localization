@@ -84,6 +84,32 @@ void main() {
     }
   });
 
+  testWidgets('rejects changing an implicit fallback to the same explicit locale and back', (tester) async {
+    final loader = _Loader();
+    for (final initial in [null, const Locale('en')]) {
+      Widget root(Locale? fallback) => EasyLocalization(
+        supportedLocales: const [Locale('en'), Locale('de')],
+        fallbackLocale: fallback,
+        path: 'unused',
+        startLocale: const Locale('en'),
+        saveLocale: false,
+        assetLoader: loader,
+        child: const SizedBox(),
+      );
+      await tester.pumpWidget(root(initial));
+      await tester.pumpAndSettle();
+      await tester.pumpWidget(root(initial == null ? const Locale('en') : null));
+      expect(tester.takeException(), isA<StateError>());
+      await tester.pumpWidget(const SizedBox());
+      await tester.pumpAndSettle();
+      try {
+        EasyLocalization.instance.dispose();
+      } on StateError {
+        // The root already disposed its owner.
+      }
+    }
+  });
+
   testWidgets('equal lists and UI updates retain owner; a new key permits new configuration', (tester) async {
     final loader = _Loader();
     Widget root(Key key, String path, String text) => EasyLocalization(
