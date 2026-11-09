@@ -6,7 +6,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_platform_interface.dart';
 
 class Loader extends AssetLoader {
-  Loader() : super(linkedFileResolver: const JsonLinkedFileResolver(fileLoader: RootBundleFileLoader()), fileLoader: const RootBundleFileLoader());
+  Loader()
+    : super(
+        linkedFileResolver: const JsonLinkedFileResolver(fileLoader: RootBundleFileLoader()),
+        fileLoader: const RootBundleFileLoader(),
+      );
   final requests = <String, Completer<Map<String, dynamic>?>>{};
   @override
   Future<Map<String, dynamic>?> load(String path, Locale locale) => requests.putIfAbsent(locale.languageCode, () => Completer()).future;
@@ -14,10 +18,11 @@ class Loader extends AssetLoader {
 
 class Store extends SharedPreferencesStorePlatform {
   final gate = Completer<bool>();
+  var writes = 0;
   @override
   Future<Map<String, Object>> getAll() async => {};
   @override
-  Future<bool> setValue(String valueType, String key, Object value) => gate.future;
+  Future<bool> setValue(String valueType, String key, Object value) => ++writes == 1 ? Future.value(true) : gate.future;
   @override
   Future<bool> remove(String key) async => true;
   @override
@@ -26,38 +31,52 @@ class Store extends SharedPreferencesStorePlatform {
 
 void main() {
   for (final initialFirst in [true, false]) {
-    testWidgets('explicit choice before delegate load survives ${initialFirst ? 'initial' : 'selected'} resource completing first', (tester) async {
+    testWidgets('explicit choice ${initialFirst ? 'before' : 'after'} attachment retains selected resources', (tester) async {
       SharedPreferences.setMockInitialValues({});
       await EasyLocalization.ensureInitialized();
       final loader = Loader();
-      Future<void>? selection;
+      final initialization = EasyLocalization.initialize(
+        EasyLocalizationConfig(
+          supportedLocales: const [Locale('en'), Locale('de')],
+          fallbackLocale: const Locale('en'),
+          startLocale: const Locale('en'),
+          path: 'unused',
+          assetLoader: loader,
+        ),
+      );
+      await tester.idle();
+      loader.requests['en']!.complete({'value': 'English'});
+      final owner = await initialization;
+      addTearDown(owner.dispose);
       late BuildContext context;
-      await tester.pumpWidget(EasyLocalization(
-        supportedLocales: const [Locale('en'), Locale('de')],
-        startLocale: const Locale('en'),
-        path: 'unused',
-        assetLoader: loader,
-        child: Builder(builder: (c) {
-          return MaterialApp(
+      final selection = owner.setLocale(const Locale('de'));
+      await tester.idle();
+      if (initialFirst) {
+        loader.requests['de']!.complete({'value': 'Deutsch'});
+        await selection;
+      }
+      await tester.pumpWidget(
+        EasyLocalization(
+          supportedLocales: const [Locale('en'), Locale('de')],
+          startLocale: const Locale('en'),
+          path: 'unused',
+          assetLoader: loader,
+          child: Builder(
+            builder: (c) => MaterialApp(
               locale: c.locale,
               supportedLocales: c.supportedLocales,
               localizationsDelegates: c.localizationDelegates,
-              home: Builder(builder: (c) {
-                context = c;
-                return Text(c.tr('value'));
-              }));
-        }),
-      ));
-      selection = tester.element(find.byType(SizedBox)).setLocale(const Locale('de'));
-      if (initialFirst) {
-        loader.requests['en']!.complete({'value': 'English'});
-        await tester.pump();
-        loader.requests['de']!.complete({'value': 'Deutsch'});
-      } else {
-        loader.requests['de']!.complete({'value': 'Deutsch'});
-        await tester.pump();
-        loader.requests['en']!.complete({'value': 'English'});
-      }
+              home: Builder(
+                builder: (c) {
+                  context = c;
+                  return Text(c.tr('value'));
+                },
+              ),
+            ),
+          ),
+        ),
+      );
+      if (!initialFirst) loader.requests['de']!.complete({'value': 'Deutsch'});
       await selection;
       await tester.pumpAndSettle();
       expect(context.locale, const Locale('de'));
@@ -72,21 +91,29 @@ void main() {
     await EasyLocalization.ensureInitialized();
     final loader = Loader();
     late BuildContext context;
-    await tester.pumpWidget(EasyLocalization(
+    await tester.pumpWidget(
+      EasyLocalization(
         supportedLocales: const [Locale('en'), Locale('de')],
         startLocale: const Locale('en'),
         saveLocale: false,
         path: 'unused',
         assetLoader: loader,
         child: Builder(
-            builder: (c) => MaterialApp(
-                locale: c.locale,
-                supportedLocales: c.supportedLocales,
-                localizationsDelegates: c.localizationDelegates,
-                home: Builder(builder: (c) {
-                  context = c;
-                  return Text(c.tr('value'));
-                })))));
+          builder: (c) => MaterialApp(
+            locale: c.locale,
+            supportedLocales: c.supportedLocales,
+            localizationsDelegates: c.localizationDelegates,
+            home: Builder(
+              builder: (c) {
+                context = c;
+                return Text(c.tr('value'));
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.idle();
     loader.requests['en']!.complete({'value': 'English'});
     await tester.pumpAndSettle();
     expect(find.text('English'), findsOneWidget);
@@ -97,7 +124,7 @@ void main() {
     await tester.pump();
     expect(completed, false);
     loader.requests['de']!.completeError(StateError('bad'));
-    await expectLater(change, throwsA(isA<FlutterError>()));
+    await expectLater(change, throwsA(isA<StateError>()));
     await tester.pump();
     expect(find.text('English'), findsOneWidget);
     loader.requests.remove('de');
@@ -109,9 +136,10 @@ void main() {
     expect(context.locale, const Locale('de'));
     loader.requests.remove('en');
     final pending = context.setLocale(const Locale('en'));
+    final pendingResult = expectLater(pending, throwsA(isA<StateError>()));
     await tester.pumpWidget(const SizedBox());
     loader.requests['en']!.completeError(StateError('late'));
-    await pending;
+    await pendingResult;
     await tester.pump();
     expect(tester.takeException(), isNull);
   });
@@ -124,21 +152,28 @@ void main() {
       await EasyLocalization.ensureInitialized();
       final loader = Loader();
       late BuildContext context;
-      await tester.pumpWidget(EasyLocalization(
-        supportedLocales: const [Locale('en'), Locale('de')],
-        startLocale: const Locale('en'),
-        path: 'unused',
-        assetLoader: loader,
-        child: Builder(
+      await tester.pumpWidget(
+        EasyLocalization(
+          supportedLocales: const [Locale('en'), Locale('de')],
+          startLocale: const Locale('en'),
+          path: 'unused',
+          assetLoader: loader,
+          child: Builder(
             builder: (c) => MaterialApp(
-                locale: c.locale,
-                supportedLocales: c.supportedLocales,
-                localizationsDelegates: c.localizationDelegates,
-                home: Builder(builder: (c) {
+              locale: c.locale,
+              supportedLocales: c.supportedLocales,
+              localizationsDelegates: c.localizationDelegates,
+              home: Builder(
+                builder: (c) {
                   context = c;
                   return Text(c.tr('value'));
-                }))),
-      ));
+                },
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.idle();
       loader.requests['en']!.complete({'value': 'English'});
       await tester.pumpAndSettle();
       var done = false;

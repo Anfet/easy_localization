@@ -5,7 +5,10 @@ import 'package:flutter_test/flutter_test.dart';
 
 class ResourceLoader extends AssetLoader {
   ResourceLoader(this.data)
-      : super(linkedFileResolver: const JsonLinkedFileResolver(fileLoader: RootBundleFileLoader()), fileLoader: const RootBundleFileLoader());
+    : super(
+        linkedFileResolver: const JsonLinkedFileResolver(fileLoader: RootBundleFileLoader()),
+        fileLoader: const RootBundleFileLoader(),
+      );
 
   final Map<String, Map<String, dynamic>> data;
   bool failEnglish = false;
@@ -38,10 +41,10 @@ void main() {
     final secondSection = <dynamic, dynamic>{'second': 'two', 'shared': 'new'};
     final first = <String, dynamic>{
       'section': firstSection,
-      'list': [listEntry]
+      'list': [listEntry],
     };
     final second = <String, dynamic>{'section': secondSection};
-    final subject = controller(ResourceLoader({'de_AT': first}), ResourceLoader({'de_AT': second}));
+    final subject = controller(ResourceLoader({'de_AT': first, 'en': {}}), ResourceLoader({'de_AT': second}));
     addTearDown(subject.dispose);
     final result = await subject.loadTranslationData(const Locale('de', 'AT'));
     expect(result['section'], {'first': 'one', 'shared': 'new', 'unread': 'original', 'second': 'two'});
@@ -61,20 +64,20 @@ void main() {
     const first = <String, dynamic>{
       'section': {'first': 'one', 'shared': 'old'},
       'list': [
-        {'value': 'original'}
+        {'value': 'original'},
       ],
     };
     const second = <String, dynamic>{
-      'section': {'second': 'two', 'shared': 'new'}
+      'section': {'second': 'two', 'shared': 'new'},
     };
-    final subject = controller(ResourceLoader({'de_AT': first}), ResourceLoader({'de_AT': second}));
+    final subject = controller(ResourceLoader({'de_AT': first, 'en': {}}), ResourceLoader({'de_AT': second}));
     addTearDown(subject.dispose);
     final result = await subject.loadTranslationData(const Locale('de', 'AT'));
     expect(result['section'], {'first': 'one', 'second': 'two', 'shared': 'new'});
     (result['list'] as List).first['value'] = 'changed';
     (result['section'] as Map)['first'] = 'changed';
     expect(first['list'], [
-      {'value': 'original'}
+      {'value': 'original'},
     ]);
     expect(first['section'], {'first': 'one', 'shared': 'old'});
     expect(second['section'], {'second': 'two', 'shared': 'new'});
@@ -83,7 +86,7 @@ void main() {
   test('failed reload keeps cached and unread values, then retry publishes the complete set', () async {
     final main = ResourceLoader({
       'de_AT': {
-        'section': {'cached': 'old cached', 'unread': 'old unread'}
+        'section': {'cached': 'old cached', 'unread': 'old unread'},
       },
       'de': {},
       'en': {},
@@ -95,10 +98,10 @@ void main() {
     final accepted = subject.translations;
     expect(accepted?.get('section.cached'), 'old cached');
     extra.data['de_AT'] = {
-      'section': {'cached': 'new cached', 'unread': 'new unread', 'added': 'new'}
+      'section': {'cached': 'new cached', 'unread': 'new unread', 'added': 'new'},
     };
     main.failEnglish = true;
-    await expectLater(subject.reloadTranslations(), throwsA(isA<FlutterError>()));
+    await expectLater(subject.reloadTranslations(), throwsA(isA<StateError>()));
     expect(subject.translations, same(accepted));
     expect(subject.translations?.get('section.cached'), 'old cached');
     expect(subject.translations?.get('section.unread'), 'old unread');
@@ -112,27 +115,33 @@ void main() {
   test('base language supplements fallback while main and extra retain priority', () async {
     final main = ResourceLoader({
       'en': {
-        'section': {'english': 'English', 'base': 'English base', 'main': 'English main', 'extra': 'English extra'}
+        'section': {'english': 'English', 'base': 'English base', 'main': 'English main', 'extra': 'English extra'},
       },
       'de': {
-        'section': {'base': 'Deutsch', 'main': 'Deutsch main', 'extra': 'Deutsch extra'}
+        'section': {'base': 'Deutsch', 'main': 'Deutsch main', 'extra': 'Deutsch extra'},
       },
       'de_AT': {
-        'section': {'main': 'Austria', 'extra': 'Austria main'}
+        'section': {'main': 'Austria', 'extra': 'Austria main'},
       },
     });
     final extra = ResourceLoader({
       'de': {
-        'section': {'base': 'Deutsch extra'}
+        'section': {'base': 'Deutsch extra'},
       },
       'de_AT': {
-        'section': {'extra': 'Austria extra'}
+        'section': {'extra': 'Austria extra'},
       },
     });
     final subject = controller(main, extra);
     addTearDown(subject.dispose);
     await subject.loadTranslations();
-    Localization.load(subject.locale, translations: subject.translations, fallbackTranslations: subject.fallbackTranslations);
+    Localization.load(
+      subject.locale,
+      translations: subject.translations,
+      baseTranslations: subject.baseTranslations,
+      baseLocale: subject.baseLocale,
+      fallbackTranslations: subject.fallbackTranslations,
+    );
     expect(Localization.instance.tr('section.english'), 'English');
     expect(Localization.instance.tr('section.base'), 'Deutsch extra');
     expect(Localization.instance.tr('section.main'), 'Austria');

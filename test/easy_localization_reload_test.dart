@@ -107,7 +107,7 @@ void main() {
     expect(find.text('Fallback'), findsNWidgets(2));
     expect(find.text('kept'), findsOneWidget);
     expect(Navigator.of(context).canPop(), isTrue);
-    expect((await SharedPreferences.getInstance()).getString('locale'), isNull);
+    expect((await SharedPreferences.getInstance()).getString('locale'), 'en');
   });
 
   for (final failingLocale in ['en', 'fr']) {
@@ -121,7 +121,7 @@ void main() {
       final reload = context.reloadTranslations();
       if (failingLocale == 'fr') await tester.idle();
       gate.completeError(StateError('failed'));
-      await expectLater(reload, throwsA(isA<FlutterError>()));
+      await expectLater(reload, throwsA(isA<StateError>()));
       await tester.pump();
       expect(find.text('Old'), findsNWidgets(2));
       expect(find.text('Nested old'), findsNWidgets(2));
@@ -138,18 +138,20 @@ void main() {
     final old = Completer<Map<String, dynamic>?>();
     loader.pending['en'] = old;
     final reload = context.reloadTranslations();
+    final reloadResult = expectLater(reload, throwsA(isA<LocalizationOperationSupersededException>()));
     await context.setLocale(const Locale('fr'));
     old.completeError(StateError('late'));
-    await reload;
+    await reloadResult;
     await tester.pumpAndSettle();
     expect(find.text('French'), findsNWidgets(2));
     expect(context.locale, const Locale('fr'));
     final late = Completer<Map<String, dynamic>?>();
     loader.pending['fr'] = late;
     final disposed = context.reloadTranslations();
+    final disposedResult = expectLater(disposed, throwsA(isA<StateError>()));
     await tester.pumpWidget(const SizedBox());
     late.completeError(StateError('disposed'));
-    await disposed;
+    await disposedResult;
     expect(tester.takeException(), isNull);
   });
 
@@ -160,18 +162,20 @@ void main() {
     final old = Completer<Map<String, dynamic>?>();
     loader.pending['en'] = old;
     final first = context.reloadTranslations();
+    final firstResult = expectLater(first, throwsA(isA<LocalizationOperationSupersededException>()));
     loader.data['en'] = {'value': 'Latest'};
     await context.reloadTranslations();
     old.complete({'value': 'Stale'});
-    await first;
+    await firstResult;
     await tester.pumpAndSettle();
     expect(find.text('Latest'), findsNWidgets(2));
     final cancelled = Completer<Map<String, dynamic>?>();
     loader.pending['en'] = cancelled;
     final pending = context.reloadTranslations();
+    final pendingResult = expectLater(pending, throwsA(isA<LocalizationOperationSupersededException>()));
     await context.setLocale(const Locale('en'));
     cancelled.complete({'value': 'Cancelled'});
-    await pending;
+    await pendingResult;
     await tester.pumpAndSettle();
     expect(find.text('Latest'), findsNWidgets(2));
   });

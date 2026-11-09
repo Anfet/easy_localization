@@ -9,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'utils/test_asset_loaders.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
   group('localization', () {
     final printLog = <String>[];
     setUp(() {
@@ -133,19 +134,19 @@ void main() {
     test('controller loads fallback if saved locale is not supported', () async {
       SharedPreferences.setMockInitialValues({'locale': 'de'});
       await EasyLocalization.ensureInitialized();
-      final controller = EasyLocalizationController(
-        supportedLocales: const [Locale('en'), Locale('fb')],
-        fallbackLocale: const Locale('fb'),
-        path: 'path',
-        useOnlyLangCode: true,
-        useFallbackTranslations: true,
-        onLoadError: (FlutterError e) {
-          log(e.toString());
-        },
-        saveLocale: true,
-        assetLoader: const JsonAssetLoader(),
+      TestWidgetsFlutterBinding.ensureInitialized().platformDispatcher.localesTestValue = [const Locale('xx')];
+      addTearDown(() => TestWidgetsFlutterBinding.ensureInitialized().platformDispatcher.clearLocalesTestValue());
+      final owner = await EasyLocalization.initialize(
+        EasyLocalizationConfig(
+          supportedLocales: const [Locale('en'), Locale('fb')],
+          fallbackLocale: const Locale('fb'),
+          path: 'path',
+          useOnlyLangCode: true,
+          assetLoader: const JsonAssetLoader(),
+        ),
       );
-      expect(controller.locale, const Locale('fb'));
+      expect(owner.locale, const Locale('fb'));
+      owner.dispose();
 
       SharedPreferences.setMockInitialValues({});
     });

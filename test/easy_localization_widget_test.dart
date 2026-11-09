@@ -51,6 +51,7 @@ class MyLocalizedWidget extends StatelessWidget {
 }
 
 void main() async {
+  TestWidgetsFlutterBinding.ensureInitialized();
   SharedPreferences.setMockInitialValues({});
   await EasyLocalization.ensureInitialized();
 
