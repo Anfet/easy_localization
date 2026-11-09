@@ -367,7 +367,7 @@ class EasyLocalizationController extends ChangeNotifier {
     _userTransition = userTransition;
     final transition = _loadLocale(locale);
     _activeTransition = transition;
-    await _finishUserTransition(userTransition, transition, _request);
+    await _finishUserTransition(userTransition, transition);
   }
 
   /// Reloads the displayed locale after the asset loader's data has changed.
@@ -390,7 +390,7 @@ class EasyLocalizationController extends ChangeNotifier {
       );
       _refreshRequest = _request;
       _activeTransition = transition;
-      if (userTransition != null) return _finishUserTransition(userTransition, transition, _request);
+      if (userTransition != null) return _finishUserTransition(userTransition, transition);
       try {
         await transition;
       } finally {
@@ -512,10 +512,10 @@ class EasyLocalizationController extends ChangeNotifier {
     _userTransition = userTransition;
     final transition = _loadLocale(target, reset: true);
     _activeTransition = transition;
-    await _finishUserTransition(userTransition, transition, _request);
+    await _finishUserTransition(userTransition, transition);
   }
 
-  Future<void> _finishUserTransition(Object userTransition, Future<void> transition, int request) async {
+  Future<void> _finishUserTransition(Object userTransition, Future<void> transition) async {
     Object? failure;
     StackTrace? failureStack;
     try {
