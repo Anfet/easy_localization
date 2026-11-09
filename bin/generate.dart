@@ -143,11 +143,8 @@ class GenerateOptions {
 }
 
 Future<void> handleLangFiles(GenerateOptions options) async {
-  final current = Directory.current;
-  final source = Directory.fromUri(Uri.parse(options.sourceDir!));
-  final output = Directory.fromUri(Uri.parse(options.outputDir!));
-  final sourcePath = Directory(path.join(current.path, source.path));
-  final outputPath = Directory(path.join(current.path, output.path, options.outputFile));
+  final sourcePath = Directory(path.absolute(options.sourceDir!));
+  final outputPath = Directory(path.join(path.absolute(options.outputDir!), options.outputFile));
 
   if (!await sourcePath.exists()) {
     throw StateError('Source path does not exist: ${sourcePath.path}');
@@ -155,7 +152,7 @@ Future<void> handleLangFiles(GenerateOptions options) async {
 
   var files = await dirContents(sourcePath);
   if (options.sourceFile != null) {
-    final sourceFile = File(path.join(source.path, options.sourceFile));
+    final sourceFile = File(path.join(sourcePath.path, options.sourceFile));
     if (!await sourceFile.exists()) {
       throw StateError('Source file does not exist: ${sourceFile.path}');
     }
@@ -249,10 +246,10 @@ String _resolve(Map<String, dynamic> translations, bool? skipUnnecessaryKeys, Se
       fileContent += _resolve(translations[key], skipUnnecessaryKeys, names, nextAccKey);
     }
 
-    if (!_preservedKeywords.contains(key) && !ignoreKey) {
+    if (!ignoreKey) {
       final name = accKey == null ? key : '${accKey.replaceAll('.', '_')}_$key';
       final value = accKey == null ? key : '$accKey.$key';
-      if (!RegExp(r'^[a-zA-Z_$][a-zA-Z0-9_$]*$').hasMatch(name) || _invalidIdentifiers.contains(name)) {
+      if (!RegExp(r'^[a-zA-Z$][a-zA-Z0-9_$]*$').hasMatch(name) || _invalidIdentifiers.contains(name)) {
         throw FormatException('Unsupported generated identifier "$name" for key "$value"');
       }
       if (!names.add(name)) {

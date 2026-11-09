@@ -9,9 +9,7 @@ void main() {
   final generator = path.absolute('bin/generate.dart');
 
   setUp(() async {
-    final root = Directory(r'Z:\.ai\claude-work\easy_localization');
-    await root.create(recursive: true);
-    scratch = await root.createTemp('loc8_cli_');
+    scratch = await Directory.systemTemp.createTemp('loc8 cli ');
   });
 
   tearDown(() async => scratch.delete(recursive: true));
@@ -81,7 +79,33 @@ void main() {
     expect(skipped, contains('nested_child'));
     expect(skipped, isNot(contains('static const nested =')));
     expect(skipped, contains('static const count ='));
-    expect(skipped, isNot(contains('static const one =')));
+    expect(skipped, contains("static const count_one = 'count.one'"));
+  });
+
+  test('accepts relative and absolute filesystem paths with spaces', () async {
+    final source = Directory(path.join(scratch.path, 'source files'));
+    await source.create();
+    await File(path.join(source.path, 'en.json')).writeAsString('{"hello":"Hello"}');
+    for (final absolute in [false, true]) {
+      final result = await Process.run(
+        'dart',
+        [
+          generator,
+          '-S',
+          absolute ? source.path : 'source files',
+          '-O',
+          absolute ? path.join(scratch.path, 'output files') : 'output files',
+          '-o',
+          'keys.dart',
+          '-f',
+          'keys',
+        ],
+        workingDirectory: scratch.path,
+        runInShell: true,
+      );
+      expect(result.exitCode, 0, reason: '${result.stdout}\n${result.stderr}');
+      expect(await File(path.join(scratch.path, 'output files', 'keys.dart')).readAsString(), contains("hello = 'hello'"));
+    }
   });
 
   test('defaults to assets/translations when source-dir is omitted', () async {
@@ -126,6 +150,7 @@ void main() {
     for (final translations in [
       {'auth.login': 'value'},
       {'bad-key': 'value'},
+      {'_private': 'value'},
       {'class': 'value'},
       {'hashCode': 'value'},
       {

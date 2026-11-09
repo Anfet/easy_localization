@@ -780,7 +780,7 @@ Text(LocaleKeys.title.tr());
 Text(LocaleKeys.title).tr();
 ```
 
-Generated identifiers must be valid Dart identifiers and must not be reserved words or collide after nested paths are joined with underscores. For example, `auth.login`, `bad-key`, `class`, and the combination of `a_b` with nested `a.b` cannot be generated. The command reports an error and preserves the existing output. Direct runtime translation keys can still contain dots.
+String leaves, including plural and gender forms, have generated constants; `-u` only controls parent constants. Generated identifiers must be public Dart identifiers (they cannot start with `_`) and must not be reserved words or collide after nested paths are joined with underscores. For example, `auth.login`, `bad-key`, `class`, and the combination of `a_b` with nested `a.b` cannot be generated. The command reports an error and preserves the existing output. Direct runtime translation keys can still contain dots.
 
 Since 4.0.0, generated keys re-export the translation extensions. The keys output is a Flutter-facing artifact and is not a standalone Dart library.
 
