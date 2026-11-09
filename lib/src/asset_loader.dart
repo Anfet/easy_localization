@@ -6,17 +6,11 @@ import 'package:easy_localization_continued/src/diagnostics.dart';
 import 'package:easy_localization_continued/src/file_loaders/file_loader.dart';
 import 'package:easy_localization_continued/src/file_loaders/io_file_loader.dart';
 
-/// abstract class used to building your Custom AssetLoader
-/// Example:
-/// ```
-///class FileAssetLoader extends AssetLoader {
-///  @override
-///  Future<Map<String, dynamic>> load(String path, Locale locale) async {
-///    final file = File(path);
-///    return json.decode(await file.readAsString());
-///  }
-///}
-/// ```
+/// Loads translation resources from a custom source.
+///
+/// Subclasses must pass a [FileLoader] and [LinkedFileResolver] to the
+/// superclass constructor. Upstream easy_localization_loader implementations
+/// target a different package and must be ported before use.
 abstract class AssetLoader {
   // Place inside class RootBundleAssetLoader
   final FileLoader fileLoader;

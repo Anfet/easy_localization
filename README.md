@@ -143,7 +143,7 @@ class MyApp extends StatelessWidget {
 | saveLocale              | false    | `true`                    | Save locale in device storage.                                                                                                                                                |
 | useFallbackTranslations | false    | `false`                   | If a localization key is not found in the locale file, try to use the fallbackLocale file.                                                                                    |
 | useBaseLanguageFallback | false | `false` | Load a base language before the configured fallback when fallback translations are enabled. |
-| useFallbackTranslationsForEmptyResources | false    | `false`                   | If translation is empty in the locale file, try to use the fallbackLocale file. Does not take effect if `useFallbackTranslations` is false.                  |
+| useFallbackTranslationsForEmptyResources | false    | `false`                   | Treat empty strings as missing, even when no fallback resource is loaded; try any loaded base and fallback resources.                  |
 | useOnlyLangCode         | false    | `false`                   | Trigger for using only language code for reading localization files.</br></br>Example:</br>`en.json //useOnlyLangCode: true`</br>`en-US.json //useOnlyLangCode: false`        |
 | errorWidget             | false    | `ErrorWidget`     | Shows a custom error widget when an error occurs.                                                                                                                             |
 
@@ -346,22 +346,54 @@ if (outcome == LocalizationApplyOutcome.applied) {
 
 Handle command errors and non-applied outcomes. A newer command can supersede an outstanding load. A storage failure can leave the new data active; selecting it again retries persistence.
 
-After updating the data used by your `AssetLoader`, call `await localization.reloadTranslations()` to reload the current language and its fallback. Update any cache owned by your loader before calling it. If a language change is loading, reload waits for it and refreshes the accepted language. A later language change supersedes that deferred reload. The future waits for its work and completes with an error if the current load fails; the previous translations remain available. A later language change or reload supersedes an outstanding refresh. Widgets display the new translations on the next frame.
+After updating your `AssetLoader` data and its cache, call `await localization.reloadTranslations()`. It reloads the requested language and its fallback, superseding any outstanding locale change or reload. The superseded command completes with `LocalizationOperationSupersededException`. A later command can supersede the reload in turn. A failed reload leaves the previous translations available. Await `localization.waitForPresentation()` and check for `LocalizationApplyOutcome.applied` when the updated widgets must be visible.
 
-
-
-For an initial loading failure, an `errorWidget` can retry using the same provider:
+For an initial loading failure, keep the same config outside the localization root and retry initialization from a startup screen. The root is created only after initialization succeeds:
 
 ```dart
-errorWidget: (error) => MaterialApp(
-  home: Builder(
-    builder: (context) => TextButton(
-      onPressed: () => EasyLocalization.instance.reloadTranslations(),
-      child: const Text('Retry'),
-    ),
-  ),
-),
+class Startup extends StatefulWidget {
+  const Startup({super.key, required this.config});
+  final EasyLocalizationConfig config;
+
+  @override
+  State<Startup> createState() => _StartupState();
+}
+
+class _StartupState extends State<Startup> {
+  late Future<EasyLocalizationInstance> startup;
+  EasyLocalizationInstance? owner;
+
+  @override
+  void initState() {
+    super.initState();
+    startup = EasyLocalization.initialize(widget.config);
+  }
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<EasyLocalizationInstance>(
+    future: startup,
+    builder: (context, snapshot) {
+      if (snapshot.hasError) {
+        return MaterialApp(home: TextButton(
+          onPressed: () => setState(() { startup = EasyLocalization.initialize(widget.config); }),
+          child: const Text('Retry'),
+        ));
+      }
+      if (!snapshot.hasData) return const MaterialApp(home: CircularProgressIndicator());
+      owner = snapshot.data;
+      return EasyLocalization.withInstance(instance: snapshot.requireData, child: const MyApp());
+    },
+  );
+
+  @override
+  void dispose() {
+    owner?.dispose();
+    super.dispose();
+  }
+}
 ```
+
+Call `runApp(Startup(config: config))`. Ensure the startup widget stays mounted until initialization completes; dispose a successfully initialized owner when it is no longer needed.
 
 ### 🔥 Translate with `tr()`
 

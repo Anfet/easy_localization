@@ -12,18 +12,11 @@ part 'utils.dart';
 part 'easy_localization_instance.dart';
 part 'locale_translators.dart';
 
-///  EasyLocalization
-///  example:
-///  ```
-///  void main(){
-///    runApp(EasyLocalization(
-///      child: MyApp(),
-///      supportedLocales: [Locale('en', 'US'), Locale('ar', 'DZ')],
-///      path: 'resources/langs/langs.csv',
-///      assetLoader: CsvAssetLoader()
-///    ));
-///  }
-///  ```
+/// Provides localization to a widget tree using a ready owner or legacy setup.
+///
+/// Initialize an owner with [initialize] and attach it with
+/// [EasyLocalization.withInstance]. Custom asset loaders must implement this
+/// package's [AssetLoader] contract; upstream loaders require porting.
 class EasyLocalization extends StatefulWidget {
   /// Initializes translations and persistence before runApp. Reusing the same
   /// immutable config returns the same pending future or ready owner. Dispose
@@ -90,8 +83,8 @@ class EasyLocalization extends StatefulWidget {
   /// Loads a base-language resource before the configured fallback.
   final bool useBaseLanguageFallback;
 
-  /// If a localization key is empty in the locale file, try to use the fallbackLocale file.
-  /// Does not take effect if [useFallbackTranslations] is false.
+  /// Treats empty translation strings as missing, even without a loaded fallback.
+  /// Any loaded base or fallback resource is checked for a non-empty value.
   /// @Default value false
   /// Example:
   /// ```
@@ -108,31 +101,14 @@ class EasyLocalization extends StatefulWidget {
   final String path;
 
   /// Class loader for localization files.
-  /// You can use custom loaders from [Easy Localization Loader](https://github.com/aissat/easy_localization_loader) or create your own class.
-  /// @Default value `const RootBundleAssetLoader()`
+  /// Implement this package's [AssetLoader]; upstream loaders require porting.
+  /// Defaults to `RootBundleAssetLoader.fromRootBundle()`.
   // ignore: prefer_typing_uninitialized_variables
   final AssetLoader assetLoader;
 
   /// Class loader for localization files that belong to other packages.
-  /// You can use custom loaders from [Easy Localization Loader](https://github.com/aissat/easy_localization_loader) or create your own class.
-  /// Example:
-  /// ```dart
-  //   runApp(
-  //   EasyLocalization(
-  //     supportedLocales: const <Locale>[
-  //       Locale('en'),
-  //     ],
-  //     fallbackLocale: const Locale('en'),
-  //     assetLoader: const RootBundleAssetLoader(),
-  //     extraAssetLoaders: [
-  //         TranslationsLoader(packageName: 'package_example_1'),
-  //         TranslationsLoader(packageName: 'package_example_2'),
-  //     ],
-  //     path: 'lib/l10n/translations',
-  //     child: const MainApp(),
-  //   ),
-  // );
-  /// @Default value `null`
+  /// Implement this package's [AssetLoader]; upstream loaders require porting.
+  /// Defaults to `null`.
   final List<AssetLoader>? extraAssetLoaders;
 
   /// Registers all custom Flutter delegates for atomic preparation before apply.
