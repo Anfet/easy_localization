@@ -303,7 +303,7 @@ class EasyLocalizationController extends ChangeNotifier {
     List<AssetLoader> loaders = [assetLoader, ...?extraAssetLoaders];
 
     for (final loader in loaders) {
-      loaderFutures.add(loader.load(path, desiredLocale));
+      loaderFutures.add(Future.sync(() => loader.load(path, desiredLocale)));
     }
 
     var present = false;
