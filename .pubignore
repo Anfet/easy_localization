@@ -39,3 +39,7 @@ local.properties
 *.swp
 .DS_Store
 Thumbs.db
+
+# Repository-only images; README links to them by absolute URL.
+screenshots/
+logo/

@@ -1,7 +1,6 @@
 name: Release to pub.dev
 
 on:
-  workflow_dispatch:
   push:
     tags:
       - 'v[0-9]+.[0-9]+.[0-9]+*'
@@ -10,7 +9,6 @@ jobs:
   test:
     name: Test
     uses: ./.github/workflows/test.yml
-    secrets: inherit
 
   publish:
     needs: [test]
