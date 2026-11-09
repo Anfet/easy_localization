@@ -151,6 +151,42 @@ void main() {
     expect(missing.stdout, contains('person.female'));
   });
 
+  test('generated receivers and translator chains resolve static keys', () async {
+    for (final key in ['present', 'absent']) {
+      writeSource("""
+        import 'package:easy_localization_continued/easy_localization.dart';
+        import 'package:flutter/widgets.dart';
+        class LocaleKeys { static const String key = '$key'; }
+        void example() {
+          LocaleKeys.key.tr();
+          Text(LocaleKeys.key).tr();
+          tr(LocaleKeys.key);
+          EasyLocalization.instance.dataTranslator.tr('$key');
+        }
+      """);
+      final result = await audit(strict: true);
+      expectSuccess(result, key == 'present' ? 0 : 2);
+      if (key == 'absent') expect(result.stdout, contains('absent'));
+    }
+  });
+
+  test('only translation call arguments determine gender', () async {
+    writeSource("""
+      import 'package:easy_localization_continued/easy_localization.dart';
+      List<String> helper({required String gender}) => [gender];
+      void example() { tr('present', args: helper(gender: 'female')); }
+    """);
+    expectSuccess(await audit(strict: true), 0);
+    writeSource("""
+      import 'package:easy_localization_continued/easy_localization.dart';
+      List<String> helper({required String gender}) => [gender];
+      void example() { tr('present', args: helper(gender: tr('absent'))); }
+    """);
+    final nested = await audit(strict: true);
+    expectSuccess(nested, 2);
+    expect(nested.stdout, contains('absent'));
+  });
+
   test('dynamic gender accepts direct string keys and rejects non-string groups', () async {
     for (final file in translations.listSync().whereType<File>()) {
       file.writeAsStringSync('{"person.male":"man","empty.male":42}');
@@ -198,7 +234,7 @@ void main() {
   });
 
   test('conflicting LocaleKeys values remain unverified', () async {
-    writeSource("class LocaleKeys { static const String key = 'present'; } tr(LocaleKeys.key);");
+    writeSource("class LocaleKeys { static const String key = 'present'; } void example() { LocaleKeys.key.tr(); tr(LocaleKeys.key); }");
     File(path.join(source.path, 'other.dart')).writeAsStringSync("class LocaleKeys { static const String key = 'absent'; }");
     final result = await audit(strict: true);
     expectSuccess(result, 0);

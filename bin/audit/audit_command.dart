@@ -53,7 +53,7 @@ class AuditCommand {
       }
     }
     final textReceiver = RegExp(r'\bText\s*\(([^,()]+)(?:[^()]|\([^()]*\))*\)\s*\.\s*(tr|plural)\s*\(');
-    final receiver = RegExp(r'(?<![\w.])(Q+|\w+(?:\s*\.\s*\w+)?)\s*\.\s*(tr|plural)\s*\(');
+    final receiver = RegExp(r'(?<![\w.])(Q+|\w+(?:\s*\.\s*\w+)*)\s*\.\s*(tr|plural)\s*\(');
     final function = RegExp(r'(?<![\w.])(?:context\s*\.\s*)?\b(tr|plural)\s*\(');
     final usages = <_Usage>[];
 
@@ -68,8 +68,23 @@ class AuditCommand {
         final values = constants[reference[1]];
         if (values != null && values.length == 1) key = values.first;
       }
-      final gender = RegExp(r'\bgender\s*:\s*(Q+)\s*(?:,|$)').firstMatch(maskedArguments);
-      final hasGender = RegExp(r'\bgender\s*:').hasMatch(maskedArguments);
+      final topLevel = maskedArguments.split('');
+      var nesting = 0;
+      for (var i = 0; i < topLevel.length; i++) {
+        final char = topLevel[i];
+        if ('([{'.contains(char)) {
+          nesting++;
+          topLevel[i] = ' ';
+        } else if (')]}'.contains(char)) {
+          nesting--;
+          topLevel[i] = ' ';
+        } else if (nesting > 0) {
+          topLevel[i] = ' ';
+        }
+      }
+      final topLevelArguments = topLevel.join();
+      final gender = RegExp(r'\bgender\s*:\s*(Q+)\s*(?:,|$)').firstMatch(topLevelArguments);
+      final hasGender = RegExp(r'\bgender\s*:').hasMatch(topLevelArguments);
       String? genderValue;
       if (gender != null) {
         final start = gender.start + (gender[0]?.indexOf(gender[1] ?? '') ?? 0);
@@ -99,7 +114,11 @@ class AuditCommand {
           var expression = '';
           var arguments = content.substring(argsStart, argsEnd);
           var argumentMask = maskedArgs;
-          if (pattern == function || (pattern == receiver && content[match.start] != "'" && content[match.start] != '"')) {
+          final receiverExpression = match[1] ?? '';
+          final isKeyReceiver =
+              pattern == receiver &&
+              (RegExp(r'^Q+$').hasMatch(receiverExpression) || RegExp(r'^LocaleKeys\s*\.\s*\w+$').hasMatch(receiverExpression));
+          if (pattern == function || (pattern == receiver && !isKeyReceiver)) {
             var nesting = 0;
             var separator = maskedArgs.length;
             for (var i = 0; i < maskedArgs.length; i++) {
