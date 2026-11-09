@@ -61,6 +61,50 @@ void main() {
     }
   });
 
+  testWidgets('system loading stays busy until delegates apply', (tester) async {
+    final loader = _Loader();
+    final delegate = _Delegate();
+    tester.binding.platformDispatcher.localesTestValue = const [Locale('en')];
+    final instance = await EasyLocalization.initialize(
+      EasyLocalizationConfig(
+        supportedLocales: const [Locale('en'), Locale('de')],
+        fallbackLocale: const Locale('en'),
+        path: 'unused',
+        saveLocale: false,
+        assetLoader: loader,
+        additionalDelegates: [delegate],
+      ),
+    );
+    try {
+      await tester.pumpWidget(
+        EasyLocalization.withInstance(
+          instance: instance,
+          child: const _App(home: _Leaf(label: 'home')),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final resources = Completer<Map<String, dynamic>>();
+      final presentation = Completer<_Resource>();
+      loader.gates['de'] = resources;
+      delegate.gates['de'] = presentation;
+      tester.binding.platformDispatcher.localesTestValue = const [Locale('de')];
+      await tester.pump();
+      expect(instance.state.value.isLoading, isTrue);
+      resources.complete({'value': 'de'});
+      await tester.pump();
+      await tester.pump();
+      expect(instance.state.value.isLoading, isTrue);
+      presentation.complete(const _Resource(Locale('de')));
+      await tester.pumpAndSettle();
+      expect(instance.state.value.isLoading, isFalse);
+      expect(instance.state.value.appliedLocale, const Locale('de'));
+    } finally {
+      await tester.pumpWidget(const SizedBox());
+      instance.dispose();
+      tester.binding.platformDispatcher.clearLocalesTestValue();
+    }
+  });
+
   testWidgets('system updates reach presentation and survive detach and remount', (tester) async {
     final loader = _Loader();
     tester.binding.platformDispatcher.localesTestValue = const [Locale('en')];

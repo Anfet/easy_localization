@@ -212,6 +212,52 @@ void main() {
     if (!first.isCompleted) first.complete({'value': 'stale'});
   });
 
+  test('system resource loading reports busy and recovers from failure', () async {
+    binding.platformDispatcher.localesTestValue = const [Locale('ru')];
+    final owner = await EasyLocalization.initialize(config(save: false));
+    final gate = Completer<Map<String, dynamic>?>();
+    loader.gates['de'] = [gate];
+    owner.didChangeLocales(const [Locale('de')]);
+    await Future<void>.delayed(Duration.zero);
+    expect(owner.state.value.isLoading, isTrue);
+    gate.completeError(StateError('system failure'));
+    await Future<void>.delayed(Duration.zero);
+    expect(owner.state.value.isLoading, isFalse);
+    expect(owner.state.value.errorStage, LocalizationErrorStage.resources);
+    await owner.setLocale(const Locale('de'));
+    await Future<void>.delayed(Duration.zero);
+    expect(owner.state.value.isLoading, isFalse);
+    expect(owner.state.value.error, isNull);
+  });
+
+  test('system success and supersession keep the latest operation busy', () async {
+    binding.platformDispatcher.localesTestValue = const [Locale('ru')];
+    final owner = await EasyLocalization.initialize(config(save: false));
+    final system = Completer<Map<String, dynamic>?>();
+    loader.gates['de'] = [system];
+    owner.didChangeLocales(const [Locale('de')]);
+    await Future<void>.delayed(Duration.zero);
+    expect(owner.state.value.isLoading, isTrue);
+    system.complete({'value': 'system'});
+    await Future<void>.delayed(Duration.zero);
+    expect(owner.state.value.isLoading, isFalse);
+    expect(owner.locale, const Locale('de'));
+
+    final stale = Completer<Map<String, dynamic>?>();
+    final latest = Completer<Map<String, dynamic>?>();
+    loader.gates['ru'] = [stale, latest];
+    owner.didChangeLocales(const [Locale('ru')]);
+    final command = owner.setLocale(const Locale('ru'));
+    stale.complete({'value': 'stale'});
+    await Future<void>.delayed(Duration.zero);
+    expect(owner.state.value.isLoading, isTrue);
+    latest.complete({'value': 'latest'});
+    await command;
+    await Future<void>.delayed(Duration.zero);
+    expect(owner.state.value.isLoading, isFalse);
+    expect(owner.dataTranslator.tr('value'), 'latest');
+  });
+
   test('explicit choice supersedes slow system load and reset follows latest list', () async {
     binding.platformDispatcher.localesTestValue = const [Locale('ru')];
     final owner = await EasyLocalization.initialize(config(save: false));

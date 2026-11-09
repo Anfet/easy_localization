@@ -231,22 +231,13 @@ class EasyLocalizationInstance with WidgetsBindingObserver {
   Future<void> _startSystemTransition(Future<void> Function() operation) {
     final request = _controller.requestRevision;
     final transition = operation();
-    final pending = _active;
-    if (request != _controller.requestRevision && pending != null && !pending.ready.isCompleted && !pending.committed) {
-      pending.finish(const LocalizationOperationSupersededException(), LocalizationApplyOutcome.superseded);
-      _pending.remove(pending);
-      _active = null;
-      _publish();
+    if (_data == null || request == _controller.requestRevision) {
+      transition.ignore();
+      return transition;
     }
-    return _reportSystemTransition(transition);
-  }
-
-  Future<void> _reportSystemTransition(Future<void> transition) async {
-    try {
-      await transition;
-    } catch (error) {
-      if (!_disposed && _data != null) _publish(error: error, errorStage: LocalizationErrorStage.resources);
-    }
+    final tracked = _change(() => transition, system: true);
+    tracked.ignore();
+    return tracked;
   }
 
   static Future<EasyLocalizationInstance> _initialize(EasyLocalizationConfig config) {
@@ -323,7 +314,7 @@ class EasyLocalizationInstance with WidgetsBindingObserver {
     if (_disposed) throw StateError('Localization is disposed; call EasyLocalization.initialize again');
   }
 
-  Future<void> _change(AsyncCallback operation, {bool committed = false}) {
+  Future<void> _change(AsyncCallback operation, {bool committed = false, bool system = false}) {
     final previous = _active;
     if (previous != null && !previous.committed) {
       previous.finish(const LocalizationOperationSupersededException(), LocalizationApplyOutcome.superseded);
@@ -337,11 +328,11 @@ class EasyLocalizationInstance with WidgetsBindingObserver {
     _active = pending;
     _pending.add(pending);
     _publish();
-    _run(pending, operation);
+    _run(pending, operation, system: system);
     return pending.ready.future;
   }
 
-  Future<void> _run(_LocalizationPending pending, AsyncCallback operation) async {
+  Future<void> _run(_LocalizationPending pending, AsyncCallback operation, {required bool system}) async {
     try {
       await operation();
       if (_disposed || pending.ready.isCompleted) return;
@@ -378,7 +369,7 @@ class EasyLocalizationInstance with WidgetsBindingObserver {
         _publish();
       }
     } finally {
-      if (!_disposed) _startSystemTransition(_controller.replaySystemLocale);
+      if (!_disposed && !system) _startSystemTransition(_controller.replaySystemLocale);
       if (pending.applied.isCompleted) _pending.remove(pending);
       final active = _active;
       if (!_disposed && (identical(active, pending) || (active != null && active.ready.isCompleted && active.applied.isCompleted))) {
@@ -402,7 +393,7 @@ class EasyLocalizationInstance with WidgetsBindingObserver {
       useFallbackTranslationsForEmptyResources: _config.useFallbackTranslationsForEmptyResources,
     );
     final active = _active;
-    final committed = active != null && !active.ready.isCompleted && !_controller.lastCommitWasSystemEvent;
+    final committed = active != null && !active.ready.isCompleted;
     for (final pending in _pending.toList()) {
       if (!(committed && identical(pending, active)) && pending.committed && !pending.applied.isCompleted) {
         pending.applied.complete(LocalizationApplyOutcome.superseded);
