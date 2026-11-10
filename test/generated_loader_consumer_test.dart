@@ -7,6 +7,7 @@ import 'fixtures/generated_loader/codegen_loader.g.dart';
 void main() {
   test('generated loader returns linked resources for language and script locales', () async {
     const loader = CodegenLoader();
+    expect(await loader.load('', const Locale('missing')), isNull);
     expect(await loader.load('', const Locale('en')), {
       'section': {'title': 'en'},
     });

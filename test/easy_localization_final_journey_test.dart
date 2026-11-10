@@ -196,11 +196,7 @@ void main() {
 }
 
 class _Loader extends AssetLoader {
-  _Loader()
-    : super(
-        fileLoader: const RootBundleFileLoader(),
-        linkedFileResolver: const JsonLinkedFileResolver(fileLoader: RootBundleFileLoader()),
-      );
+  _Loader();
   int version = 1;
   bool fail = false;
   Completer<Map<String, dynamic>>? gate;
@@ -218,11 +214,7 @@ class _Loader extends AssetLoader {
 }
 
 class _Extra extends AssetLoader {
-  _Extra()
-    : super(
-        fileLoader: const RootBundleFileLoader(),
-        linkedFileResolver: const JsonLinkedFileResolver(fileLoader: RootBundleFileLoader()),
-      );
+  _Extra();
   int version = 1;
   @override
   Future<Map<String, dynamic>> load(String path, Locale locale) async => {

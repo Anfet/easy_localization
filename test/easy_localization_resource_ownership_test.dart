@@ -4,11 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 class ResourceLoader extends AssetLoader {
-  ResourceLoader(this.data)
-    : super(
-        linkedFileResolver: const JsonLinkedFileResolver(fileLoader: RootBundleFileLoader()),
-        fileLoader: const RootBundleFileLoader(),
-      );
+  ResourceLoader(this.data);
 
   final Map<String, Map<String, dynamic>> data;
   bool failEnglish = false;

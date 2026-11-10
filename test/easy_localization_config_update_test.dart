@@ -6,11 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 class _Loader extends AssetLoader {
-  _Loader([this.gate])
-    : super(
-        fileLoader: const RootBundleFileLoader(),
-        linkedFileResolver: const JsonLinkedFileResolver(fileLoader: RootBundleFileLoader()),
-      );
+  _Loader([this.gate]);
   final Completer<Map<String, dynamic>>? gate;
   int loads = 0;
 

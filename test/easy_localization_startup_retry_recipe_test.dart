@@ -3,11 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 class RetryLoader extends AssetLoader {
-  RetryLoader()
-    : super(
-        linkedFileResolver: const JsonLinkedFileResolver(fileLoader: RootBundleFileLoader()),
-        fileLoader: const RootBundleFileLoader(),
-      );
+  RetryLoader();
 
   bool available = false;
 

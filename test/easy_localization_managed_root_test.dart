@@ -686,11 +686,7 @@ void main() {
 }
 
 class _Loader extends AssetLoader {
-  _Loader()
-    : super(
-        fileLoader: const RootBundleFileLoader(),
-        linkedFileResolver: const JsonLinkedFileResolver(fileLoader: RootBundleFileLoader()),
-      );
+  _Loader();
   int loads = 0;
   bool fail = false;
   final gates = <String, Completer<Map<String, dynamic>>>{};

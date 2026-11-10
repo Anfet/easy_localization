@@ -3,11 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 class MemoryLoader extends AssetLoader {
-  MemoryLoader(this.translations)
-    : super(
-        linkedFileResolver: const JsonLinkedFileResolver(fileLoader: RootBundleFileLoader()),
-        fileLoader: const RootBundleFileLoader(),
-      );
+  MemoryLoader(this.translations);
 
   final Map<String, dynamic> translations;
 

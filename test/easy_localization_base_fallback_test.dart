@@ -6,11 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 class ResourceLoader extends AssetLoader {
-  ResourceLoader(this.resources)
-    : super(
-        fileLoader: const RootBundleFileLoader(),
-        linkedFileResolver: const JsonLinkedFileResolver(fileLoader: RootBundleFileLoader()),
-      );
+  ResourceLoader(this.resources);
   final Map<String, Object?> resources;
   final calls = <String>[];
   @override

@@ -7,11 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_platform_interface.dart';
 
 class DocumentLoader extends AssetLoader {
-  DocumentLoader()
-    : super(
-        linkedFileResolver: const JsonLinkedFileResolver(fileLoader: RootBundleFileLoader()),
-        fileLoader: const RootBundleFileLoader(),
-      );
+  DocumentLoader();
 
   final data = <String, Map<String, dynamic>>{};
   final pending = <String, List<Completer<Map<String, dynamic>?>>>{};

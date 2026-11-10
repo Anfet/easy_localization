@@ -8,11 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_platform_interface.dart';
 
 class InstanceLoader extends AssetLoader {
-  InstanceLoader()
-    : super(
-        linkedFileResolver: const JsonLinkedFileResolver(fileLoader: RootBundleFileLoader()),
-        fileLoader: const RootBundleFileLoader(),
-      );
+  InstanceLoader();
 
   final calls = <Locale>[];
   final data = <String, Map<String, dynamic>>{};

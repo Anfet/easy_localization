@@ -159,11 +159,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 class MemoryLoader extends AssetLoader {
-  MemoryLoader(this.translations)
-    : super(
-        linkedFileResolver: const JsonLinkedFileResolver(fileLoader: RootBundleFileLoader()),
-        fileLoader: const RootBundleFileLoader(),
-      );
+  MemoryLoader(this.translations);
 
   final Map<String, dynamic> translations;
 
@@ -894,7 +890,7 @@ The requested locale must be in `supportedLocales`. A translator remains usable 
 
 Replace the `easy_localization` dependency with `easy_localization_continued: ^4.0.0`, change imports from `package:easy_localization/easy_localization.dart` to `package:easy_localization_continued/easy_localization.dart`, and regenerate keys and loaders using `dart run easy_localization_continued:generate` with your existing arguments. Replace `easy_localization:generate` and `easy_localization:audit` in scripts with `easy_localization_continued:generate` and `easy_localization_continued:audit`. The entrypoint filename and current API calls remain the same; this does not promise full 3.x API compatibility. Constraints such as `^3.0.8` do not automatically select 4.0.0.
 
-Migrate apps and shared packages together so they use the same library. The upstream `easy_localization_loader` depends on `easy_localization: ^3.0.8`: changing a dependency key or override does not make its `AssetLoader` the new package's type. Port each upstream loader to the new import and the current required `AssetLoader` super constructor (`fileLoader` and `linkedFileResolver`), including its missing-resource and error contract described below.
+Migrate apps and shared packages together so they use the same library. The upstream `easy_localization_loader` depends on `easy_localization: ^3.0.8`: changing a dependency key or override does not make its `AssetLoader` the new package's type. Port each upstream loader to the new import and the missing-resource and error contract described below. `AssetLoader` has a parameterless constructor and no `fileLoader` or `linkedFileResolver` getters: remove those super arguments and keep any file dependencies in the custom loader itself. `RootBundleAssetLoader` retains both fields and its named constructor.
 
 The minimum SDKs are Dart 3.12 and Flutter 3.44. In 3.x, a saved locale took precedence over `startLocale`; in 4.0, `startLocale` is applied and saved on every launch. Omit `startLocale` to preserve the user's saved choice. Remove the `ignorePluralRules` argument when migrating; all constructors use the plural rules described above.
 
@@ -910,7 +906,7 @@ For a Russian-only application, `supportedLocales: [Locale('ru')]` and `fallback
 | Business and network | Keep server/guest language as business data, and choose the network-to-asset fallback policy explicitly. Use `translators.once(locale)` for a document in another language. |
 | App operations | Propagate errors from awaited locale changes to the pending action; do not report success from `finally`. |
 
-This fork has an `AssetLoader` constructor with `fileLoader` and `linkedFileResolver`; it differs from upstream `easy_localization_loader`. The removed `easy_logger`/`logger` integration is replaced by optional `onVerbose`, `onWarning`, and `onError` callbacks, silent by default. Await command futures and handle exceptions; await `waitForPresentation()` before treating a change as visible.
+Custom loaders use the parameterless `AssetLoader` constructor. The removed `easy_logger`/`logger` integration is replaced by optional `onVerbose`, `onWarning`, and `onError` callbacks, silent by default. Await command futures and handle exceptions; await `waitForPresentation()` before treating a change as visible.
 
 `setLocale`, `context.setLocale` and the deprecated locale setter can fail with `LocalizationOperationSupersededException` when superseded, or with a storage error. Replace the deprecated setter with `setLocale` or `context.setLocale`, await the returned future and handle errors in `onTap`. Calling a change without awaiting can produce an unhandled asynchronous error; a setter assignment cannot await its underlying operation.
 

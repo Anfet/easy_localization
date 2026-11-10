@@ -7,11 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'locale_wait.dart';
 
 class FailingLoader extends AssetLoader {
-  FailingLoader()
-    : super(
-        linkedFileResolver: const JsonLinkedFileResolver(fileLoader: RootBundleFileLoader()),
-        fileLoader: const RootBundleFileLoader(),
-      );
+  FailingLoader();
 
   @override
   Future<Map<String, dynamic>?> load(String path, Locale locale) async {

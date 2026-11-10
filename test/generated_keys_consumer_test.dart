@@ -1,8 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:easy_localization_continued/easy_localization.dart'
-    show AssetLoader, EasyLocalization, EasyLocalizationConfig, JsonLinkedFileResolver, RootBundleFileLoader;
+import 'package:easy_localization_continued/easy_localization.dart' show AssetLoader, EasyLocalization, EasyLocalizationConfig;
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -40,11 +39,7 @@ void main() {
 }
 
 class _FixtureLoader extends AssetLoader {
-  const _FixtureLoader()
-    : super(
-        linkedFileResolver: const JsonLinkedFileResolver(fileLoader: RootBundleFileLoader()),
-        fileLoader: const RootBundleFileLoader(),
-      );
+  const _FixtureLoader();
 
   @override
   Future<Map<String, dynamic>> load(String path, Locale locale) async =>

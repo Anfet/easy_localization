@@ -6,15 +6,10 @@ import 'package:easy_localization_continued/src/diagnostics.dart';
 
 /// Loads translation resources from a custom source.
 ///
-/// Subclasses must pass a [FileLoader] and [LinkedFileResolver] to the
-/// superclass constructor. Upstream easy_localization_loader implementations
-/// target a different package and must be ported before use.
+/// Upstream easy_localization_loader implementations target a different
+/// package and must be ported before use.
 abstract class AssetLoader {
-  // Place inside class RootBundleAssetLoader
-  final FileLoader fileLoader;
-  final LinkedFileResolver linkedFileResolver;
-
-  const AssetLoader({required this.linkedFileResolver, required this.fileLoader});
+  const AssetLoader();
 
   /// Return null only for a confirmed missing resource. An empty map is a
   /// successful empty resource; loading and parsing failures must throw.
@@ -26,7 +21,10 @@ abstract class AssetLoader {
 /// default used is RootBundleAssetLoader which uses flutter's assetloader
 ///
 class RootBundleAssetLoader extends AssetLoader {
-  const RootBundleAssetLoader({required super.linkedFileResolver, required super.fileLoader});
+  final FileLoader fileLoader;
+  final LinkedFileResolver linkedFileResolver;
+
+  const RootBundleAssetLoader({required this.linkedFileResolver, required this.fileLoader});
 
   factory RootBundleAssetLoader.fromRootBundle() {
     return const RootBundleAssetLoader(

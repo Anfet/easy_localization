@@ -3,11 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 class RecipeLoader extends AssetLoader {
-  RecipeLoader()
-    : super(
-        fileLoader: const RootBundleFileLoader(),
-        linkedFileResolver: const JsonLinkedFileResolver(fileLoader: RootBundleFileLoader()),
-      );
+  RecipeLoader();
   @override
   Future<Map<String, dynamic>?> load(String path, Locale locale) async => {};
 }

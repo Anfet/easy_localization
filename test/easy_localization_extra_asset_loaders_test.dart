@@ -9,11 +9,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'utils/test_asset_loaders.dart';
 
 class CallbackLoader extends AssetLoader {
-  CallbackLoader(this.callback)
-    : super(
-        linkedFileResolver: const JsonLinkedFileResolver(fileLoader: RootBundleFileLoader()),
-        fileLoader: const RootBundleFileLoader(),
-      );
+  CallbackLoader(this.callback);
 
   final Future<Map<String, dynamic>?> Function() callback;
 

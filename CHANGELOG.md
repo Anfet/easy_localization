@@ -8,7 +8,7 @@ Entries through 3.0.9 preserve the history of the original project. Version 4.0.
 
 #### Breaking changes
 
-- Published package namespace is `easy_localization_continued`: replace the dependency and package imports, use `easy_localization_continued:generate` / `easy_localization_continued:audit`, and regenerate keys and loaders. Existing 3.x constraints do not upgrade automatically. Upstream loaders require porting to the new `AssetLoader` type and current constructor and error contract; see the migration guide.
+- Published package namespace is `easy_localization_continued`: replace the dependency and package imports, use `easy_localization_continued:generate` / `easy_localization_continued:audit`, and regenerate keys and loaders. Existing 3.x constraints do not upgrade automatically. Upstream loaders require porting to the new `AssetLoader` type and error contract. Remove `fileLoader` and `linkedFileResolver` super arguments and base getter access; custom file loaders own their dependencies, while `RootBundleAssetLoader` retains its fields and constructor; see the migration guide.
 
 - Generated keys re-export the translation extensions and are now Flutter-facing artifacts, rather than standalone Dart libraries.
 - Custom linked file resolvers must accept `scriptCode` in `resolveLinkedFiles` and `getLinkedLocalePath`; `resolveLinkedFilesForLocale` was removed.

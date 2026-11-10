@@ -5,13 +5,10 @@
 import 'dart:ui';
 
 import 'package:easy_localization_continued/easy_localization.dart'
-    show AssetLoader, JsonLinkedFileResolver, RootBundleFileLoader;
+    show AssetLoader;
 
 class CodegenLoader extends AssetLoader{
-  const CodegenLoader() : super(
-    fileLoader: const RootBundleFileLoader(),
-    linkedFileResolver: const JsonLinkedFileResolver(fileLoader: RootBundleFileLoader()),
-  );
+  const CodegenLoader();
 
   @override
   Future<Map<String, dynamic>?> load(String path, Locale locale) {

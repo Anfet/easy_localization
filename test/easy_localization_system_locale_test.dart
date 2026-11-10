@@ -8,11 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_platform_interface.dart';
 
 class LocaleLoader extends AssetLoader {
-  LocaleLoader()
-    : super(
-        linkedFileResolver: const JsonLinkedFileResolver(fileLoader: RootBundleFileLoader()),
-        fileLoader: const RootBundleFileLoader(),
-      );
+  LocaleLoader();
   final pending = <String, Completer<Map<String, dynamic>?>>{};
   final held = <String>{};
   final failures = <String>{};

@@ -6,11 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class MutableLoader extends AssetLoader {
-  MutableLoader()
-    : super(
-        linkedFileResolver: const JsonLinkedFileResolver(fileLoader: RootBundleFileLoader()),
-        fileLoader: const RootBundleFileLoader(),
-      );
+  MutableLoader();
   final data = <String, Map<String, dynamic>>{
     'en': {
       'value': 'Old',

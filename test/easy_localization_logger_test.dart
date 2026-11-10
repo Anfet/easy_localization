@@ -9,11 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'utils/test_asset_loaders.dart';
 
 class FailingLoader extends AssetLoader {
-  FailingLoader(this.error, this.stackTrace)
-    : super(
-        linkedFileResolver: const JsonLinkedFileResolver(fileLoader: RootBundleFileLoader()),
-        fileLoader: const RootBundleFileLoader(),
-      );
+  FailingLoader(this.error, this.stackTrace);
 
   final Object error;
   final StackTrace stackTrace;
@@ -30,11 +26,7 @@ class ConstantFileLoader implements FileLoader {
 }
 
 class MissingBaseLoader extends AssetLoader {
-  const MissingBaseLoader()
-    : super(
-        linkedFileResolver: const JsonLinkedFileResolver(fileLoader: RootBundleFileLoader()),
-        fileLoader: const RootBundleFileLoader(),
-      );
+  const MissingBaseLoader();
 
   @override
   Future<Map<String, dynamic>?> load(String path, Locale locale) async {

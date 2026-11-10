@@ -7,11 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_platform_interface.dart';
 
 class Loader extends AssetLoader {
-  Loader()
-    : super(
-        linkedFileResolver: const JsonLinkedFileResolver(fileLoader: RootBundleFileLoader()),
-        fileLoader: const RootBundleFileLoader(),
-      );
+  Loader();
   final pending = <String, Completer<Map<String, dynamic>?>>{};
   @override
   Future<Map<String, dynamic>?> load(String path, Locale locale) => pending.putIfAbsent(locale.toString(), () => Completer()).future;

@@ -160,11 +160,7 @@ class _Leaf extends StatelessWidget {
 }
 
 class _Loader extends AssetLoader {
-  const _Loader()
-    : super(
-        linkedFileResolver: const JsonLinkedFileResolver(fileLoader: RootBundleFileLoader()),
-        fileLoader: const RootBundleFileLoader(),
-      );
+  const _Loader();
 
   @override
   Future<Map<String, dynamic>> load(String path, Locale locale) async => {'value': locale.languageCode};

@@ -4,11 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 class RecordingLoader extends AssetLoader {
-  RecordingLoader()
-    : super(
-        linkedFileResolver: const JsonLinkedFileResolver(fileLoader: RootBundleFileLoader()),
-        fileLoader: const RootBundleFileLoader(),
-      );
+  RecordingLoader();
   final locales = <Locale>[];
 
   @override
