@@ -55,6 +55,20 @@ void main() {
   testWidgets('rejects each changed owner input', (tester) async {
     final loader = _Loader();
     final otherLoader = _Loader();
+    const changedFields = [
+      'supportedLocales',
+      'path',
+      'fallbackLocale',
+      'startLocale',
+      'assetLoader',
+      'extraAssetLoaders',
+      'useOnlyLangCode',
+      'useFallbackTranslations',
+      'useBaseLanguageFallback',
+      'useFallbackTranslationsForEmptyResources',
+      'saveLocale',
+      'additionalDelegates',
+    ];
     for (var change = 0; change < 12; change++) {
       Widget root(bool changed) => EasyLocalization(
         supportedLocales: changed && change == 0 ? [const Locale('en'), const Locale('fr')] : [const Locale('en'), const Locale('de')],
@@ -74,7 +88,12 @@ void main() {
       await tester.pumpWidget(root(false));
       await tester.pumpAndSettle();
       await tester.pumpWidget(root(true));
-      expect(tester.takeException(), isA<StateError>(), reason: 'input $change');
+      final error = tester.takeException();
+      expect(error, isA<StateError>(), reason: 'input $change');
+      expect(error.toString(), contains(changedFields[change]), reason: 'input $change');
+      if (change == 4 || change == 5 || change == 11) {
+        expect(error.toString(), contains('create the same instance once outside build or use const'), reason: 'input $change');
+      }
       await tester.pumpWidget(const SizedBox());
       try {
         EasyLocalization.instance.dispose();

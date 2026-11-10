@@ -59,23 +59,26 @@ class EasyLocalizationConfig {
     if (start != null && !supportedLocales.contains(start)) throw ArgumentError.value(start, 'startLocale', 'Must be supported');
   }
 
-  bool _matches(EasyLocalization widget) {
+  String? _difference(EasyLocalization widget) {
+    if (!listEquals(supportedLocales, widget.supportedLocales)) return 'supportedLocales';
+    if (path != widget.path) return 'path';
+    if (fallbackLocale != (widget.fallbackLocale ?? widget.supportedLocales.first)) return 'fallbackLocale';
+    if (startLocale != widget.startLocale) return 'startLocale';
+    if (!identical(assetLoader, widget.assetLoader)) return 'assetLoader';
     final extras = widget.extraAssetLoaders ?? const <AssetLoader>[];
-    if (extras.length != extraAssetLoaders.length) return false;
+    if (extras.length != extraAssetLoaders.length) return 'extraAssetLoaders';
     for (var index = 0; index < extras.length; index++) {
-      if (!identical(extras[index], extraAssetLoaders[index])) return false;
+      if (!identical(extras[index], extraAssetLoaders[index])) return 'extraAssetLoaders';
     }
-    return listEquals(supportedLocales, widget.supportedLocales) &&
-        path == widget.path &&
-        fallbackLocale == (widget.fallbackLocale ?? widget.supportedLocales.first) &&
-        startLocale == widget.startLocale &&
-        identical(assetLoader, widget.assetLoader) &&
-        useOnlyLangCode == widget.useOnlyLangCode &&
-        useFallbackTranslations == widget.useFallbackTranslations &&
-        useBaseLanguageFallback == widget.useBaseLanguageFallback &&
-        useFallbackTranslationsForEmptyResources == widget.useFallbackTranslationsForEmptyResources &&
-        saveLocale == widget.saveLocale &&
-        listEquals(additionalDelegates, widget.additionalDelegates);
+    if (useOnlyLangCode != widget.useOnlyLangCode) return 'useOnlyLangCode';
+    if (useFallbackTranslations != widget.useFallbackTranslations) return 'useFallbackTranslations';
+    if (useBaseLanguageFallback != widget.useBaseLanguageFallback) return 'useBaseLanguageFallback';
+    if (useFallbackTranslationsForEmptyResources != widget.useFallbackTranslationsForEmptyResources) {
+      return 'useFallbackTranslationsForEmptyResources';
+    }
+    if (saveLocale != widget.saveLocale) return 'saveLocale';
+    if (!listEquals(additionalDelegates, widget.additionalDelegates)) return 'additionalDelegates';
+    return null;
   }
 }
 

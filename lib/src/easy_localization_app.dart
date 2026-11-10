@@ -12,6 +12,11 @@ part 'utils.dart';
 part 'easy_localization_instance.dart';
 part 'locale_translators.dart';
 
+String _legacyConfigHint(String field) => switch (field) {
+  'assetLoader' || 'extraAssetLoaders' || 'additionalDelegates' => ', create the same instance once outside build or use const',
+  _ => '',
+};
+
 /// Provides localization to a widget tree using a ready owner or legacy setup.
 ///
 /// Initialize an owner with [initialize] and attach it with
@@ -241,7 +246,10 @@ class _EasyLocalizationState extends State<EasyLocalization> {
     if (provided != null || ready != null) {
       final owner = provided ?? ready;
       if (owner == null) throw StateError('Call EasyLocalization.initialize first');
-      if (provided == null && !owner.config._matches(widget)) throw StateError('The legacy root config differs from the ready localization owner');
+      final difference = provided == null ? owner.config._difference(widget) : null;
+      if (difference != null) {
+        throw StateError('The legacy root config differs from the ready localization owner: $difference${_legacyConfigHint(difference)}');
+      }
       _ownsInstance = provided == null && owner._rootOwned;
       _attachOwner(owner);
       return;
@@ -290,8 +298,15 @@ class _EasyLocalizationState extends State<EasyLocalization> {
       throw StateError('Unmount the localization root completely, then mount a new root in a later frame to replace its owner');
     }
     final config = _legacyConfig;
-    if (config != null && (widget.supportedLocales.isEmpty || widget.fallbackLocale != _legacyFallbackLocale || !config._matches(widget))) {
-      throw StateError('Unmount the localization root completely, then mount a new root with a new key in a later frame to change its configuration');
+    if (config != null) {
+      final difference = widget.supportedLocales.isEmpty || widget.fallbackLocale != _legacyFallbackLocale
+          ? 'fallbackLocale'
+          : config._difference(widget);
+      if (difference != null) {
+        throw StateError(
+          'Unmount the localization root completely, then mount a new root with a new key in a later frame to change its configuration ($difference)${_legacyConfigHint(difference)}',
+        );
+      }
     }
   }
 

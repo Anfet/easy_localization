@@ -18,6 +18,7 @@ Entries through 3.0.9 preserve the history of the original project. Version 4.0.
 - Removed the `EasyLocalization.logger` / `easy_logger` integration. Configure the optional `onVerbose`, `onWarning`, and `onError` callbacks instead; diagnostics are silent by default.
 - Removed `ignorePluralRules`. All plural lookups use explicit 0/1/2 forms followed by locale rules from intl, with each source tried before fallback. The new owner disables base-language fallback by default.
 - Both startup paths use start, saved, system, then fallback locale; the legacy root defaults to the first supported fallback and disables base-language fallback. Missing primary or configured fallback resources and loader exceptions fail loading; a null optional base resource is skipped.
+- In 3.x a saved locale took precedence over `startLocale`; in 4.0 `startLocale` is applied and saved on every launch. Omit `startLocale` to preserve the user's saved choice.
 - `ensureInitialized()` without a config only prepares Flutter; pass a config to load translations. Context translation forms are deprecated and retain their scoped lookup until 5.0.
 - The owner requires a supported `fallbackLocale` and reports missing scope access with `LocalizationNotFoundException`.
 
