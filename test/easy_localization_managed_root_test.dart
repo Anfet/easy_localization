@@ -491,6 +491,110 @@ void main() {
     }
   });
 
+  testWidgets('reparenting the ready root retains its descendant state and reapplies presentation', (tester) async {
+    final instance = await owner(_Loader());
+    final rootKey = GlobalKey();
+    final pageKey = GlobalKey<_PageState>();
+    final scroll = ScrollController();
+    final focus = FocusNode();
+    final input = TextEditingController();
+    Widget root() => EasyLocalization.withInstance(
+      key: rootKey,
+      instance: instance,
+      child: _App(
+        home: _Page(key: pageKey, scroll: scroll, focus: focus, input: input),
+      ),
+    );
+    try {
+      await tester.pumpWidget(root());
+      await tester.pumpAndSettle();
+      final page = pageKey.currentState;
+      await tester.enterText(find.byType(TextField), 'retained');
+      final previous = instance.waitForPresentation();
+      await tester.pumpWidget(Padding(padding: const EdgeInsets.all(8), child: root()));
+      final reattached = instance.waitForPresentation();
+      await tester.pumpAndSettle();
+      expect(pageKey.currentState, same(page));
+      expect(input.text, 'retained');
+      expect(find.text('en-1 home'), findsOneWidget);
+      expect(await previous, LocalizationApplyOutcome.applied);
+      expect(await reattached, LocalizationApplyOutcome.applied);
+      expect(instance.state.value.isLoading, isFalse);
+    } finally {
+      await tester.pumpWidget(const SizedBox());
+      instance.dispose();
+      scroll.dispose();
+      focus.dispose();
+      input.dispose();
+    }
+  });
+
+  testWidgets('reparenting pending preparation detaches its receipt and ignores the old delegate result', (tester) async {
+    final delegate = _Delegate();
+    final instance = await owner(_Loader(), delegate);
+    final key = GlobalKey();
+    Widget root() => EasyLocalization.withInstance(
+      key: key,
+      instance: instance,
+      child: const _App(home: _Leaf(label: 'home')),
+    );
+    try {
+      await tester.pumpWidget(root());
+      await tester.pumpAndSettle();
+      final gate = Completer<_Resource>();
+      delegate.gates['de'] = gate;
+      await instance.setLocale(const Locale('de'));
+      final previous = instance.waitForPresentation();
+      await tester.pump();
+      delegate.gates.remove('de');
+      await tester.pumpWidget(Padding(padding: const EdgeInsets.all(8), child: root()));
+      final reattached = instance.waitForPresentation();
+      await tester.pumpAndSettle();
+      expect(await previous, LocalizationApplyOutcome.detached);
+      expect(await reattached, LocalizationApplyOutcome.applied);
+      gate.completeError(StateError('old delegate failed'));
+      await tester.pumpAndSettle();
+      expect(find.text('de-2 home'), findsOneWidget);
+      expect(instance.state.value.error, isNull);
+    } finally {
+      await tester.pumpWidget(const SizedBox());
+      instance.dispose();
+    }
+  });
+
+  for (final reparent in [false, true]) {
+    testWidgets('delegate failure clears after ${reparent ? 'reactivation' : 'borrowed remount'}', (tester) async {
+      final delegate = _Delegate()..fail = true;
+      final instance = await owner(_Loader(), delegate);
+      final key = GlobalKey();
+      Widget root() => EasyLocalization.withInstance(
+        key: key,
+        instance: instance,
+        child: const _App(home: _Leaf(label: 'home')),
+      );
+      try {
+        await tester.pumpWidget(root());
+        await tester.pumpAndSettle();
+        final failed = instance.waitForPresentation();
+        expect(await failed, LocalizationApplyOutcome.failed);
+        expect(instance.state.value.errorStage, LocalizationErrorStage.flutterDelegates);
+        delegate.fail = false;
+        if (!reparent) await tester.pumpWidget(const SizedBox());
+        await tester.pumpWidget(Padding(padding: const EdgeInsets.all(8), child: root()));
+        final recovered = instance.waitForPresentation();
+        await tester.pumpAndSettle();
+        expect(await recovered, LocalizationApplyOutcome.applied);
+        expect(await failed, LocalizationApplyOutcome.failed);
+        expect(find.text('en-1 home'), findsOneWidget);
+        expect(instance.state.value.error, isNull);
+        expect(instance.state.value.errorStage, isNull);
+      } finally {
+        await tester.pumpWidget(const SizedBox());
+        instance.dispose();
+      }
+    });
+  }
+
   testWidgets('mount after resource failure presents the latest committed snapshot and retains the operation error', (tester) async {
     final loader = _Loader();
     final instance = await owner(loader);
@@ -511,6 +615,34 @@ void main() {
     } finally {
       await tester.pumpWidget(const SizedBox());
       instance.dispose();
+    }
+  });
+
+  testWidgets('mount after persistence failure retains the operation error', (tester) async {
+    final original = SharedPreferencesStorePlatform.instance;
+    final store = _RetryStore();
+    SharedPreferencesStorePlatform.instance = store;
+    SharedPreferences.resetStatic();
+    final instance = await owner(_Loader(), null, true);
+    try {
+      store.fail = true;
+      await expectLater(instance.setLocale(const Locale('de')), throwsStateError);
+      await tester.pumpWidget(
+        EasyLocalization.withInstance(
+          instance: instance,
+          child: const _App(home: _Leaf(label: 'home')),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('de-2 home'), findsOneWidget);
+      expect(await instance.waitForPresentation(), LocalizationApplyOutcome.applied);
+      expect(instance.state.value.errorStage, LocalizationErrorStage.persistence);
+      expect(instance.state.value.error, isNotNull);
+    } finally {
+      await tester.pumpWidget(const SizedBox());
+      instance.dispose();
+      SharedPreferencesStorePlatform.instance = original;
+      SharedPreferences.resetStatic();
     }
   });
 

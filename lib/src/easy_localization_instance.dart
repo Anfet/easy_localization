@@ -463,6 +463,10 @@ class EasyLocalizationInstance with WidgetsBindingObserver {
       !_disposed && revision == _committedRevision && (_active == null || _active?.committed == true || _active?.ready.isCompleted == true);
 
   void _didApply(int revision, Locale locale) {
+    if (_errorStage == LocalizationErrorStage.flutterDelegates && revision == _committedRevision) {
+      _error = null;
+      _errorStage = null;
+    }
     _presentedData = _data;
     _appliedLocale = locale;
     for (final pending in _pending.toList()) {

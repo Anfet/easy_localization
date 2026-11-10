@@ -185,7 +185,6 @@ class _EasyLocalizationState extends State<EasyLocalization> {
     final prepared = _prepared;
     if (prepared != null && _owner._canPresent(prepared.revision) && !identical(prepared, _owner._publishedPresentation)) {
       _owner._publishedPresentation = prepared;
-      _prepared = null;
       Localization.publish(prepared.snapshot);
       // Mark retained descendants before updateChild; keys, Elements and State survive.
       void rebuild(Element element) {
@@ -313,6 +312,8 @@ class _EasyLocalizationState extends State<EasyLocalization> {
   @override
   void deactivate() {
     if (_rootAttached) {
+      _preparationGeneration++;
+      _preparingRevision = -1;
       localizationController.removeListener(_resourcesChanged);
       if (!_owner._disposed) _owner.state.removeListener(_ownerChanged);
       _owner._detach();
@@ -323,7 +324,11 @@ class _EasyLocalizationState extends State<EasyLocalization> {
   @override
   void activate() {
     super.activate();
-    if (_rootAttached) _attachOwner(_owner);
+    if (_rootAttached) {
+      _failedRequest = null;
+      translationsLoadError = null;
+      _attachOwner(_owner);
+    }
   }
 
   @override
@@ -348,8 +353,9 @@ class _EasyLocalizationState extends State<EasyLocalization> {
     final snapshot = _owner._data;
     final revision = _owner._committedRevision;
     final locale = _owner.locale;
-    if (snapshot == null || revision == _preparingRevision || !_owner._canPresent(revision)) return;
+    if (snapshot == null || revision == _preparingRevision || _prepared?.revision == revision || !_owner._canPresent(revision)) return;
     _preparingRevision = revision;
+    final generation = _preparationGeneration;
     try {
       final delegates = <LocalizationsDelegate<dynamic>>[
         ..._owner.config.additionalDelegates,
@@ -366,15 +372,15 @@ class _EasyLocalizationState extends State<EasyLocalization> {
           adapters.add(_PreparedDelegate(type: delegate.type, value: value, revision: revision));
         }
       }
-      if (!mounted || !_owner._canPresent(revision)) {
-        if (_preparingRevision == revision) _preparingRevision = -1;
+      if (!mounted || generation != _preparationGeneration || !_owner._canPresent(revision)) {
+        if (generation == _preparationGeneration && _preparingRevision == revision) _preparingRevision = -1;
         return;
       }
       _prepared = _PreparedLocalization(snapshot, locale, revision, adapters);
       setState(() => translationsLoadError = null);
     } catch (error, stack) {
-      if (!mounted || !_owner._canPresent(revision)) {
-        if (_preparingRevision == revision) _preparingRevision = -1;
+      if (!mounted || generation != _preparationGeneration || !_owner._canPresent(revision)) {
+        if (generation == _preparationGeneration && _preparingRevision == revision) _preparingRevision = -1;
         return;
       }
       reportLocalizationDiagnostic(EasyLocalization.onError, 'Flutter localization delegate failed: $error', stackTrace: stack);
@@ -386,6 +392,7 @@ class _EasyLocalizationState extends State<EasyLocalization> {
 
   _PreparedLocalization? _prepared;
   int _preparingRevision = -1;
+  int _preparationGeneration = 0;
   final Object _attachment = Object();
   int? _failedRequest;
   late EasyLocalizationController localizationController;
