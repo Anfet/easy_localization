@@ -74,6 +74,36 @@ Future<void> main() async {
     expect(snapshot.tr('test'), 'test');
   });
 
+  testWidgets('borrowed root replacement retains translations and applies locale changes', (tester) async {
+    final owner = await EasyLocalization.initialize(
+      EasyLocalizationConfig(
+        supportedLocales: const [Locale('en'), Locale('de')],
+        fallbackLocale: const Locale('en'),
+        startLocale: const Locale('en'),
+        path: 'unused',
+        saveLocale: false,
+        assetLoader: InstanceLoader(),
+      ),
+    );
+    Widget root(Key key) => EasyLocalization.withInstance(
+      key: key,
+      instance: owner,
+      child: MaterialApp(home: Builder(builder: (_) => Text(tr('value')))),
+    );
+    await tester.pumpWidget(root(const ValueKey(1)));
+    await tester.pumpAndSettle();
+    await tester.pumpWidget(root(const ValueKey(2)));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(EasyLocalization.instance, same(owner));
+    expect(find.text('en'), findsOneWidget);
+    await owner.setLocale(const Locale('de'));
+    await tester.pumpAndSettle();
+    expect(find.text('de'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+    owner.dispose();
+  });
+
   testWidgets('legacy root remounts while the previous bootstrap is loading', (tester) async {
     tester.binding.platformDispatcher.localesTestValue = const [Locale('en')];
     addTearDown(tester.binding.platformDispatcher.clearLocalesTestValue);

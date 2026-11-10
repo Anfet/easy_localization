@@ -110,6 +110,32 @@ void main() {
     }
   });
 
+  testWidgets('legacy root replacement transfers ownership within one frame', (tester) async {
+    final loader = _Loader();
+    Widget root(Key key, String path) => EasyLocalization(
+      key: key,
+      supportedLocales: const [Locale('en')],
+      path: path,
+      startLocale: const Locale('en'),
+      saveLocale: false,
+      assetLoader: loader,
+      child: MaterialApp(home: Builder(builder: (_) => Text(tr('value')))),
+    );
+    await tester.pumpWidget(root(const ValueKey(1), 'first'));
+    await tester.pumpAndSettle();
+    final owner = EasyLocalization.instance;
+    await tester.pumpWidget(root(const ValueKey(2), 'first'));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(EasyLocalization.instance, same(owner));
+    expect(find.text('first'), findsOneWidget);
+    await tester.pumpWidget(root(const ValueKey(3), 'second'));
+    expect(tester.takeException(), isA<StateError>());
+    await tester.pumpWidget(const SizedBox());
+    expect(() => EasyLocalization.instance, throwsStateError);
+    expect(() => owner.setLocale(const Locale('en')), throwsStateError);
+  });
+
   testWidgets('equal lists retain owner; unmount then a new key permits new configuration', (tester) async {
     final loader = _Loader();
     Widget root(Key key, String path, String text) => EasyLocalization(

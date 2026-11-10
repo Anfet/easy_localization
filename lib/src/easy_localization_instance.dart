@@ -504,6 +504,7 @@ class EasyLocalizationInstance with WidgetsBindingObserver {
   Object? _error;
   LocalizationErrorStage? _errorStage;
   bool _disposed = false;
+  bool _rootOwned = false;
   Object? _attachment;
   bool get _attached => _attachment != null;
   static EasyLocalizationInstance? _instance;

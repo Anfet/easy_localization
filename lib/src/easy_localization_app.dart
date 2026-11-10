@@ -242,6 +242,7 @@ class _EasyLocalizationState extends State<EasyLocalization> {
       final owner = provided ?? ready;
       if (owner == null) throw StateError('Call EasyLocalization.initialize first');
       if (provided == null && !owner.config._matches(widget)) throw StateError('The legacy root config differs from the ready localization owner');
+      _ownsInstance = provided == null && owner._rootOwned;
       _attachOwner(owner);
       return;
     }
@@ -266,6 +267,7 @@ class _EasyLocalizationState extends State<EasyLocalization> {
         owner.dispose();
         return;
       }
+      owner._rootOwned = true;
       setState(() => _attachOwner(owner));
     } catch (error) {
       if (mounted) setState(() => translationsLoadError = error is FlutterError ? error : FlutterError(error.toString()));
@@ -294,13 +296,24 @@ class _EasyLocalizationState extends State<EasyLocalization> {
   }
 
   @override
-  void dispose() {
+  void deactivate() {
     if (_rootAttached) {
       localizationController.removeListener(_resourcesChanged);
       if (!_owner._disposed) _owner.state.removeListener(_ownerChanged);
       _owner._detach();
-      if (_ownsInstance) _owner.dispose();
     }
+    super.deactivate();
+  }
+
+  @override
+  void activate() {
+    super.activate();
+    if (_rootAttached) _attachOwner(_owner);
+  }
+
+  @override
+  void dispose() {
+    if (_rootAttached && _ownsInstance && !_owner._disposed && !_owner._attached) _owner.dispose();
     super.dispose();
   }
 

@@ -327,16 +327,7 @@ With `saveLocale: false`, initialize, set, reset, and delete never access prefer
 To restore a manual selection, omit `startLocale` on subsequent launches. The stored `locale` key and existing language/script/country forms remain compatible; no storage migration is needed.
 The legacy widget constructor uses the same startup priority and defaults the fallback to the first supported locale; both paths disable base-language fallback by default. Its configuration must remain unchanged while the root is mounted, including during startup. To change it, completely unmount the old root and finish that frame, then mount a new root with a new key in a later frame. Rebuilding the child or error widget and passing equivalent configuration lists are supported.
 
-A ready root must be completely unmounted before another root is mounted, even when the new root has a different key. For a borrowed root, reuse the same live owner after the unmount frame; for a legacy-owned root, its owner is disposed during unmount and the new root can use a different configuration. For example, in a widget test:
-
-```dart
-await tester.pumpWidget(const SizedBox.shrink()); // Complete the unmount frame.
-await tester.pumpWidget(EasyLocalization.withInstance(
-  key: UniqueKey(), instance: owner, child: const MyApp(),
-));
-```
-
-For legacy ownership, replace the second step with `tester.pumpWidget(EasyLocalization(key: UniqueKey(), ...))` using the new configuration. In an app, render a placeholder for one frame before rendering the new root.
+A ready root can be replaced in one frame with a new key when it uses the same configuration, or the same borrowed owner. A legacy-owned root passes ownership to the replacement. A waiter for presentation receives `detached` during the replacement. To use a different legacy configuration, render a placeholder for one frame before mounting the new root with a new key.
 
 Commands return `Future<void>`. A persistence error may leave committed data available; repeating the selection retries storage. Read `dataTranslator` for a snapshot and `state` for progress and errors. Dispose the owner when no longer needed. Global access before readiness or after disposal throws `StateError`. Reusing the same config object reuses initialization; another config requires disposing the current owner first.
 
