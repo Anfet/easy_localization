@@ -143,7 +143,9 @@ class EasyLocalizationInstance with WidgetsBindingObserver {
   Future<void> setLocale(Locale locale) {
     _checkLive();
     if (!_config.supportedLocales.contains(locale)) throw ArgumentError.value(locale, 'locale', 'Must be supported');
-    return _change(() => _controller.setLocale(locale), committed: locale == this.locale && _data != null && !isSystemMode);
+    final active = _active;
+    if (active != null && !active.ready.isCompleted && active.target == locale) return active.ready.future;
+    return _change(() => _controller.setLocale(locale), target: locale, committed: locale == this.locale && _data != null && !isSystemMode);
   }
 
   /// Follows the system after loading successfully, then removes explicit storage.
@@ -314,7 +316,7 @@ class EasyLocalizationInstance with WidgetsBindingObserver {
     if (_disposed) throw StateError('Localization is disposed; call EasyLocalization.initialize again');
   }
 
-  Future<void> _change(AsyncCallback operation, {bool committed = false, bool system = false}) {
+  Future<void> _change(AsyncCallback operation, {Locale? target, bool committed = false, bool system = false}) {
     final previous = _active;
     if (previous != null && !previous.committed) {
       previous.finish(const LocalizationOperationSupersededException(), LocalizationApplyOutcome.superseded);
@@ -322,7 +324,7 @@ class EasyLocalizationInstance with WidgetsBindingObserver {
     }
     _error = null;
     _errorStage = null;
-    final pending = _LocalizationPending(++_revision);
+    final pending = _LocalizationPending(++_revision, target: target);
     pending.committed = committed;
     if (committed && !identical(_data, _presentedData)) _presentation = pending.applied.future;
     _active = pending;
@@ -511,11 +513,12 @@ class EasyLocalizationInstance with WidgetsBindingObserver {
 
 class _LocalizationPending {
   final int revision;
+  final Locale? target;
   final Completer<void> ready = Completer();
   final Completer<LocalizationApplyOutcome> applied = Completer();
   bool committed = false;
 
-  _LocalizationPending(this.revision);
+  _LocalizationPending(this.revision, {this.target});
 
   void finish(Object error, LocalizationApplyOutcome presentation) {
     if (!ready.isCompleted) ready.completeError(error);

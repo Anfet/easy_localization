@@ -643,6 +643,37 @@ void main() {
     expect(() => owner.config.supportedLocales.clear(), throwsUnsupportedError);
   });
 
+  test('repeated locale selection shares the pending load and persistence', () async {
+    final owner = await EasyLocalization.initialize(
+      config(start: const Locale('en'), supported: const [Locale('en'), Locale('de'), Locale('ru')], fallback: const Locale('en')),
+    );
+    final gate = Completer<Map<String, dynamic>?>();
+    loader.gates['de'] = [gate];
+    final first = owner.setLocale(const Locale('de'));
+    final second = owner.setLocale(const Locale('de'));
+    expect(loader.calls.where((locale) => locale == const Locale('de')), hasLength(1));
+    gate.complete({'value': 'de'});
+    await Future.wait([first, second]);
+    expect(owner.locale, const Locale('de'));
+    expect(store.data['flutter.locale'], 'de');
+  });
+
+  test('another locale supersedes both callers sharing a pending selection', () async {
+    final owner = await EasyLocalization.initialize(
+      config(start: const Locale('en'), supported: const [Locale('en'), Locale('de'), Locale('ru')], fallback: const Locale('en')),
+    );
+    final gate = Completer<Map<String, dynamic>?>();
+    loader.gates['de'] = [gate];
+    final first = owner.setLocale(const Locale('de'));
+    final second = owner.setLocale(const Locale('de'));
+    final firstCheck = expectLater(first, throwsA(isA<LocalizationOperationSupersededException>()));
+    final secondCheck = expectLater(second, throwsA(isA<LocalizationOperationSupersededException>()));
+    final replacement = owner.setLocale(const Locale('ru'));
+    await Future.wait([firstCheck, secondCheck, replacement]);
+    gate.complete({'value': 'de'});
+    expect(owner.locale, const Locale('ru'));
+  });
+
   test('newest locale and reload reserve revisions and discard late resources', () async {
     final owner = await EasyLocalization.initialize(config(start: const Locale('ru'), save: false));
     final old = Completer<Map<String, dynamic>?>();
