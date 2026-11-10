@@ -650,6 +650,8 @@ Custom `LinkedFileResolver` subclasses must add the optional `String? scriptCode
 
 Each linked file must contain a valid object of translation keys (of the file type you are using [Other file types](#-loading-translations-from-other-resources)).  
 
+The `generate` and `audit` commands read linked JSON files from the project. Use them only with trusted translation directories and trusted JSON files throughout the link chain. A linked path can read files outside the translations directory with the permissions of the process running the command, and their contents can be included in generated output. These commands do not provide an operating-system sandbox; restrict the process's access to resources when handling untrusted input.
+
 Don't forget to add your linked files (or linked files folder, here assets/translations/en-US/), to your pubspec.yaml : [See installation](#-installation).
 
 ### 🔥 Reset locale `resetLocale()`
@@ -764,6 +766,8 @@ in ordinal filename order is used. Pass `--source-file` to choose a complete fal
 does not contain every key. JSON loader generation uses all regular `.json` files in the same filename order unless a
 source file is specified. JSON loader filenames must have a nonempty locale name using only ASCII letters, digits, underscores, and hyphens. Hyphens become underscores, so names such as `en-US.json` and `en_US.json` cannot be used together. Linked JSON files are resolved during generation for both formats, so generated loaders do not read them at runtime. Missing or invalid sources and broken links produce exit code 1 and leave the existing output untouched.
 
+Only run generation on trusted translation directories and linked JSON files. Linked paths are read with the permissions of the process and can reach outside the translations directory; see [linked files](#-linked-files) for details.
+
 Steps:
 1. Open your terminal in the folder's path containing your project 
 2. Run in terminal `dart run easy_localization_continued:generate -f keys -o locale_keys.g.dart`
@@ -803,6 +807,8 @@ If you are not using the default translations folder path (assets/translations) 
 | --strict                     |       | false                 | Exit with code 2 when a static key is missing or a plural lacks `other`      |
 
 For CI, run `dart run easy_localization_continued:audit --strict`. Exit code 0 means the audit completed without confirmed missing keys (or strict mode is off); 2 means strict mode found a missing static key or a plural without `other`; 1 means the audit could not complete, such as an invalid option, unreadable input, invalid JSON, or no JSON locales. The report and warnings go to stdout; errors go to stderr.
+
+Only run the audit on trusted translation directories and linked JSON files. Linked paths are read with the permissions of the process and can reach outside the translations directory; see [linked files](#-linked-files) for details.
 
 The audit uses a limited pattern scanner for literal keys in `tr` and `plural` calls, including literal or `LocaleKeys` String receivers, Text with named arguments, and bare or prefixed calls such as `loc.tr` and `EasyLocalization.instance.dataTranslator.tr`. It scans executable expressions inside string interpolation while ignoring ordinary string examples and comments. It reads literal `static const` values for `LocaleKeys` from Dart files in the source directory. Conflicting values, interpolated keys, dynamic expressions and unresolved constants are unverified; receiver types are not resolved, and complex Dart syntax can exceed the scanner's limits; this is not a full Dart parser.
 
