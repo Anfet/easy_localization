@@ -307,7 +307,7 @@ class EasyLocalizationController extends ChangeNotifier {
     }
 
     var present = false;
-    await Future.wait(loaderFutures).then((List<Map<String, dynamic>?> value) {
+    await Future.wait(loaderFutures, eagerError: true).then((List<Map<String, dynamic>?> value) {
       for (final Map<String, dynamic>? map in value) {
         if (map != null) {
           present = true;

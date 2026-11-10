@@ -115,6 +115,60 @@ void main() {
     SharedPreferences.resetStatic();
   });
 
+  test('loader failure completes startup and locale change before other loaders', () async {
+    final extra = InstanceLoader();
+    final inputs = EasyLocalizationConfig(
+      supportedLocales: const [Locale('de'), Locale('ru')],
+      fallbackLocale: const Locale('ru'),
+      startLocale: const Locale('ru'),
+      path: 'unused',
+      saveLocale: false,
+      assetLoader: loader,
+      extraAssetLoaders: [extra],
+    );
+    final startupGate = Completer<Map<String, dynamic>?>();
+    extra.gates['ru'] = [startupGate];
+    final failure = StateError('primary failed');
+    final stack = StackTrace.fromString('original loader stack');
+    loader.failure = failure;
+    loader.failureStack = stack;
+    try {
+      await EasyLocalization.initialize(inputs);
+      fail('Expected startup failure');
+    } catch (error, trace) {
+      expect(error, same(failure));
+      expect(trace.toString(), contains('original loader stack'));
+    }
+    startupGate.completeError(StateError('late failure'));
+    await Future<void>.delayed(Duration.zero);
+
+    loader.failure = null;
+    extra.data['ru'] = {'extra': 'initial'};
+    final owner = await EasyLocalization.initialize(inputs);
+    expect(owner.dataTranslator.tr('value'), 'ru');
+    expect(owner.dataTranslator.tr('extra'), 'initial');
+
+    final changeGate = Completer<Map<String, dynamic>?>();
+    extra.gates['de'] = [changeGate];
+    loader.failure = failure;
+    final change = owner.setLocale(const Locale('de'));
+    await expectLater(change, throwsA(same(failure)));
+    await Future<void>.delayed(Duration.zero);
+    expect(owner.state.value.isLoading, isFalse);
+    expect(owner.state.value.error, same(failure));
+    expect(owner.locale, const Locale('ru'));
+    expect(owner.dataTranslator.tr('value'), 'ru');
+    changeGate.complete({'value': 'late', 'extra': 'late'});
+    await Future<void>.delayed(Duration.zero);
+    expect(owner.dataTranslator.tr('extra'), 'initial');
+
+    loader.failure = null;
+    extra.data['de'] = {'extra': 'recovered'};
+    await owner.setLocale(const Locale('de'));
+    expect(owner.dataTranslator.tr('value'), 'de');
+    expect(owner.dataTranslator.tr('extra'), 'recovered');
+  });
+
   test('config defaults use language rules and translator inherits them', () async {
     final input = EasyLocalizationConfig(
       supportedLocales: const [Locale('ru')],

@@ -52,8 +52,8 @@ void main() {
             final command = controller.loadTranslationData(const Locale('en'));
             final result = command.then<Object?>((_) => null, onError: (Object error, StackTrace stack) => error);
             await Future<void>.delayed(Duration.zero);
+            expect(await result, same(syncError));
             gate.completeError(lateError);
-            expect(await result, anyOf(same(syncError), same(lateError)));
             await Future<void>.delayed(Duration.zero);
             expect(unhandled, isEmpty);
             failing = false;
