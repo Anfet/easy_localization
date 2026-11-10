@@ -513,20 +513,43 @@ void main() {
     expect(store.data['flutter.locale'], 'de');
   });
 
-  test('restore read and start write failures never publish a ready owner', () async {
+  test('restore read failure warns and uses system or fallback without changing storage', () async {
+    final warnings = <String>[];
+    final previousWarning = EasyLocalization.onWarning;
+    EasyLocalization.onWarning = (message, {stackTrace}) => warnings.add(message);
+    addTearDown(() => EasyLocalization.onWarning = previousWarning);
+    store.data['flutter.locale'] = 'ru';
     store.failRead = true;
-    await expectLater(EasyLocalization.initialize(config()), throwsStateError);
-    expect(loader.calls, isEmpty);
-    expect(() => EasyLocalization.instance, throwsStateError);
-    store.failRead = false;
+    for (final system in [const Locale('de'), const Locale('fr')]) {
+      binding.platformDispatcher.localesTestValue = [system];
+      final owner = await EasyLocalization.initialize(config());
+      expect(owner.locale, system == const Locale('de') ? const Locale('de') : const Locale('ru'));
+      expect(owner.isSystemMode, isTrue);
+      expect(store.data['flutter.locale'], 'ru');
+      expect(store.operations.where((op) => op == 'remove' || op.startsWith('set:')), isEmpty);
+      expect(warnings, hasLength(1));
+      expect(warnings.single, contains('Saved locale unavailable:'));
+      owner.dispose();
+      warnings.clear();
+      SharedPreferences.resetStatic();
+    }
+  });
+
+  test('start write failure is published and selecting the same locale retries persistence', () async {
     store.failWrite = true;
-    await expectLater(EasyLocalization.initialize(config(start: const Locale('de'))), throwsStateError);
-    expect(() => EasyLocalization.instance, throwsStateError);
-    expect(() => tr('value'), throwsStateError);
-    store.failWrite = false;
     final owner = await EasyLocalization.initialize(config(start: const Locale('de')));
     expect(owner.locale, const Locale('de'));
+    expect(tr('value'), 'de');
+    await Future<void>.value();
+    expect(owner.state.value.error, isNotNull);
+    expect(owner.state.value.errorStage, LocalizationErrorStage.persistence);
+    final calls = List<Locale>.of(loader.calls);
+    store.failWrite = false;
+    await owner.setLocale(const Locale('de'));
+    await Future<void>.value();
     expect(store.data['flutter.locale'], 'de');
+    expect(loader.calls, calls);
+    expect(owner.state.value.error, isNull);
   });
 
   test('saved, system and fallback load failures never try a different source', () async {

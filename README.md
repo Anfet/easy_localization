@@ -321,8 +321,8 @@ fallback choices are never saved as explicit choices. The instance follows the e
 and on resume. The engine may supply a default `en_US`; the library adds no English default.
 Resume reads the engine list and does not force a browser language refresh or guarantee iOS per-app events.
 
-Invalid or unsupported saved data is ignored with a warning, without deleting it;
-resource and storage failures throw. A valid start overrides old saved data.
+Invalid, unsupported, or unreadable saved data is ignored with a warning, without deleting it.
+Resource failures throw. A startup write failure leaves translations available and reports a persistence error in state; selecting the language again retries the write. A valid start overrides old saved data.
 With `saveLocale: false`, initialize, set, reset, and delete never access preferences.
 To restore a manual selection, omit `startLocale` on subsequent launches. The stored `locale` key and existing language/script/country forms remain compatible; no storage migration is needed.
 The legacy widget constructor uses the same startup priority and defaults the fallback to the first supported locale; both paths disable base-language fallback by default. Its configuration must remain unchanged while the root is mounted, including during startup. To change it, completely unmount the old root and finish that frame, then mount a new root with a new key in a later frame. Rebuilding the child or error widget and passing equivalent configuration lists are supported.

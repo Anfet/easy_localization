@@ -326,7 +326,14 @@ class EasyLocalizationController extends ChangeNotifier {
   bool get isSystemMode => _systemMode;
 
   /// Persists a bootstrap override even when a previous owner cached this locale.
-  Future<void> saveCurrentLocale() => _saveLocale(_locale);
+  Future<void> saveCurrentLocale() async {
+    try {
+      await _saveLocale(_locale);
+    } catch (_) {
+      _savedLocale = null;
+      rethrow;
+    }
+  }
 
   /// Restores the explicit selection for the standalone bootstrap only.
   /// Invalid data is reported without deleting the original preference.

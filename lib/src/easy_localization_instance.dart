@@ -268,7 +268,14 @@ class EasyLocalizationInstance with WidgetsBindingObserver {
     EasyLocalizationInstance? owner;
     try {
       final start = config.startLocale;
-      final saved = start == null && config.saveLocale ? await EasyLocalizationController.readSavedLocale(config.supportedLocales) : null;
+      Locale? saved;
+      if (start == null && config.saveLocale) {
+        try {
+          saved = await EasyLocalizationController.readSavedLocale(config.supportedLocales);
+        } catch (error, stackTrace) {
+          reportLocalizationDiagnostic(EasyLocalization.onWarning, 'Saved locale unavailable: $error', stackTrace: stackTrace);
+        }
+      }
       final explicit = start ?? saved;
       final target =
           explicit ??
@@ -300,9 +307,17 @@ class EasyLocalizationInstance with WidgetsBindingObserver {
         await controller.loadTranslations();
       }
       await initialized.translators.load(config.preloadLocales);
-      if (start != null) await controller.saveCurrentLocale();
+      Object? persistenceError;
+      if (start != null) {
+        try {
+          await controller.saveCurrentLocale();
+        } catch (error) {
+          persistenceError = error;
+        }
+      }
       _instance = initialized;
       Localization.publish(initialized.dataTranslator);
+      if (persistenceError != null) initialized._publish(error: persistenceError, errorStage: LocalizationErrorStage.persistence);
       return initialized;
     } catch (_) {
       owner?.dispose();

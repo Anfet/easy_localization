@@ -4,6 +4,8 @@ Entries through 3.0.9 preserve the history of the original project. Version 4.0.
 
 ### [4.0.0] - Unreleased
 
+- Startup continues with translations when language storage is unavailable; read failures warn and start locale write failures appear in state.
+
 #### Breaking changes
 
 - Published package namespace is `easy_localization_continued`: replace the dependency and package imports, use `easy_localization_continued:generate` / `easy_localization_continued:audit`, and regenerate keys and loaders. Existing 3.x constraints do not upgrade automatically. Upstream loaders require porting to the new `AssetLoader` type and current constructor and error contract; see the migration guide.

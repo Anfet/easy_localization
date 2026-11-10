@@ -22,6 +22,32 @@ void main() {
     ),
   );
 
+  testWidgets('legacy root displays translations when storage cannot be read', (tester) async {
+    final original = SharedPreferencesStorePlatform.instance;
+    final store = _RetryStore()..failRead = true;
+    SharedPreferencesStorePlatform.instance = store;
+    SharedPreferences.resetStatic();
+    tester.binding.platformDispatcher.localesTestValue = const [Locale('de')];
+    try {
+      await tester.pumpWidget(
+        EasyLocalization(
+          supportedLocales: const [Locale('en'), Locale('de')],
+          fallbackLocale: const Locale('en'),
+          path: 'unused',
+          assetLoader: _Loader(),
+          child: const _App(home: _Leaf(label: 'home')),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('de-1 home'), findsOneWidget);
+    } finally {
+      await tester.pumpWidget(const SizedBox());
+      tester.binding.platformDispatcher.clearLocalesTestValue();
+      SharedPreferencesStorePlatform.instance = original;
+      SharedPreferences.resetStatic();
+    }
+  });
+
   testWidgets('reset presentation remains independent of subsequent system replay', (tester) async {
     for (final failReplay in [false, true]) {
       final loader = _Loader();
@@ -634,10 +660,15 @@ class _PageState extends State<_Page> {
 
 class _RetryStore extends SharedPreferencesStorePlatform {
   bool fail = false;
+  bool failRead = false;
   Completer<void>? gate;
   final values = <String, Object>{};
   @override
-  Future<Map<String, Object>> getAll() async => Map.of(values);
+  Future<Map<String, Object>> getAll() async {
+    if (failRead) throw StateError('read failed');
+    return Map.of(values);
+  }
+
   @override
   Future<bool> setValue(String valueType, String key, Object value) async {
     if (fail) return false;
