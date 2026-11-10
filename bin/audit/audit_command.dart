@@ -135,11 +135,18 @@ class AuditCommand {
           } else {
             final group = match[1] ?? '';
             final start = match.start + (match[0]?.indexOf(group) ?? 0);
-            expression = content.substring(start, start + group.length);
+            var previous = start - 1;
+            while (previous >= 0 && RegExp(r'\s').hasMatch(masked[previous])) {
+              previous--;
+            }
+            expression = previous >= 0 && masked[previous] == 'Q' ? '' : content.substring(start, start + group.length);
           }
           add(expression, match[pattern == function ? 1 : 2] ?? '', arguments, argumentMask);
           masked = masked.replaceRange(match.start, match.end, ' ' * (match.end - match.start));
         }
+      }
+      for (final match in RegExp(r'\.\s*(tr|plural)\s*\(').allMatches(masked)) {
+        usages.add(_Usage(null, match[1] == 'plural', false, null));
       }
     }
     return usages;

@@ -134,6 +134,16 @@ void main() {
     expect(result.stdout, contains('cannot be verified'));
   });
 
+  test('unparsed translation calls and adjacent string receivers are unverified', () async {
+    writeSource("Text('a', style: X(y: Z(w: 1))).tr(); ('b').tr(); 'a' 'b'.tr();");
+    final result = await audit(strict: true);
+    expectSuccess(result, 0);
+    expect(result.stdout, contains('Unverified keys'));
+    expect(result.stdout, contains('dynamic key'));
+    expect(result.stdout, isNot(contains('🔴 Missing (')));
+    expect(result.stdout, isNot(contains('all good')));
+  });
+
   test('nested arguments retain literal gender for all call forms', () async {
     for (final file in translations.listSync().whereType<File>()) {
       file.writeAsStringSync('{"person":{"male":"man"}}');
