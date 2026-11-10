@@ -234,6 +234,26 @@ class AuditCommand {
       final missing = <String>{};
       final unverified = <String>{};
       final incomplete = <String>{};
+      final linkMatcher = RegExp(r'(?:@(?:\.[a-z]+)?:(?:[\w\-|]+(?:\.[\w\-|]+)*|\([\w\-|.]+\)))');
+      final prefixMatcher = RegExp(r'^@(?:\.[a-z]+)?:');
+
+      void checkLinks(String key, List<String> path) {
+        final value = _lookup(entry.value, key);
+        if (value is! String) {
+          missing.add(path.length == 1 ? key : '$key (${path.join(' -> ')})');
+          return;
+        }
+        for (final match in linkMatcher.allMatches(value)) {
+          final target = (match[0] ?? '').replaceFirst(prefixMatcher, '').replaceAll(RegExp(r'[()]'), '');
+          final next = [...path, target];
+          if (path.contains(target)) {
+            unverified.add('cycle: ${next.join(' -> ')}');
+          } else {
+            checkLinks(target, next);
+          }
+        }
+      }
+
       for (final usage in usages) {
         final key = usage.key;
         if (key == null) {
@@ -249,17 +269,22 @@ class AuditCommand {
             };
             if (!candidates.any((name) => _lookup(entry.value, '$key.$name') is String)) missing.add(key);
             unverified.add('$key gender');
-          } else if (_lookup(entry.value, '$key.${usage.genderValue}') is! String) {
-            missing.add('$key.${usage.genderValue}');
+          } else {
+            final formKey = '$key.${usage.genderValue}';
+            checkLinks(formKey, [formKey]);
           }
         } else if (usage.plural) {
           if (!forms.any((form) => _lookup(entry.value, '$key.$form') is String)) {
             missing.add(key);
-          } else if (_lookup(entry.value, '$key.other') is! String) {
-            incomplete.add(key);
+          } else {
+            if (_lookup(entry.value, '$key.other') is! String) incomplete.add(key);
+            for (final form in forms) {
+              final formKey = '$key.$form';
+              if (_lookup(entry.value, formKey) is String) checkLinks(formKey, [formKey]);
+            }
           }
-        } else if (_lookup(entry.value, key) is! String) {
-          missing.add(key);
+        } else {
+          checkLinks(key, [key]);
         }
       }
       stdout.writeln('\nLanguage: ${entry.key}');

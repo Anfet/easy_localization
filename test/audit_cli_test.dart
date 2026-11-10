@@ -251,6 +251,40 @@ void main() {
     expect(result.stdout, contains('cannot be verified'));
   });
 
+  test('reachable links report missing and non-string targets in both modes', () async {
+    File(path.join(translations.path, 'en.json')).writeAsStringSync('{"title":"@:middle","middle":"@.upper:(absent)","absent":42}');
+    File(path.join(translations.path, 'fr.json')).writeAsStringSync('{"title":"@:missing"}');
+    writeSource("tr('title');");
+    for (final strict in [false, true]) {
+      final result = await audit(strict: strict);
+      expectSuccess(result, strict ? 2 : 0);
+      expect(result.stdout, contains('title -> middle -> absent'));
+      expect(result.stdout, contains('title -> missing'));
+    }
+  });
+
+  test('gender and plural links are checked, diamond succeeds and cycle is unverified', () async {
+    for (final file in translations.listSync().whereType<File>()) {
+      file.writeAsStringSync(
+        '{"person":{"male":"@:(shared)"},"count":{"one":"@.upper:shared","other":"@:shared"},'
+        '"shared":"ok","title":"@:left @:right","left":"@:shared","right":"@:shared","cycle":"@:loop","loop":"@:cycle"}',
+      );
+    }
+    writeSource("tr('person', gender: 'male'); plural('count', 2); tr('title'); tr('cycle'); tr(variable);");
+    final result = await audit(strict: true);
+    expectSuccess(result, 0);
+    expect(result.stdout, contains('cycle -> loop -> cycle'));
+    expect(result.stdout, contains('dynamic key'));
+    expect(result.stdout, isNot(contains('🔴 Missing')));
+    for (final file in translations.listSync().whereType<File>()) {
+      file.writeAsStringSync('{"person":{"male":"@:absent"},"count":{"other":"@.upper:(missing)"}}');
+    }
+    final missing = await audit(strict: true);
+    expectSuccess(missing, 2);
+    expect(missing.stdout, contains('person.male -> absent'));
+    expect(missing.stdout, contains('count.other -> missing'));
+  });
+
   test('invalid option, missing directory and empty locales fail', () async {
     expectError(await audit(extra: ['--unknown']));
     source.deleteSync(recursive: true);
