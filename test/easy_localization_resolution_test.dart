@@ -172,18 +172,28 @@ void main() {
     expect(localization.plural('literalPlural', 1, namedArgs: namedArgs), r'$1\x|$2\x|{aXb}');
   });
 
-  test('capitalize modifier leaves an empty linked translation empty', () {
-    Localization.load(const Locale('en'), translations: Translations({'source': '@.capitalize:empty', 'empty': ''}));
+  test('empty linked translations stay empty with and without modifiers', () {
+    Localization.load(
+      const Locale('en'),
+      translations: Translations({'source': 'A@:empty B', 'plain': '@:empty', 'modified': '@.capitalize:empty', 'empty': ''}),
+    );
 
-    expect(Localization.instance.tr('source'), '@.capitalize:empty');
+    final localization = Localization.instance;
+    expect(localization.tr('source'), 'A B');
+    expect(localization.tr('plain'), '');
+    expect(localization.tr('modified'), '');
+    expect(localization.tr('empty'), '');
 
     Localization.load(
       const Locale('en'),
-      translations: Translations({'source': '@.capitalize:empty', 'empty': ''}),
+      translations: Translations({'source': 'A@:empty B', 'plain': '@:empty', 'modified': '@.capitalize:empty', 'empty': ''}),
       fallbackTranslations: Translations({'empty': 'fallback'}),
       useFallbackTranslationsForEmptyResources: true,
     );
 
-    expect(Localization.instance.tr('source'), 'Fallback');
+    final withFallback = Localization.instance;
+    expect(withFallback.tr('source'), 'Afallback B');
+    expect(withFallback.tr('plain'), 'fallback');
+    expect(withFallback.tr('modified'), 'Fallback');
   });
 }

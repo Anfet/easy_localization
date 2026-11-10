@@ -126,7 +126,7 @@ class Localization {
         }
       }
 
-      return translated.isEmpty ? link : translated;
+      return translated;
     });
   }
 
