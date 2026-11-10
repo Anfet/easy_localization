@@ -100,10 +100,17 @@ class EasyLocalizationController extends ChangeNotifier {
   }
 
   static Locale selectPreferredLocale(List<Locale> supported, List<Locale> preferred, Locale fallback) {
-    for (final candidate in preferred) {
+    for (var index = 0; index < preferred.length; index++) {
+      final candidate = preferred[index];
       final sameLanguage = supported.where((locale) => locale.languageCode == candidate.languageCode);
       for (final locale in sameLanguage) {
         if (locale == candidate) return locale;
+      }
+      for (final later in preferred.skip(index + 1)) {
+        if (later.languageCode != candidate.languageCode) continue;
+        for (final locale in sameLanguage) {
+          if (locale == later) return locale;
+        }
       }
       if (candidate.scriptCode != null) {
         for (final locale in sameLanguage) {

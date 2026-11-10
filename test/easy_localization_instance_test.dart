@@ -245,6 +245,28 @@ void main() {
     expect(loader.calls.length, count);
   });
 
+  test('startup, reset, locale events, and resume select the next exact region', () async {
+    const enAu = Locale('en', 'AU');
+    const enGb = Locale('en', 'GB');
+    const enUs = Locale('en', 'US');
+    binding.platformDispatcher.localesTestValue = const [enGb, enUs];
+    final owner = await EasyLocalization.initialize(config(save: false, supported: const [enAu, enUs], fallback: enAu));
+    expect(owner.locale, enUs);
+
+    await owner.setLocale(enAu);
+    owner.didChangeLocales(const [enGb, enUs]);
+    await Future<void>.delayed(Duration.zero);
+    expect(owner.locale, enAu);
+
+    await owner.resetLocale();
+    expect(owner.locale, enUs);
+    binding.platformDispatcher.localesTestValue = const [enGb, enUs];
+    owner.didChangeAppLifecycleState(AppLifecycleState.resumed);
+    await Future<void>.delayed(Duration.zero);
+    expect(owner.locale, enUs);
+    owner.dispose();
+  });
+
   test('initial load waits for latest system list and ignores stale result', () async {
     final first = Completer<Map<String, dynamic>?>();
     final latest = Completer<Map<String, dynamic>?>();
