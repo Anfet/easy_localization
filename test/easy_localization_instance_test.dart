@@ -151,6 +151,25 @@ void main() {
     expect(owner.state.value.isLoading, isFalse);
   });
 
+  test('owner without locale persistence hides a previous owner saved locale without reading storage', () async {
+    final firstOwner = await EasyLocalization.initialize(config(start: const Locale('ru')));
+    await firstOwner.setLocale(const Locale('de'));
+    expect(firstOwner.savedLocale, const Locale('de'));
+    firstOwner.dispose();
+
+    store.operations.clear();
+    final secondOwner = await EasyLocalization.initialize(config(save: false));
+    expect(secondOwner.savedLocale, isNull);
+    expect(store.operations, isEmpty);
+    secondOwner.dispose();
+  });
+
+  test('superseded localization operations have a descriptive string', () {
+    final description = const LocalizationOperationSupersededException().toString();
+    expect(description, contains('LocalizationOperationSupersededException'));
+    expect(description, contains('newer localization command replaced this operation'));
+  });
+
   test('owner follows preferred lists without a root and retains explicit choice until reset', () async {
     binding.platformDispatcher.localesTestValue = const [Locale('fr'), Locale('de')];
     final owner = await EasyLocalization.initialize(config(save: false));

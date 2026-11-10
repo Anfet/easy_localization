@@ -185,7 +185,7 @@ class Localization {
     if (name != null) {
       namedArgs = {...?namedArgs, name: formattedValue};
     }
-    return _replaceArgs(res, args ?? [formattedValue], namedArgs);
+    return _replaceArgs(res, args == null || args.isEmpty ? [formattedValue] : args, namedArgs);
   }
 
   String _gender(String key, {required String gender}) {

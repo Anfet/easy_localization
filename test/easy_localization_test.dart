@@ -458,6 +458,10 @@ void main() {
         expect(Localization.instance.plural('day', 3, format: NumberFormat.currency()), 'USD3.00 other days');
       });
 
+      test('empty args use the formatted plural value', () {
+        expect(Localization.instance.plural('day', 5, args: []), '5 other days');
+      });
+
       test('zero with args', () {
         expect(Localization.instance.plural('money', 0, args: ['John', '0']), 'John has no money');
       });

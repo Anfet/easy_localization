@@ -506,7 +506,7 @@ class EasyLocalizationController extends ChangeNotifier {
     return locales.isEmpty ? const Locale('und') : locales.first;
   }
 
-  Locale? get savedLocale => _savedLocale;
+  Locale? get savedLocale => saveLocale ? _savedLocale : null;
 
   /// Returns to following the system locale and removes the saved selection.
   /// A failed resource load keeps the current language and selection mode.
