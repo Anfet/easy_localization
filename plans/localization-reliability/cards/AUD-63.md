@@ -58,8 +58,8 @@ Smoke-тест примера проходит только после AUD-64. �
 3. Managed-root набор прошёл 21/21, включая ранний отказ второго делегата и повторную подготовку.
 
 **Validation:**
-- W: 4 файла, 65/65 тестов; managed-root 22/22.
-- U: полный пакет, 35 файлов, 347/347 тестов, 77 с.
+- W: 4 файла, 65/65 тестов; managed-root 22/22 после уточнения distinct resource type.
+- U: полный пакет, 35 файлов, 347/347 тестов, 76 с.
 - Example smoke: `test/widget_test.dart`, 2/2 теста, 4 с.
 - Analyze: оба изменённых Dart-файла, ошибок нет. `git diff --check` чистый.
 - Style sweep: только прежний пустой catch (строка 266) и map-кандидат (строка 396), вне исправленного участка.
@@ -69,3 +69,9 @@ Smoke-тест примера проходит только после AUD-64. �
 Pool review 11.11.2026, reviewed head `05dd5ffbf89f263fb1373276ac508fb7f4d1b2bf`: blocking finding — in `lib/src/easy_localization_app.dart` the `catch` around `delegate.load(locale)` wraps a synchronous exception in `Future.error` and continues the loop, invoking later delegates. This contradicts Architect Decision 1, which requires synchronous `load` exceptions to reach the existing outer `catch`. Correction: preserve the synchronous throw path so it immediately reaches the outer `catch`; already-started asynchronous loads must retain eager error handling. Add a regression test proving the receipt fails at `flutterDelegates` and the later delegate is not called; keep the existing asynchronous early-error test passing. Re-review closure: inspect fix and regression test; trust existing validation unless the fix invalidates it.
 
 Executor R1 closure: direct `delegate.load(locale)` call now leaves synchronous throws on the existing outer catch path. Regression test verifies the later delegate is not invoked. The asynchronous early-error regression and complete requested validation pass.
+
+Executor R2 closure (`Missed in review 1`): поздний делегат теперь возвращает `_CountedResource`, отдельный тип от `_OtherResource` падающего делегата, поэтому он остаётся выбранным и тест проверяет `loads == 0` именно из-за синхронного отказа. Managed-root, полный пакет и smoke прошли повторно. Code SHA remains `0883c612949e33e78aec96638ad4ff02b3ed41a8`.
+
+Pool review recheck of AUD-63 at `0883c612949e33e78aec96638ad4ff02b3ed41a8`: finding closed; the direct call preserves the synchronous throw, the regression test covers the later delegate, and full package/smoke validation passes.
+
+Missed in review 1: the regression test's failing and later delegates both use `_OtherResource`, so delegate selection removes the later delegate before the failure and the test cannot detect continued iteration. Give the later delegate a different resource type; verify the failure path runs and the later delegate's load count remains zero.

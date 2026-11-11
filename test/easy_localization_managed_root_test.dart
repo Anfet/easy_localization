@@ -915,16 +915,16 @@ class _FailingDelegate extends LocalizationsDelegate<_OtherResource> {
   bool shouldReload(_FailingDelegate old) => false;
 }
 
-class _CountingDelegate extends LocalizationsDelegate<_OtherResource> {
+class _CountingDelegate extends LocalizationsDelegate<_CountedResource> {
   int loads = 0;
 
   @override
   bool isSupported(Locale locale) => true;
 
   @override
-  Future<_OtherResource> load(Locale locale) {
+  Future<_CountedResource> load(Locale locale) {
     loads++;
-    return SynchronousFuture(const _OtherResource());
+    return SynchronousFuture(const _CountedResource());
   }
 
   @override
@@ -933,6 +933,10 @@ class _CountingDelegate extends LocalizationsDelegate<_OtherResource> {
 
 class _OtherResource {
   const _OtherResource();
+}
+
+class _CountedResource {
+  const _CountedResource();
 }
 
 class _DuplicateDelegate extends LocalizationsDelegate<_Resource> {
