@@ -257,7 +257,9 @@ class AuditCommand {
           missing.add(path.length == 1 ? key : '$key (${path.join(' -> ')})');
           return;
         }
-        final parameters = RegExp(r'\{([^{}]+)\}').allMatches(value).map((match) => match[1]!).toSet();
+        final parameters = RegExp(
+          r'\{([^{}]+)\}',
+        ).allMatches(value).map((match) => match[1] ?? (throw StateError('Parameter capture group 1 was missing.'))).toSet();
         parameterSetsByLocale
             .putIfAbsent(entry.key, () => <String, Map<String, Set<String>>>{})
             .putIfAbsent(variant, () => <String, Set<String>>{})
@@ -340,16 +342,18 @@ class AuditCommand {
       final locales = parameterSetsByLocale.entries.where((entry) => entry.value.containsKey(variant)).toList();
       for (var first = 0; first < locales.length; first++) {
         for (var second = first + 1; second < locales.length; second++) {
-          final firstStrings = locales[first].value[variant]!;
-          final secondStrings = locales[second].value[variant]!;
+          final firstStrings =
+              locales[first].value[variant] ?? (throw StateError('Parameter map missing for ${locales[first].key} variant $variant.'));
+          final secondStrings =
+              locales[second].value[variant] ?? (throw StateError('Parameter map missing for ${locales[second].key} variant $variant.'));
           final firstComplete = !(incompleteVariantsByLocale[locales[first].key]?.contains(variant) ?? false);
           final secondComplete = !(incompleteVariantsByLocale[locales[second].key]?.contains(variant) ?? false);
           final firstParameters = firstComplete && secondComplete
               ? firstStrings.values.expand((parameters) => parameters).toSet()
-              : firstStrings[variant]!;
+              : firstStrings[variant] ?? (throw StateError('Parameter set missing for ${locales[first].key} variant $variant.'));
           final secondParameters = firstComplete && secondComplete
               ? secondStrings.values.expand((parameters) => parameters).toSet()
-              : secondStrings[variant]!;
+              : secondStrings[variant] ?? (throw StateError('Parameter set missing for ${locales[second].key} variant $variant.'));
           if (firstParameters.length == secondParameters.length && firstParameters.containsAll(secondParameters)) continue;
           mismatches.add(
             '  ⚠️ $variant: ${locales[first].key} {${(firstParameters.toList()..sort()).join(', ')}}; '

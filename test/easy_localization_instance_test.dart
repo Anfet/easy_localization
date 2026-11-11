@@ -128,7 +128,8 @@ void main() {
     var requests = 0;
 
     messenger.setMockMessageHandler('flutter/assets', (message) async {
-      final requestedPath = utf8.decode(Uint8List.sublistView(message!));
+      if (message == null) fail('Asset request message was null.');
+      final requestedPath = utf8.decode(Uint8List.sublistView(message));
       if (requestedPath != path) return null;
       requests++;
       if (requests == 1) return null;

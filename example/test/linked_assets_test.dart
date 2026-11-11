@@ -10,7 +10,8 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     tester.binding.platformDispatcher.localesTestValue = const [Locale('en', 'US')];
     final assetManifest = await tester.runAsync(() => AssetManifest.loadFromAssetBundle(rootBundle));
-    expect(assetManifest!.listAssets(), contains('resources/langs/en-US/clicked.json'));
+    if (assetManifest == null) fail('Asset manifest was not loaded from the root bundle.');
+    expect(assetManifest.listAssets(), contains('resources/langs/en-US/clicked.json'));
 
     final localization = await tester.runAsync(() => EasyLocalization.initialize(localizationConfig));
     if (localization == null) throw StateError('Localization initialization failed');
