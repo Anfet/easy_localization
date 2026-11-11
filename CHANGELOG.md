@@ -1,5 +1,57 @@
 # Changelog
 
+Entries through 3.0.9 preserve the history of the original project. Version 4.0.0 is the first release prepared in this community-maintained fork.
+
+### [4.0.0] - 2026-11-11
+
+#### Breaking changes
+
+- The published package namespace is `easy_localization_continued`: replace the dependency and package imports, and use `easy_localization_continued:generate` / `easy_localization_continued:audit`.
+- Regenerate keys and loaders. Existing 3.x constraints do not upgrade automatically.
+- Upstream loaders must be ported to the new `AssetLoader` type and error contract. Remove the `fileLoader` and `linkedFileResolver` super arguments and base getter access. Custom file loaders own their dependencies; `RootBundleAssetLoader` keeps its fields and constructor.
+- See [Migrating from 3.x](README.md#migrating-from-3x--upstream-easy_localization) for the step-by-step guide.
+- Generated keys re-export the translation extensions and are now Flutter-facing artifacts, rather than standalone Dart libraries.
+- Custom linked file resolvers must accept `scriptCode` in `resolveLinkedFiles` and `getLinkedLocalePath`; `resolveLinkedFilesForLocale` was removed.
+- Removed deprecated `localeFromString` and `localeToString`, and the empty `Localization()` constructor. Use locale extensions and `Localization.snapshot`.
+- Requires Dart 3.12 and Flutter 3.44.
+- Removed the `EasyLocalization.logger` / `easy_logger` integration. Configure the optional `onVerbose`, `onWarning`, and `onError` callbacks instead; diagnostics are silent by default.
+- Removed `ignorePluralRules`. All plural lookups use explicit 0/1/2 forms followed by locale rules from intl, with each source tried before fallback. The new owner disables base-language fallback by default.
+- Both startup paths, `EasyLocalization.initialize` and the legacy `EasyLocalization(...)` root, choose the start locale first, then the saved locale when `saveLocale` is true, then the system locale, or the fallback locale when no system locale matches. The legacy root defaults to the first supported locale as fallback and disables base-language fallback. Missing primary or configured fallback resources and loader exceptions fail loading; a null optional base resource is skipped.
+- In 3.x a saved locale took precedence over `startLocale`; in 4.0 `startLocale` is applied and saved on every launch. Omit `startLocale` to preserve the user's saved choice.
+- `ensureInitialized()` without a config only prepares Flutter; pass a config to load translations. Context translation forms are deprecated and retain their scoped lookup until 5.0.
+- The owner requires a supported `fallbackLocale` and reports missing scope access with `LocalizationNotFoundException`.
+
+#### Added
+
+- Diagnostic callback exceptions are reported through `FlutterError.reportError` and do not change localization results.
+
+- Added `EasyLocalization.initialize` for localization before the widget tree, with a single owner shared by global translation calls and the root widget.
+- Added awaitable locale commands for resource loading and storage, with separate `waitForPresentation()` outcomes, plus `reloadTranslations` for changed loader data.
+- Added explicit fallback lookup through `trExists(includeFallback: true)` and strict missing-resource errors for the new owner.
+- Added `--strict` to the audit command, returning a non-zero exit code when static missing translation keys are found.
+- Added browser locale detection for Flutter Web compiled to JavaScript/WASM.
+
+- Added independent translator snapshots and a managed cache for supported locales; held snapshots survive reload, eviction and owner disposal.
+
+#### Improved
+
+- Startup continues with translations when language storage is unavailable: read failures are reported as warnings, and locale write failures appear in the command state.
+- Raised the minimum `shared_preferences` version to 2.5.6 so WASM builds resolve a compatible web implementation.
+
+- Code generation resolves linked JSON and fails with exit code 1 on invalid input without replacing existing output.
+
+- The strict key audit checks translation types, plural and gender forms, String and Text calls, and generated constant values.
+
+- Locale startup, persistence, reset, and system-language updates now follow one owner and preserve the current presentation when a transition fails or is superseded.
+- Translation updates preserve ordinary widget state, including retained subtrees; linked and fallback translations are resolved consistently in nested and plural lookups.
+- Code generation handles escaped JSON strings and produces deterministic locale source ordering.
+- `Text.tr` and `Text.plural` preserve the original `Text` properties.
+
+Upstream issues related to these changes, listed for reference: [#788](https://github.com/aissat/easy_localization/issues/788), [#603](https://github.com/aissat/easy_localization/issues/603), [#715](https://github.com/aissat/easy_localization/issues/715), [#531](https://github.com/aissat/easy_localization/issues/531), [#705](https://github.com/aissat/easy_localization/issues/705), [#553](https://github.com/aissat/easy_localization/issues/553), [#466](https://github.com/aissat/easy_localization/issues/466), [#573](https://github.com/aissat/easy_localization/issues/573), [#583](https://github.com/aissat/easy_localization/issues/583), [#745](https://github.com/aissat/easy_localization/issues/745), [#359](https://github.com/aissat/easy_localization/issues/359), [#693](https://github.com/aissat/easy_localization/issues/693) and [#780](https://github.com/aissat/easy_localization/issues/780). The test suite does not cite these issues by number, and this release does not close them automatically.
+
+See [Migrating from 3.x / upstream easy_localization](README.md#migrating-from-3x--upstream-easy_localization) for SDK requirements, changed defaults, loader contracts, and migration steps.
+
+
 ### [3.0.9]
 
 - Added support for linked files feature
@@ -222,7 +274,7 @@ this version came with many updates, here are the main ones:
 - optimized and clean code more stability
 - fixed many issues
 - added Unite test
-- Customization AssetLoader localizations `assetLoader` for more details see [custom assetLoader](https://github.com/aissat/easy_localization/blob/dev/example/lib/custom_asset_loader.dart)
+- Customization AssetLoader localizations `assetLoader` for more details see custom assetLoader
 - added `fallbackLocale` as optional
 - Hiding `EasyLocalizationProvider`
 - refactor and update approach localization for more details see [example:](https://github.com/aissat/easy_localization/tree/master/example)

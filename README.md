@@ -1,53 +1,89 @@
-[![Stand With Palestine](https://raw.githubusercontent.com/TheBSD/StandWithPalestine/main/banner-no-action.svg)](https://thebsd.github.io/StandWithPalestine)
+<p align="center"><img src="https://raw.githubusercontent.com/Anfet/easy_localization/develop/logo/logo.svg?sanitize=true" width="600"/></p>
 
-<p align="center"><img src="https://raw.githubusercontent.com/aissat/easy_localization/develop/logo/logo.svg?sanitize=true" width="600"/></p>
-<h1 align="center"> 
-Easy and Fast internationalization for your Flutter Apps
-</h1>
+<h1 align="center">Easy Localization Continued</h1>
 
-[![Pub Version](https://img.shields.io/pub/v/easy_localization?style=flat-square&logo=dart)](https://pub.dev/packages/easy_localization)
-[![likes](https://badges.bar/easy_localization/likes)](https://pub.dev/packages/easy_localization/score)
-[![likes](https://badges.bar/easy_localization/popularity)](https://pub.dev/packages/easy_localization/score)
-[![likes](https://badges.bar/easy_localization/pub%20points)](https://pub.dev/packages/easy_localization/score)
-![Code Climate issues](https://img.shields.io/github/issues/aissat/easy_localization?style=flat-square)
-![GitHub closed issues](https://img.shields.io/github/issues-closed/aissat/easy_localization?style=flat-square)
-![GitHub contributors](https://img.shields.io/github/contributors/aissat/easy_localization?style=flat-square)
-![GitHub repo size](https://img.shields.io/github/repo-size/aissat/easy_localization?style=flat-square)
-![GitHub forks](https://img.shields.io/github/forks/aissat/easy_localization?style=flat-square)
-![GitHub stars](https://img.shields.io/github/stars/aissat/easy_localization?style=flat-square)
-![Coveralls github branch](https://img.shields.io/coveralls/github/aissat/easy_localization/dev?style=flat-square)
-![GitHub Workflow Status](https://img.shields.io/github/workflow/status/aissat/easy_localization/Flutter%20Tester?longCache=true&style=flat-square&logo=github)
-![CodeFactor Grade](https://img.shields.io/codefactor/grade/github/aissat/easy_localization?style=flat-square)
-![GitHub license](https://img.shields.io/github/license/aissat/easy_localization?style=flat-square)
-![Sponsors](https://img.shields.io/opencollective/all/flutter_easy_localization?style=flat-square)
-![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)
-[![StandWithPalestine](https://raw.githubusercontent.com/TheBSD/StandWithPalestine/main/badges/StandWithPalestine.svg)](https://github.com/TheBSD/StandWithPalestine/blob/main/docs/README.md)
+[![Pub Version](https://img.shields.io/pub/v/easy_localization_continued?style=flat-square&logo=dart)](https://pub.dev/packages/easy_localization_continued) [![Likes](https://img.shields.io/pub/likes/easy_localization_continued)](https://pub.dev/packages/easy_localization_continued/score) [![Pub points](https://img.shields.io/pub/points/easy_localization_continued)](https://pub.dev/packages/easy_localization_continued/score) ![GitHub license](https://img.shields.io/github/license/Anfet/easy_localization?style=flat-square)
 
-## Why easy_localization?
+Easy Localization Continued is a maintained fork of [aissat/easy_localization](https://github.com/aissat/easy_localization) 3.0.9, published as `easy_localization_continued`. It keeps the upstream `tr()` and `plural()` API and adds one localization owner, awaitable locale changes, strict key auditing, and JavaScript/WASM browser support. The original project is credited under its MIT license; see [LICENSE](LICENSE).
 
-- 🚀 Easy translations for many languages
-- 🔌 Load translations as JSON, CSV, Yaml, Xml using [Easy Localization Loader](https://github.com/aissat/easy_localization_loader)
-- 💾 React and persist to locale changes
-- ⚡ Supports plural, gender, nesting, RTL locales and more
-- ↩️ Fallback locale keys redirection
-- ⁉️ Error widget for missing translations
-- ❤️ Extension methods on `Text` and `BuildContext`
-- 💻 Code generation for localization files and keys.
-- 🛡️ Null safety
-- 🖨️ Customizable logger.
-
-## Getting Started
-
-### 🔩 Installation
-
-Add to your `pubspec.yaml`:
+Version 4.0.0 requires Dart 3.12 and Flutter 3.44.
 
 ```yaml
 dependencies:
-  easy_localization: <last_version>
+  easy_localization_continued: ^4.0.0
 ```
 
-Create folder and add translation files like this
+```dart
+import 'package:flutter/material.dart';
+import 'package:easy_localization_continued/easy_localization.dart';
+
+void main() async {
+  final owner = await EasyLocalization.initialize(EasyLocalizationConfig(
+    supportedLocales: const [Locale('en'), Locale('de')],
+    fallbackLocale: const Locale('en'),
+    path: 'assets/translations',
+  ));
+  runApp(EasyLocalization.withInstance(instance: owner, child: const MyApp()));
+}
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final owner = EasyLocalization.instance;
+    return MaterialApp(
+      locale: owner.presentationLocale,
+      supportedLocales: owner.supportedLocales,
+      localizationsDelegates: owner.delegates,
+      home: Scaffold(body: Text('title'.tr())),
+    );
+  }
+}
+```
+
+Coming from `easy_localization` 3.x? The package and import names change, and the upstream loaders need porting. See [Migrating from 3.x](#migrating-from-3x--upstream-easy_localization).
+
+## Contents
+
+- [What is this](#what-is-this)
+- [Quick start](#quick-start)
+- [Core usage](#core-usage)
+- [Configuration](#configuration)
+- [Custom loaders and multiple modules](#custom-loaders-and-multiple-modules)
+- [Tooling (CLI)](#tooling-cli)
+- [Diagnostics and errors](#diagnostics-and-errors)
+- [Testing](#testing)
+- [Platform support and limitations](#platform-support-and-limitations)
+- [FAQ](#faq)
+- [Migrating from 3.x](#migrating-from-3x--upstream-easy_localization)
+- [Legacy widget root](#legacy-widget-root)
+- [About this fork](#about-this-fork)
+
+## What is this
+
+Easy Localization Continued keeps the upstream translation model: one JSON file per locale, `tr()` and `plural()` with `{}`, named and gender arguments, nested keys, linked translations, and generated keys and loaders.
+
+Version 4.0.0 adds:
+
+- one `EasyLocalizationInstance` owner that initializes before `runApp` and serves the root, the Flutter resources, and global `tr()` and `plural()`;
+- awaitable locale commands with separate data and presentation outcomes;
+- explicit translation reloads and independent translator snapshots;
+- `audit --strict` for CI;
+- JavaScript/WASM browser locale support;
+- optional diagnostic callbacks, silent by default, in place of the removed `EasyLocalization.logger`.
+
+The package is not a drop-in replacement for 3.x. Upstream loaders depend on `easy_localization` 3.x and must be ported to this package's `AssetLoader`.
+
+The library has two entrypoints that export the same API: `package:easy_localization_continued/easy_localization.dart`, whose filename is kept on purpose, and `package:easy_localization_continued/easy_localization_continued.dart`.
+
+## Quick start
+
+### Installation
+
+Add the dependency as shown at the top of this page.
+
+Create a translations folder:
 
 ```
 assets
@@ -56,16 +92,16 @@ assets
     └── {languageCode}-{countryCode}.{ext}    //or full locale code
 ```
 
-Example:
+For example:
 
 ```
 assets
 └── translations
     ├── en.json
-    └── en-US.json 
+    └── en-US.json
 ```
 
-Declare your assets localization directory in `pubspec.yaml`:
+Declare the folder in `pubspec.yaml`:
 
 ```yaml
 flutter:
@@ -73,20 +109,9 @@ flutter:
     - assets/translations/
 ```
 
+### iOS
 
-
-### 🔌 Loading translations from other resources
-
-You can use JSON,CSV,HTTP,XML,Yaml files, etc.
-
-See [Easy Localization Loader](https://github.com/aissat/easy_localization_loader) for more info.
-
-### ⚠️ Note on **iOS**
-
-For translation to work on **iOS** you need to add supported locales to 
-`ios/Runner/Info.plist` as described [here](https://flutter.dev/docs/development/accessibility-and-localization/internationalization#specifying-supportedlocales).
-
-Example:
+For translations to work on iOS, list the supported locales in `ios/Runner/Info.plist`, as described in the [Flutter internationalization guide](https://flutter.dev/docs/development/accessibility-and-localization/internationalization#specifying-supportedlocales):
 
 ```xml
 <key>CFBundleLocalizations</key>
@@ -96,180 +121,116 @@ Example:
 </array>
 ```
 
-### ⚙️ Configuration app
+### Initialize and wire the app
 
-Add EasyLocalization widget like in example
+The example at the top of this page shows the whole setup. The full application is in [example/lib/main.dart](example/lib/main.dart). The three `MaterialApp` values come from the same owner:
+
+- `locale: owner.presentationLocale` is the locale whose resources are published;
+- `supportedLocales: owner.supportedLocales`;
+- `localizationsDelegates: owner.delegates` contains the package delegates and any `additionalDelegates`.
+
+Build `MaterialApp` in a widget under the root so that it is recreated when the presentation changes. A `MaterialApp` created before that build keeps the parameters it captured and does not update.
+
+Translate with `tr('title')` or `'title'.tr()`.
+
+## Core usage
+
+### Initialize before runApp
+
+For translations before `runApp`, initialize one owner with a supported fallback. No `BuildContext`, frame, or separate locale copy is needed:
 
 ```dart
-import 'package:flutter/material.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
-import 'package:easy_localization/easy_localization.dart';
+final config = EasyLocalizationConfig(
+  supportedLocales: const [Locale('en'), Locale('de')],
+  fallbackLocale: const Locale('en'),
+  path: 'assets/translations',
+);
+final localization = await EasyLocalization.initialize(config);
+final initialText = tr('title');
+await localization.setLocale(const Locale('de'));
+runApp(EasyLocalization.withInstance(instance: localization, child: const MyApp()));
+```
 
-void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  await EasyLocalization.ensureInitialized();
-  
-  runApp(
-    EasyLocalization(
-      supportedLocales: [Locale('en', 'US'), Locale('de', 'DE')],
-      path: 'assets/translations', // <-- change the path of the translation files 
-      fallbackLocale: Locale('en', 'US'),
-      child: MyApp()
-    ),
-  );
-}
+Register custom delegates in the configuration with `additionalDelegates: [MyDelegate()]`, or with the same parameter of the legacy widget. The root prepares every Flutter delegate before it publishes a presentation. Widgets built under the root update even when they are retained in a `const` subtree or in a route.
 
-class MyApp extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      localizationsDelegates: context.localizationDelegates,
-      supportedLocales: context.supportedLocales,
-      locale: context.locale,
-      home: MyHomePage()
-    );
+Keep custom asynchronous delegates inside the configuration so that they join the same atomic presentation. While they load, Flutter resources and global `tr()` and `plural()` keep showing the previous presentation. `dataTranslator` already reads the committed data. A delegate error keeps the previous presentation and appears in `localization.state` with `errorStage == LocalizationErrorStage.flutterDelegates`. Issue another command to retry. A `ValueListenableBuilder<LocalizationState>` can show progress while `state.isLoading` and display errors.
+
+Await a command for resources and storage. Then await `localization.waitForPresentation()` when a visible result matters. It waits for the currently committed snapshot, not for a particular command. When commands compete, compare `localization.presentationLocale` with the locale you expect. The outcome is one of `applied`, `superseded`, `detached`, `failed`, or `disposed`. `applied` confirms that the root published the presentation when the consumer is wired as shown above; it does not inspect an arbitrary `MaterialApp`.
+
+A borrowed owner survives the removal of its root. Strings computed outside `build` remain captured values. A `Localizations.override` can load Flutter resources for its own locale. For a scoped plugin dictionary, use a scoped adapter or an explicit translator. Global `tr()` and `plural()` continue to follow the root.
+
+### Translate with tr()
+
+```dart
+Text(tr('title'));
+Text('title'.tr());
+```
+
+Ordinary widgets under the root rebuild when the presentation changes. `Text('title').tr()` is optional sugar. It keeps the Text properties and uses the same rebuild. Values computed outside `build` are snapshots.
+
+Example translation file:
+
+```json
+{
+  "msg": "{} are written in the {} language",
+  "msg_named": "Easy localization is written in the {lang} language",
+  "msg_mixed": "{} are written in the {lang} language",
+  "gender": {
+    "male": "Hi man ;) {}",
+    "female": "Hello girl :) {}",
+    "other": "Hello {}"
   }
 }
 ```
 
-[**Full example**](https://github.com/aissat/easy_localization/blob/master/example/lib/main.dart)
-
-### 📜 Easy localization widget properties
-
-| Properties              | Required | Default                   | Description                                                                                                                                                                   |
-| ----------------------- | -------- | ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| key                     | false    |                           | Widget key.                                                                                                                                                                   |
-| child                   | true     |                           | Place for your main page widget.                                                                                                                                              |
-| supportedLocales        | true     |                           | List of supported locales.                                                                                                                                                    |
-| path                    | true     |                           | Path to your folder with localization files.                                                                                                                                  |
-| assetLoader             | false    | `RootBundleAssetLoader()` | Class loader for localization files. You can use custom loaders from [Easy Localization Loader](https://github.com/aissat/easy_localization_loader) or create your own class. |
-| extraAssetLoaders       | false    | null                      | A List of asset loaders, in case of needing assets being loaded from a different module or package. (e.g. adding a package that uses [Easy Localization Loader]).             |
-| fallbackLocale          | false    |                           | Returns the locale when the locale is not in the list `supportedLocales`.                                                                                                     |
-| startLocale             | false    |                           | Overrides device locale.                                                                                                                                                      |
-| saveLocale              | false    | `true`                    | Save locale in device storage.                                                                                                                                                |
-| useFallbackTranslations | false    | `false`                   | If a localization key is not found in the locale file, try to use the fallbackLocale file.                                                                                    |
-| useFallbackTranslationsForEmptyResources | false    | `false`                   | If translation is empty in the locale file, try to use the fallbackLocale file. Does not take effect if `useFallbackTranslations` is false.                  |
-| useOnlyLangCode         | false    | `false`                   | Trigger for using only language code for reading localization files.</br></br>Example:</br>`en.json //useOnlyLangCode: true`</br>`en-US.json //useOnlyLangCode: false`        |
-| errorWidget             | false    | `FutureErrorWidget()`     | Shows a custom error widget when an error occurs.                                                                                                                             |
-
-## Usage
-
-### 🔥 Initialize library
-
-Call `EasyLocalization.ensureInitialized()` in your main before runApp.
-
-```dart
-void main() async{
-  // ...
-  // Needs to be called so that we can await for EasyLocalization.ensureInitialized();
-  WidgetsFlutterBinding.ensureInitialized();
-
-  await EasyLocalization.ensureInitialized();
-  // ...
-  runApp(....)
-  // ...
-}
-```
-
-### 🔥 Change or get locale
-
-Easy localization uses extension methods [BuildContext] for access to locale.
-
-It's the easiest way change locale or get parameters 😉.
-
-ℹ️ No breaking changes, you can use old the static method `EasyLocalization.of(context)`
-
-Example:
-
-```dart
-context.setLocale(Locale('en', 'US'));
-
-print(context.locale.toString());
-```
-
-### 🔥 Translate `context.tr()`
-
-Main function for translate your language keys
-
-You can use extension methods of [String] or [Text] widget, you can also use `tr()` as a static function.
-
-```dart
-Text(context.tr('title'))
-```
-
-You can also use tr() without [Context] as a static function.
-
-This is not recommend in build methods, because the widget won't rebuild when the language changes.
-
-```dart
-Text('title').tr() //Text widget
-
-print('title'.tr()); //String
-
-var title = tr('title') //Static function
-```
-
-#### Arguments:
+Arguments:
 
 | Name      | Type                  | Description                                                                         |
 | --------- | --------------------- | ----------------------------------------------------------------------------------- |
-| args      | `List<String>`        | List of localized strings. Replaces `{}` left to right                              |
-| namedArgs | `Map<String, String>` | Map of localized strings. Replaces the name keys `{key_name}` according to its name |
-| gender    | `String`              | Gender switcher. Changes the localized string based on gender string                |
-
-Example:
-
-``` json
-{
-   "msg":"{} are written in the {} language",
-   "msg_named":"Easy localization is written in the {lang} language",
-   "msg_mixed":"{} are written in the {lang} language",
-   "gender":{
-      "male":"Hi man ;) {}",
-      "female":"Hello girl :) {}",
-      "other":"Hello {}"
-   }
-}
-```
+| args      | `List<String>`        | Replaces `{}` placeholders from left to right.                                      |
+| namedArgs | `Map<String, String>` | Replaces the named placeholders `{key_name}` by name.                               |
+| gender    | `String`              | Selects the form of the translation that matches the gender string.                 |
 
 ```dart
 // args
-Text('msg').tr(args: ['Easy localization', 'Dart']),
+Text('msg'.tr(args: ['Easy localization', 'Dart'])),
 
 // namedArgs
-Text('msg_named').tr(namedArgs: {'lang': 'Dart'}),
+Text('msg_named'.tr(namedArgs: {'lang': 'Dart'})),
 
 // args and namedArgs
-Text('msg_mixed').tr(args: ['Easy localization'], namedArgs: {'lang': 'Dart'}),
+Text('msg_mixed'.tr(args: ['Easy localization'], namedArgs: {'lang': 'Dart'})),
 
 // gender
-Text('gender').tr(gender: _gender ? "female" : "male"),
-
+Text('gender'.tr(gender: _gender ? 'female' : 'male')),
 ```
 
-### 🔥 Plurals `plural()`
+Checking whether a key exists: `trExists(key)` checks primary strings only. `includeFallback: true` also checks fallback strings that are already loaded. With `useFallbackTranslationsForEmptyResources: true`, empty strings do not count. Non-string values never count. The check loads no resources and resolves neither links nor plurals.
 
-You can translate with pluralization.
-To insert a number in the translated string, use `{}`. Number formatting supported, for more information read [NumberFormat](https://pub.dev/documentation/intl/latest/intl/NumberFormat-class.html) class documentation.
+`Text.tr` and `Text.plural` keep the Text properties. For rich text, translate each `TextSpan` string with `String.tr`.
 
-You can use extension methods of [String] or [Text] widget, you can also use `plural()` as a static function.
+### Plurals with plural()
 
-#### Arguments:
+Use `{}` for the number. Number formatting is supported; see the [NumberFormat](https://pub.dev/documentation/intl/latest/intl/NumberFormat-class.html) documentation.
 
-| Name      | Type                  | Description                                                                                                                  |
-| --------- | --------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| value     | `num`                 | Number value for pluralization                                                                                               |
-| args      | `List<String>`        | List of localized strings. Replaces `{}` left to right                                                                       |
-| namedArgs | `Map<String, String>` | Map of localized strings. Replaces the name keys `{key_name}` according to its name                                          |
-| name      | `String`              | Name of number value. Replaces `{$name}` to value                                                                            |
-| format    | `NumberFormat`        | Formats a numeric value using a [NumberFormat](https://pub.dev/documentation/intl/latest/intl/NumberFormat-class.html) class |
+A `plural()` or `.plural()` call made during a widget build under the localization root is recalculated when the root publishes a new presentation, even in retained routes. Passing `context` is not required for this. A result saved outside `build` is a snapshot and does not update. For a local scope, use a scoped adapter or an explicit translator.
 
-Example:
+Arguments:
 
-``` json
+| Name      | Type                  | Description                                                                                          |
+| --------- | --------------------- | ---------------------------------------------------------------------------------------------------- |
+| value     | `num`                 | Number used for the plural form.                                                                     |
+| args      | `List<String>`        | Replaces `{}` placeholders from left to right.                                                       |
+| namedArgs | `Map<String, String>` | Replaces the named placeholders `{key_name}` by name.                                                |
+| name      | `String`              | Name of the number value. Replaces `{$name}` with the value.                                         |
+| format    | `NumberFormat`        | Formats the number with a [NumberFormat](https://pub.dev/documentation/intl/latest/intl/NumberFormat-class.html). |
+
+Example translation file:
+
+```json
 {
   "day": {
-    "zero":"{} дней",
+    "zero": "{} дней",
     "one": "{} день",
     "two": "{} дня",
     "few": "{} дня",
@@ -296,124 +257,95 @@ Example:
   }
 }
 ```
-⚠️ Key "other" required!
+
+The key `other` is required.
 
 ```dart
-//Text widget with format
-Text('money').plural(1000000, format: NumberFormat.compact(locale: context.locale.toString())) // output: You have 1M dollars
+// Text widget with a number format
+Text('money'.plural(1000000, format: NumberFormat.compact(locale: EasyLocalization.instance.presentationLocale.toString()))); // You have 1M dollars
 
-//String
-print('day'.plural(21)); // output: 21 день
+// String
+print('day'.plural(21)); // 21 день
 
-//Static function
-var money = plural('money', 10.23) // output: You have 10.23 dollars
+// Global function
+var money = plural('money', 10.23); // You have 10.23 dollars
 
-//Text widget with plural BuildContext extension
-Text(context.plural('money', 10.23))
+// Force a supported, preloaded locale without changing the UI language
+Text(plural('money', 10.23, locale: const Locale('de')))
 
-//Static function with arguments
-var money = plural('money_args', 10.23, args: ['John', '10.23'])  // output: John has 10.23 dollars
+// Global function with arguments
+var money = plural('money_args', 10.23, args: ['John', '10.23']); // John has 10.23 dollars
 
-//Static function with named arguments
-var money = plural('money_named_args', 10.23, namedArgs: {'name': 'Jane', 'money': '10.23'})  // output: Jane has 10.23 dollars
-var money = plural('money_named_args', 10.23, namedArgs: {'name': 'Jane'}, name: 'money')  // output: Jane has 10.23 dollars
+// Global function with named arguments
+var money = plural('money_named_args', 10.23, namedArgs: {'name': 'Jane', 'money': '10.23'}); // Jane has 10.23 dollars
+var money = plural('money_named_args', 10.23, namedArgs: {'name': 'Jane'}, name: 'money'); // Jane has 10.23 dollars
 ```
 
-### ⚙️ Configuring Plural Rules with `ignorePluralRules`
+Plural rules:
 
-In some languages, pluralization is simple and only involves using zero, one, two, and other forms, without needing to handle the `few` or `many` categories.  
-By default, `easy_localization` ignores the `few` and `many` plural forms and uses just the zero, one, two, and other forms.
+1. The package uses `Intl.pluralLogic` with the full locale.
+2. If the forms `zero`, `one`, and `two` are present, they are selected for exactly 0, 1, and 2. These explicit cases extend CLDR.
+3. Otherwise the locale's CLDR category is used, and then `other`.
+4. For the TWO category, a missing `two` falls back to `few`, then `other`.
+5. English uses `other` for 3, 4, and 5, even when `few` or `many` is present.
+6. Russian uses `one`, `few`, and `many` for 21, 22, and 5.
+7. Each language's own forms are tried before the base and fallback translations, and each source locale uses its own rules.
 
-If you want to enable the handling of the `few` and `many` plural categories for specific languages, you can configure the `ignorePluralRules` flag to `false` in the `EasyLocalization` initialization.
+### Linked translations
 
-Here’s how to configure it:
+A key can link to another key with the `@:` prefix followed by the full key name, including its namespace. Link keys support Unicode letters, combining marks and numbers, and the ASCII characters `_`, `-` and `|`.
 
-```dart
-EasyLocalization(
-  ignorePluralRules: false, // Set this line to false to enable 'few' and 'many' plural categories
-  supportedLocales: [Locale('en', 'US'), Locale('de', 'DE')],
-  path: 'assets/translations',
-  fallbackLocale: Locale('en', 'US'),
-  child: MyApp()
-)
-```
-
-Setting `ignorePluralRules: false` will enable the `few` and `many` plural categories, allowing your translations to handle all plural forms, including `few` and `many`, for supported languages.
-
-
-
-### 🔥 Linked translations:
-
-If there's a translation key that will always have the same concrete text as another one you can just link to it. To link to another translation key, all you have to do is to prefix its contents with an `@:` sign followed by the full name of the translation key including the namespace you want to link to.
-
-Example:
 ```json
 {
-  ...
   "example": {
     "hello": "Hello",
     "world": "World!",
     "helloWorld": "@:example.hello @:example.world"
   }
-  ...
 }
 ```
 
 ```dart
-print('example.helloWorld'.tr()); //Output: Hello World!
+print('example.helloWorld'.tr()); // Hello World!
 ```
 
-You can also do nested anonymous and named arguments inside the linked messages.
-
-Example:
+Linked keys are looked up first in the dictionary that supplied the containing phrase, then in the usual primary, base-language and fallback order. Each nested link uses the dictionary that supplied its containing text. Empty translations follow the fallback-for-empty setting. Linked messages can contain named and anonymous arguments:
 
 ```json
 {
-  ...
   "date": "{currentDate}.",
   "dateLogging": "INFO: the date today is @:date"
-  ...
 }
 ```
+
 ```dart
-print('dateLogging'.tr(namedArguments: {'currentDate': DateTime.now().toIso8601String()})); //Output: INFO: the date today is 2020-11-27T16:40:42.657.
+print('dateLogging'.tr(namedArgs: {'currentDate': DateTime.now().toIso8601String()}));
 ```
 
-#### Formatting linked translations:
+Format a linked message with `@.modifier:key`. The modifiers are:
 
-Formatting linked locale messages
-If the language distinguishes cases of character, you may need to control the case of the linked locale messages. Linked messages can be formatted with modifier `@.modifier:key`
-
-The below modifiers are available currently.
-
-- `upper`: Uppercase all characters in the linked message.
-- `lower`: Lowercase all characters in the linked message.
-- `capitalize`: Capitalize the first character in the linked message.
-
-Example:
+- `upper`: uppercases all characters of the linked message;
+- `lower`: lowercases all characters of the linked message;
+- `capitalize`: capitalizes the first character of the linked message.
 
 ```json
 {
-  ...
   "example": {
     "fullName": "Full Name",
     "emptyNameError": "Please fill in your @.lower:example.fullName"
   }
-  ...
 }
 ```
 
-Output:
-
 ```dart
-print('example.emptyNameError'.tr()); //Output: Please fill in your full name
+print('example.emptyNameError'.tr()); // Please fill in your full name
 ```
 
-### 🔥 Linked files:
+Linked text expansion is limited to 4,096 link transitions and 256 Ki UTF-16 code units per result. When a limit is exceeded, the original template is returned without argument substitution and a warning is emitted. The audit command reports excessive link traversal as an input error.
 
-You can split translations for a single locale into multiple files by using linked files. This helps keep your JSON clean and maintainable.
+### Linked files
 
-To link an external file, set the key’s value to a path prefixed with `:/`, relative to your translations directory. For example, with default path `assets/translations` and locale `en-US`:
+A large locale can be split into several JSON files. Set a key's value to a path that starts with `:/` and is relative to the translations folder. For example, with the default path `assets/translations` and the locale `en-US`:
 
 ```json
 {
@@ -423,259 +355,861 @@ To link an external file, set the key’s value to a path prefixed with `:/`, re
 }
 ```
 
-At runtime, Easy Localization will load:
+At runtime the package loads:
+
 ```
 assets
 └── translations
     └── en-US
-        ├── errors.json 
-        ├── validation.json  
-        └── notifications.json  
+        ├── errors.json
+        ├── validation.json
+        └── notifications.json
 ```
 
-Each linked file must contain a valid object of translation keys (of the file type you are using [Other file types](#-loading-translations-from-other-resources)).  
+Declare the translations folder and each nested folder that contains linked files in `pubspec.yaml`:
 
-Don't forget to add your linked files (or linked files folder, here assets/translations/en-US/), to your pubspec.yaml : [See installation](#-installation).
+```yaml
+flutter:
+  assets:
+    - assets/translations/
+    - assets/translations/en-US/
+```
 
-### 🔥 Reset locale `resetLocale()`
+The built-in JSON resolver uses `language[-Script][-COUNTRY]/file.json`. For example: `en/errors.json`, `en-US/errors.json`, `zh-Hans/errors.json`, `zh-Hant/errors.json`, and `zh-Hans-CN/errors.json`. A missing script-specific file is an error; another script is never used as a fallback. The same file may be linked from separate branches. Cycles and chains deeper than 32 links are errors. Each root linked JSON file is limited to 4,096 file transitions; exceeding the limit fails resolution before the next file is read.
 
-Reset locale to device locale
+Each linked file must contain a valid object of translation keys in the file type you use.
 
-Example:
+Custom `LinkedFileResolver` subclasses must add the optional `String? scriptCode` parameter to their `resolveLinkedFiles` override and forward it to `super.resolveLinkedFiles` where applicable. Overrides of `getLinkedLocalePath` must also accept `scriptCode`. Replace `resolveLinkedFilesForLocale` overrides and calls with `resolveLinkedFiles`.
+
+The `generate` and `audit` commands read linked JSON files from the project. Use them only with trusted translation folders and trusted JSON files throughout the link chain. See [Tooling (CLI)](#tooling-cli).
+
+### Change or reload the locale
+
+Use the owner to change the locale:
 
 ```dart
-RaisedButton(
-  onPressed: (){
-    context.resetLocale();
-  },
-  child: Text(LocaleKeys.reset_locale).tr(),
-)
+await localization.setLocale(const Locale('en', 'US'));
+final outcome = await localization.waitForPresentation();
+if (outcome == LocalizationApplyOutcome.applied) {
+  // The new language is visible.
+}
 ```
 
-### 🔥 Get device locale `deviceLocale`
+Await the returned future and handle its errors. Calling a change without awaiting it can produce an unhandled asynchronous error. A newer command supersedes an outstanding load. A storage failure can leave the new data active; selecting the same locale again retries the storage write.
 
-Get device locale
+After you update the data of your `AssetLoader` and its cache, call `await localization.reloadTranslations()`. It reloads the requested language and its fallback, and supersedes any outstanding locale change or reload. The superseded command completes with `LocalizationOperationSupersededException`. A later command can supersede the reload in turn. A failed reload leaves the previous translations available. To make the updated widgets visible, await `localization.waitForPresentation()` and check for `LocalizationApplyOutcome.applied`. If commands compete, also check that `localization.presentationLocale` is the expected locale.
 
-Example:
+### Reset the locale
+
+`resetLocale` returns to following the system language, including later system changes, and removes the saved selection. `startLocale` takes precedence over a saved selection. Either one prevents system changes from overriding the selection until the reset. If translations fail to load, the current language and selection mode remain active. A storage failure completes the reset future with an error after the language has changed.
 
 ```dart
-print(context.deviceLocale.toString()) // OUTPUT: en_US
+await localization.resetLocale();
+final outcome = await localization.waitForPresentation();
+// Treat only LocalizationApplyOutcome.applied as a visible success.
 ```
 
-### 🔥 Delete save locale `deleteSaveLocale()`
-
-Clears a saved locale from device storage
-
-Example:
+### Device locale and saved locale
 
 ```dart
-RaisedButton(
-  onPressed: (){
-    context.deleteSaveLocale();
-  },
-  child: Text(LocaleKeys.reset_locale).tr(),
-)
+print(localization.deviceLocale); // en_US
 ```
 
-### 🔥 Get Easy localization widget properties
-
-At any time, you can take the main [properties](#-easy-localization-widget-properties) of the Easy localization widget using [BuildContext].
-
-Are supported: supportedLocales, fallbackLocale, localizationDelegates.
-
-Example:
+`deleteSaveLocale()` clears the saved locale without changing the current selection mode:
 
 ```dart
-print(context.supportedLocales); // output: [en_US, ar_DZ, de_DE, ru_RU]
-
-print(context.fallbackLocale); // output: en_US
+await localization.deleteSaveLocale();
 ```
 
-## 💻 Code generation
+### Translating a document in another language
 
-Code generation supports only json files, for more information run in terminal `flutter pub run easy_localization:generate -h`
-
-### Command line arguments
-
-| Arguments                    | Short | Default               | Description                                                                 |
-| ---------------------------- | ----- | --------------------- | --------------------------------------------------------------------------- |
-| --help                       | -h    |                       | Help info                                                                   |
-| --source-dir                 | -S    | resources/langs       | Folder containing localization files                                        |
-| --source-file                | -s    | First file            | File to use for localization                                                |
-| --output-dir                 | -O    | lib/generated         | Output folder stores for the generated file                                 |
-| --output-file                | -o    | codegen_loader.g.dart | Output file name                                                            |
-| --format                     | -f    | json                  | Support json or keys formats                                                |
-| --[no-]skip-unnecessary-keys | -u    | false                 | Ignores keys defining nested object except for pluarl(), gender() keywords. |
-
-### 🔌 Localization asset loader class
-
-Steps:
-
-1. Open your terminal in the folder's path containing your project
-2. Run in terminal `flutter pub run easy_localization:generate`
-3. Change asset loader and past import.
-
-  ```dart
-  import 'generated/codegen_loader.g.dart';
-  ...
-  void main(){
-    runApp(EasyLocalization(
-      child: MyApp(),
-      supportedLocales: [Locale('en', 'US'), Locale('ar', 'DZ')],
-      path: 'resources/langs',
-      assetLoader: CodegenLoader()
-    ));
-  }
-  ...
-  ```
-  
-4. All done!
-
-### 📦 Localization support for multi module/package project
-
-If you want to add localization support from other modules and packages you can add them via `extraAssetLoaders` parameter:
+An independent translator keeps its own language and resources while the interface changes:
 
 ```dart
-  void main(){
-    runApp(EasyLocalization(
-      child: MyApp(),
-      supportedLocales: [Locale('en', 'US'), Locale('ar', 'DZ')],
-      path: 'resources/langs',
-      assetLoader: CodegenLoader()
-      extraAssetLoaders: [
-        TranslationsLoader(packageName: 'package_example_1'),
-        TranslationsLoader(packageName: 'package_example_2'),
-      ],
-    ));
-  }
+final document = await EasyLocalization.instance.translators.once(const Locale('ru'));
+final title = document.tr('invoice.title');
+final items = document.plural('invoice.items', 3);
+
+// Load again when the document should use the latest resources.
+final refreshedDocument = await EasyLocalization.instance.translators.once(document.locale);
 ```
 
-### 🔑 Localization keys
+The requested locale must be in `supportedLocales`. A translator remains usable after the owner is disposed.
 
-If you have many localization keys and are confused, key generation will help you. The code editor will automatically prompt keys
-
-Steps:
-1. Open your terminal in the folder's path containing your project 
-2. Run in terminal `flutter pub run easy_localization:generate -f keys -o locale_keys.g.dart`
-3. Past import.
+To read locale data for the cache without a translator, use `translators`:
 
 ```dart
-import 'generated/locale_keys.g.dart';
-```
-4. All done!
-
-How to use generated keys:
-
-```dart
-print(LocaleKeys.title.tr()); //String
-//or
-Text(LocaleKeys.title).tr(); //Widget
+await localization.translators.load([const Locale('de')]);
+final title = tr('title', locale: const Locale('de'));
+final snapshot = localization.translators[const Locale('de')];
+localization.translators.unload(const Locale('de'));
 ```
 
-### ✅ Audit missing keys
+`translators.load()` shares unfinished reads for each locale and publishes each batch atomically. When overlapping batches compete, a newer batch can publish first, and the older batch completes with `LocalizationOperationSupersededException`. A completed asset read alone does not mean that its batch was published. Load a locale before forcing it in global calls. Held snapshots survive reload, cache eviction and owner disposal. `unload` removes only the cache reference, not a snapshot the caller already holds.
 
-If you prefer to not generate keys you can see an audit of your translation keys to see the one present in your app code but not in your translations file by running the audit command.
-
-```
-flutter pub run easy_localization:audit
-```
-
-If you are not using the default translations folder path (assets/translations) or the lib folder for your code you can specify your custom paths : 
-
-| Arguments                    | Short | Default               | Description                                                                 |
-| ---------------------------- | ----- | --------------------- | --------------------------------------------------------------------------- |
-| --translations-dir           | -t    | assets/translations   | Folder containing localization files                                        |
-| --source-dir                 | -s    | lib                   | Folder containing the app code files                                        |
-
-## 🖨️ Logger
-
-[Easy Localization] logger based on [Easy Logger]
-
-You can customize logger for you project
-
-### Show only lost keys message
-
-Lost translations keys logged like warning messages. Change [Easy Logger] level for display only errors and warnings.
-
-```dart
-EasyLocalization.logger.enableLevels = [LevelMessages.error, LevelMessages.warning];
-```
-
-### Logger off
-
-For disable logger, change Build Modes in [Easy Logger] to empty List;
-
-```dart
-EasyLocalization.logger.enableBuildModes = [];
-```
-
-### Catching logger messages
-
-For catching logger messages you need override default printer function.
-
-```dart
-EasyLogPrinter customLogPrinter = (
-  Object object, {
-  String name,
-  StackTrace stackTrace,
-  LevelMessages level,
-}) {
-  ///Your function
-  print('$name: ${object.toString()}');
-};
-
-/// override printer to custom
-EasyLocalization.logger.printer = customLogPrinter;
-```
-
-Read more about [Easy Logger](https://github.com/aissat/easy_localization/blob/master/packages/easy_logger/README.md)
-
-## ➕ Extensions helpers
-
-### String to locale
+### Locale helpers
 
 ```dart
 'en_US'.toLocale(); // Locale('en', 'US')
 
-//with custom separator
-'en|US'.toLocale(separator: '|') // Locale('en', 'US')
+// with a custom separator
+'en|US'.toLocale(separator: '|'); // Locale('en', 'US')
+
+Locale('en', 'US').toStringWithSeparator(separator: '|'); // en|US
 ```
-### Locale to String with separator
+
+## Configuration
+
+`EasyLocalizationConfig` is an immutable object. Create it once and pass it to `EasyLocalization.initialize`. The fields are:
+
+| Field | Required | Default | Description |
+| --- | --- | --- | --- |
+| `supportedLocales` | yes | none | Locales the app can show. Must not be empty; the list is copied. |
+| `path` | yes | none | Folder with the translation files. Must not be empty. |
+| `fallbackLocale` | yes | none | Startup locale when no start, saved, or system choice applies. Must be in `supportedLocales`. It does not enable key fallback. |
+| `startLocale` | no | none | Explicit start locale. Must be in `supportedLocales`. See [Startup locale](#startup-locale). |
+| `preloadLocales` | no | `[]` | Locales loaded during initialization. Each must be in `supportedLocales`. |
+| `assetLoader` | no | `RootBundleAssetLoader(fileLoader: RootBundleFileLoader(), linkedFileResolver: JsonLinkedFileResolver(fileLoader: RootBundleFileLoader()))` | Loader for the translation files. Implement `AssetLoader` for other sources. `RootBundleAssetLoader.fromRootBundle()` gives an equivalent default. |
+| `extraAssetLoaders` | no | `[]` | Loaders for translations from other modules or packages. |
+| `additionalDelegates` | no | `[]` | Custom Flutter `LocalizationsDelegate`s, prepared atomically with the presentation. |
+| `useOnlyLangCode` | no | `false` | When `true`, files are named by language code only (`en.json`); when `false`, by full locale (`en-US.json`). |
+| `useFallbackTranslations` | no | `false` | When a key is missing in the locale's translations, read it from the fallback locale. |
+| `useBaseLanguageFallback` | no | `false` | When fallback translations are enabled, load the base language before the fallback. See [Fallback behavior](#fallback-behavior). |
+| `useFallbackTranslationsForEmptyResources` | no | `false` | Treat empty strings as missing, even when no fallback resource is loaded. Try any loaded base and fallback resources. |
+| `saveLocale` | no | `true` | Save the selected locale in device storage. |
+
+The legacy widget accepts the same properties, with two differences: `fallbackLocale` is optional there, and `preloadLocales` is not available. See [Legacy widget root](#legacy-widget-root).
+
+### Fallback behavior
+
+Three separate settings control fallback. `fallbackLocale` selects the startup locale. It does not enable key fallback. Enable `useFallbackTranslations` separately.
+
+- `useFallbackTranslations` reads a missing key from the fallback locale.
+- `useBaseLanguageFallback` loads the language-and-script base, such as `zh-Hans` for `zh-Hans-CN`, before the fallback. Both startup paths disable it by default.
+- `useFallbackTranslationsForEmptyResources` treats empty strings as missing.
+
+With `useBaseLanguageFallback` enabled for a region, the owner loads the primary locale, then the base, then the configured fallback. A missing optional base is skipped. A missing primary or fallback resource throws before anything is committed. The RootBundle loader throws for missing assets, so enable base fallback only when the base asset exists or when a custom loader reports confirmed absence. Duplicate normalized resources are loaded once per operation.
+
+### Startup locale
+
+`initialize` completes after all selected resources and the required startup write. It chooses the locale in this order:
+
+1. `startLocale`, when it is set.
+2. The saved choice, when `saveLocale: true`.
+3. A supported system locale, or the required `fallbackLocale`.
+
+The owner reads the engine's ordered list of preferred locales at startup, on locale events, and on resume. For each preferred locale, the owner:
+
+1. selects an exact supported match;
+2. if the region is not supported, checks the later preferred locales for an exact supported region of the same language;
+3. applies the existing script, country, or first-supported match.
+
+When the first preference specifies a script, later exact matches must specify the same script. Otherwise the preferred script is searched first. If it is unavailable, the usual country or first-supported fallback applies. The engine may supply a default `en_US`; the library adds no English default.
+
+Resume reads the engine's list. It does not force a browser language refresh, and it does not guarantee iOS per-app locale events.
+
+### Saved and explicit choices
+
+- A valid `startLocale` overrides old saved data. It is applied and saved after loading on every launch.
+- To keep the user's choice, omit `startLocale` on later launches.
+- A system or fallback choice is never saved as an explicit choice.
+- Invalid, unsupported, or unreadable saved data is ignored with a warning, and it is not deleted.
+- A resource failure throws. A failed startup write leaves the translations available and reports a persistence error in `state`. Selecting the language again retries the write.
+- With `saveLocale: false`, initialize, set, reset, and delete never access preferences.
+- The stored `locale` key and the language, script and country forms stay compatible. No storage migration is needed.
+
+### Lifecycle
+
+Commands return `Future<void>`. A persistence error may leave the committed data available, and repeating the selection retries the storage. Read `dataTranslator` for a snapshot and `state` for progress and errors. Dispose the owner when it is no longer needed. Global access before readiness or after disposal throws `StateError`. Reusing the same config object reuses the initialization. Another config requires disposing the current owner first.
+
+`await EasyLocalization.ensureInitialized(config)` is a facade for `initialize`. Obtain the owner with `EasyLocalization.instance`. The call without arguments only prepares Flutter and does not load translations.
+
+Reading the configuration:
 
 ```dart
-Locale('en', 'US').toStringWithSeparator(separator: '|') // en|US
+print(localization.supportedLocales); // [en_US, ar_DZ, de_DE, ru_RU]
+print(localization.fallbackLocale); // en_US
 ```
 
+## Custom loaders and multiple modules
 
-<p align="center">
-    <a href="https://gitpod.io/#https://github.com/aissat/easy_localization" target="_blank">
-        <img src="https://gitpod.io/button/open-in-gitpod.svg" width=200 />
-    </a>
-</p>
+An `AssetLoader` returns the translations of one resource:
 
+- return `null` only when the resource is confirmed to be missing;
+- return `{}` when the resource exists and is empty;
+- throw when loading fails.
 
-## Screenshots
+Example of an in-memory loader:
 
-| Arabic RTL                                                                                                                  | English LTR                                                                                                                   | Error widget                                                                                                                     |
-| --------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| ![Arabic RTL](https://raw.githubusercontent.com/aissat/easy_localization/master/screenshots/Screenshot_ar.png "Arabic RTL") | ![English LTR](https://raw.githubusercontent.com/aissat/easy_localization/master/screenshots/Screenshot_en.png "English LTR") | ![Error widget](https://raw.githubusercontent.com/aissat/easy_localization/master/screenshots/Screenshot_err.png "Error widget") |
+```dart
+class MemoryLoader extends AssetLoader {
+  MemoryLoader(this.translations);
 
-## Donations
+  final Map<String, dynamic> translations;
 
-We need your support. Projects like this can not be successful without support from the community. If you find this project useful, and would like to support further development and ongoing maintenance, please consider donating.
+  @override
+  Future<Map<String, dynamic>?> load(String path, Locale locale) => Future.value(translations);
+}
+```
 
-<p align="center">
-  <a href="https://opencollective.com/flutter_easy_localization/donate" target="_blank">
-    <img src="https://opencollective.com/flutter_easy_localization/donate/button@2x.png?color=blue" width=300 />
-  </a>
-</p>
+The `AssetLoader` constructor takes no arguments. It has no `fileLoader` or `linkedFileResolver` getters. Keep file dependencies inside your own loader. `RootBundleAssetLoader` keeps both fields and its named constructor.
 
-### Sponsors
+Generate a loader from JSON files:
 
-<img src="https://opencollective.com/flutter_easy_localization/tiers/backer.svg?avatarHeight=48"/>
+1. Open a terminal in your project folder.
+2. Run `dart run easy_localization_continued:generate`.
+3. Use the generated loader in a minimal app:
 
+```dart
+import 'package:flutter/material.dart';
+import 'package:easy_localization_continued/easy_localization.dart';
+import 'generated/codegen_loader.g.dart';
 
-### Contributors thanks
+void main() async {
+  final owner = await EasyLocalization.initialize(EasyLocalizationConfig(
+    supportedLocales: const [Locale('en', 'US'), Locale('ar', 'DZ')],
+    fallbackLocale: const Locale('en', 'US'),
+    path: 'assets/translations',
+    assetLoader: CodegenLoader(),
+  ));
+  runApp(EasyLocalization.withInstance(instance: owner, child: const MyApp()));
+}
 
-![contributors](https://contributors-img.firebaseapp.com/image?repo=aissat/easy_localization)
-<a href="https://github.com/aissat/easy_localization/graphs/contributors"></a>
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final owner = EasyLocalization.instance;
+    return MaterialApp(
+      locale: owner.presentationLocale,
+      supportedLocales: owner.supportedLocales,
+      localizationsDelegates: owner.delegates,
+      home: Scaffold(body: Text('title'.tr())),
+    );
+  }
+}
+```
+
+### Multiple modules and packages
+
+Add translations from other modules and packages with `extraAssetLoaders`:
+
+```dart
+void main() async {
+  final owner = await EasyLocalization.initialize(EasyLocalizationConfig(
+    supportedLocales: const [Locale('en', 'US'), Locale('ar', 'DZ')],
+    fallbackLocale: const Locale('en', 'US'),
+    path: 'assets/translations',
+    assetLoader: CodegenLoader(),
+    extraAssetLoaders: [
+      FeatureOneLoader(), // Your AssetLoader subclasses.
+      FeatureTwoLoader(),
+    ],
+  ));
+  runApp(EasyLocalization.withInstance(instance: owner, child: const MyApp()));
+}
+```
+
+The upstream `easy_localization_loader` package depends on `easy_localization` 3.x. Changing its dependency key or an override does not make its `AssetLoader` a type of this package. Port each such loader to the new import and to the contract above. See [Migrating from 3.x](#migrating-from-3x--upstream-easy_localization).
+
+## Tooling (CLI)
+
+### generate
+
+`dart run easy_localization_continued:generate` creates a loader from the JSON files, or a keys class from one JSON file.
+
+| Argument                     | Short | Default               | Description                                                                 |
+| ---------------------------- | ----- | --------------------- | --------------------------------------------------------------------------- |
+| `--help`                     | `-h`  |                       | Shows help.                                                                 |
+| `--source-dir`               | `-S`  | `assets/translations` | Folder with the localization files.                                         |
+| `--source-file`              | `-s`  | first JSON by name    | File used to generate the keys.                                             |
+| `--output-dir`               | `-O`  | `lib/generated`       | Folder for the generated file.                                              |
+| `--output-file`              | `-o`  | `codegen_loader.g.dart` | Name of the generated file.                                               |
+| `--format`                   | `-f`  | `json`                | `json` for a loader, `keys` for key constants.                              |
+| `--[no-]skip-unnecessary-keys` | `-u` | `false`               | Skips constants for keys that define only nested objects, except `plural()` and `gender` keys. |
+
+For JSON loaders and the audit, file names use a 2–3 letter language code, an optional 4-letter script, and an optional 2-letter or 3-digit region, separated by `-` or `_`. Names are normalized: `zh_hans_cn.json` becomes `zh_Hans_CN`, and linked files are read from `zh-Hans-CN/`. Invalid names, and names that normalize to the same locale, are rejected. Key generation also accepts arbitrary source file names.
+
+JSON loader filenames must have a non-empty locale name made of ASCII letters, digits, underscores and hyphens. Hyphens become underscores, so `en-US.json` and `en_US.json` cannot be used together. JSON loader generation uses all regular `.json` files in filename order, unless a source file is given. Linked JSON files are resolved during generation for both formats, so the generated loaders do not read them at runtime. A missing or invalid source, or a broken link, exits with code 1 and leaves the existing output unchanged.
+
+### Generated keys
+
+Generate keys from one JSON file. Keys are never combined across languages. By default the first regular `.json` file in filename order is used. Pass `--source-file` to choose a complete fallback file when another file lacks some keys:
+
+1. Open a terminal in your project folder.
+2. Run `dart run easy_localization_continued:generate -f keys -o locale_keys.g.dart`.
+3. Import the generated file:
+
+```dart
+import 'generated/locale_keys.g.dart';
+```
+
+Use the keys:
+
+```dart
+Text(LocaleKeys.title.tr());
+// Optionally, use the Text extension:
+Text(LocaleKeys.title).tr();
+```
+
+String leaves, including plural and gender forms, have generated constants. `-u` controls only the constants of parent keys. Generated identifiers must be public Dart identifiers, so they cannot start with `_`. They must not be reserved words, and they must not collide after nested paths are joined with underscores. For example, `auth.login`, `bad-key`, `class`, and the combination of `a_b` with nested `a.b` cannot be generated. The command reports an error and keeps the existing output. Runtime translation keys can still contain dots.
+
+Since 4.0.0, the generated keys re-export the translation extensions. The keys file is a Flutter-facing artifact and is not a standalone Dart library.
+
+### audit
+
+The audit finds keys that appear in your code but are missing from the translation files:
+
+```
+dart run easy_localization_continued:audit
+```
+
+| Argument           | Short | Default               | Description                                                                                       |
+| ------------------ | ----- | --------------------- | ------------------------------------------------------------------------------------------------- |
+| `--translations-dir` | `-t` | `assets/translations` | Folder with the localization files.                                                               |
+| `--source-dir`     | `-s`  | `lib`                 | Folder with the app code.                                                                         |
+| `--strict`         |       | `false`               | Exits with code 2 when a static key is missing or a plural has no `other` form.                   |
+
+For CI, run `dart run easy_localization_continued:audit --strict`. Exit codes:
+
+- `0`: the audit completed without confirmed missing keys, or strict mode is off.
+- `2`: strict mode found a missing static key, or a plural without `other`.
+- `1`: the audit could not complete, for example because of an invalid option, unreadable input, invalid JSON, or no JSON locales.
+
+The report and warnings go to stdout. Errors go to stderr.
+
+The scanner finds literal keys in `tr` and `plural` calls. This includes literal or `LocaleKeys` String receivers, `Text` with named arguments, and bare or prefixed calls such as `loc.tr` and `EasyLocalization.instance.dataTranslator.tr`. It scans executable expressions inside string interpolation and ignores ordinary string examples and comments. It reads literal `static const` values of `LocaleKeys` from the Dart files in the source folder. Conflicting values, interpolated keys, dynamic expressions and unresolved constants are unverified. Receiver types are not resolved, and complex Dart syntax can exceed the scanner's limits. The scanner is not a full Dart parser.
+
+Each JSON locale is checked on its own, without app configuration or fallback:
+
+- a translation must be a string;
+- a plural call needs at least one string plural form, and a missing `other` is reported as a warning and fails strict mode;
+- a literal gender in a top-level call checks that form, while a dynamic gender remains unverified;
+- named arguments inside nested helpers do not affect the outer call;
+- for static calls, the audit follows the links reachable from the selected string, the literal gender form, and the available string plural forms, and reports missing or non-string targets with their paths.
+
+The audit does not determine which plural form a given locale and value select. Cycles and dynamic calls remain unverified. The audit does not verify the entire application.
+
+The audit also warns when corresponding resolved strings in different locales use different named parameters, such as `{name}` and `{naem}`. It includes reachable linked strings and compares only matching plural or gender forms that resolve in both locales. Parameter mismatches are warnings and do not change either exit code.
+
+**Trusted input.** Run `generate` and `audit` only on trusted translation folders and trusted JSON files throughout the link chain. A linked path can read files outside the translations folder with the permissions of the process that runs the command, and the contents can appear in the generated output. These commands are not an operating-system sandbox. When you handle untrusted input, restrict the process's access to resources.
+
+## Diagnostics and errors
+
+### Diagnostic callbacks
+
+Diagnostics are silent by default. Set any of the three independent callbacks before initialization to receive messages, including initialization messages:
+
+```dart
+WidgetsFlutterBinding.ensureInitialized();
+EasyLocalization.onVerbose = (message, {stackTrace}) { /* send to your logger */ };
+EasyLocalization.onWarning = (message, {stackTrace}) { /* send to your logger */ };
+EasyLocalization.onError = (message, {stackTrace}) { /* send to your logger */ };
+final config = EasyLocalizationConfig(
+  supportedLocales: const [Locale('en', 'US')],
+  fallbackLocale: const Locale('en', 'US'),
+  path: 'assets/translations',
+);
+await EasyLocalization.ensureInitialized(config);
+```
+
+Each callback runs synchronously in the current zone. Resource errors include their original stack trace. Set a callback to `null` to disable its category. The application controls filtering, formatting and output. Exceptions thrown by a callback are passed to `FlutterError.reportError`; they do not affect localization work. The application remains responsible for handling those reported errors.
+
+The removed `EasyLocalization.logger` API is migrated in [Migrating from 3.x](#migrating-from-3x--upstream-easy_localization).
+
+### Startup retry
+
+An initial loading failure should be handled outside the localization root. Keep the configuration in a startup widget, retry the initialization there, and create the root only after it succeeds:
+
+```dart
+class Startup extends StatefulWidget {
+  const Startup({super.key, required this.config});
+  final EasyLocalizationConfig config;
+
+  @override
+  State<Startup> createState() => _StartupState();
+}
+
+class _StartupState extends State<Startup> {
+  late Future<EasyLocalizationInstance> startup;
+  EasyLocalizationInstance? owner;
+
+  @override
+  void initState() {
+    super.initState();
+    startup = EasyLocalization.initialize(widget.config);
+  }
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<EasyLocalizationInstance>(
+    future: startup,
+    builder: (context, snapshot) {
+      if (snapshot.hasError) {
+        return MaterialApp(home: TextButton(
+          onPressed: () => setState(() { startup = EasyLocalization.initialize(widget.config); }),
+          child: const Text('Retry'),
+        ));
+      }
+      if (!snapshot.hasData) return const MaterialApp(home: CircularProgressIndicator());
+      owner = snapshot.data;
+      return EasyLocalization.withInstance(instance: snapshot.requireData, child: const MyApp());
+    },
+  );
+
+  @override
+  void dispose() {
+    owner?.dispose();
+    super.dispose();
+  }
+}
+```
+
+Run `runApp(Startup(config: config))`. Keep the startup widget mounted until the initialization completes. Dispose a successfully initialized owner when it is no longer needed.
+
+### Command state
+
+`localization.state` is a `ValueListenable<LocalizationState>`. Its fields are:
+
+- `locale`: the committed locale;
+- `appliedLocale`: the locale of the last applied resources;
+- `isSystemMode`: whether the system choice is in effect;
+- `isLoading`: whether a command is running;
+- `error` and `errorStage`: the last error and the stage where it occurred. The stages are `resources`, `persistence` and `flutterDelegates`.
+
+Committed data remains usable after an error.
+
+`waitForPresentation()` returns a `LocalizationApplyOutcome`: `applied`, `superseded`, `detached`, `failed`, or `disposed`. Treat only `applied` as a visible success.
+
+### Exceptions
+
+- `LocalizationNotFoundException` is thrown by context-based calls when no localization root is found.
+- `StateError` is thrown by global calls before the owner is ready and after it is disposed.
+- `LocalizationOperationSupersededException` completes a command that a newer command superseded.
+
+## Testing
+
+Initialize a fresh owner before pumping the widget, and unmount the root before disposing the owner. This in-memory loader returns a completed future. The example needs neither `runAsync` nor the asset bundle:
+
+```dart
+import 'package:easy_localization_continued/easy_localization.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+class MemoryLoader extends AssetLoader {
+  MemoryLoader(this.translations);
+
+  final Map<String, dynamic> translations;
+
+  @override
+  Future<Map<String, dynamic>?> load(String path, Locale locale) => Future.value(translations);
+}
+
+void main() {
+  testWidgets('English title and plural use the first owner', (tester) async {
+    final owner = await EasyLocalization.initialize(
+      EasyLocalizationConfig(
+        supportedLocales: const [Locale('en')],
+        fallbackLocale: const Locale('en'),
+        startLocale: const Locale('en'),
+        path: 'unused',
+        saveLocale: false,
+        assetLoader: MemoryLoader({
+          'title': 'Hello',
+          'items': {'one': '{} item', 'other': '{} items'},
+        }),
+      ),
+    );
+    try {
+      await tester.pumpWidget(
+        EasyLocalization.withInstance(
+          instance: owner,
+          child: Builder(builder: (context) => MaterialApp(
+            locale: owner.presentationLocale,
+            supportedLocales: owner.supportedLocales,
+            localizationsDelegates: owner.delegates,
+            home: Scaffold(
+              body: Column(
+                mainAxisSize: MainAxisSize.max,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [Text(tr('title')), Text('items'.plural(2))],
+              ),
+            ),
+          )),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Hello'), findsOneWidget);
+      expect(find.text('2 items'), findsOneWidget);
+    } finally {
+      await tester.pumpWidget(const SizedBox.shrink());
+      owner.dispose();
+    }
+  });
+}
+```
+
+The [runnable recipe](test/easy_localization_testing_recipe_test.dart) has a second independent test with another locale and dictionary. Real bundle or plugin operations can require `tester.runAsync`; this memory loader does not. If you use `saveLocale: true`, set up mock preferences before initializing the owner.
+
+For [Alchemist](https://pub.dev/packages/alchemist), use its [custom pumping](https://github.com/Betterment/alchemist#custom-pumping-behavior) to initialize a fresh owner before the golden subtree:
+
+```dart
+import 'package:alchemist/alchemist.dart';
+
+goldenTest(
+  'translated title',
+  fileName: 'translated_title',
+  builder: () => Builder(builder: (_) => Text(tr('title'))),
+  pumpWidget: (tester, widget) async {
+    final owner = await EasyLocalization.initialize(EasyLocalizationConfig(
+      supportedLocales: const [Locale('en')],
+      fallbackLocale: const Locale('en'),
+      startLocale: const Locale('en'),
+      path: 'unused',
+      saveLocale: false,
+      assetLoader: MemoryLoader({'title': 'Hello'}),
+    ));
+    addTearDown(() async {
+      await tester.pumpWidget(const SizedBox.shrink());
+      owner.dispose();
+    });
+    await tester.pumpWidget(EasyLocalization.withInstance(
+      instance: owner,
+      child: Builder(builder: (context) => MaterialApp(
+        locale: owner.presentationLocale,
+        supportedLocales: owner.supportedLocales,
+        localizationsDelegates: owner.delegates,
+        home: widget,
+      )),
+    ));
+  },
+  whilePerforming: (tester) async {
+    expect(find.text('Hello'), findsOneWidget);
+    return null;
+  },
+);
+```
+
+Register this inside `main()`. The [Windows golden test](example/test/localization_golden_test.dart) in the example app loads Roboto, checks English and Russian plurals, and compares readable platform goldens. From `example`, run `flutter pub get`, then `flutter test --no-pub test/localization_golden_test.dart`. Add `--update-goldens` to regenerate the baselines.
+
+## Platform support and limitations
+
+Verified with the 4.0.0 evidence:
+
+- Android, iOS Simulator, macOS, and the Web (JavaScript and WASM browser journeys);
+- Windows: only the golden test of the example app;
+- Flutter 3.44.9, with a downgrade check. Flutter 3.44.0 was not checked.
+
+Not verified:
+
+- physical iOS devices;
+- Firefox and Safari;
+- native Settings events and per-app locale events.
+
+Known limitations:
+
+- A single loader or delegate that hangs without reporting an error has no timeout.
+- A `path` that ends with `/` does not find assets. This was also the case in 3.x. Omit the trailing slash.
+- Resume does not force a browser language refresh, and iOS per-app locale events are not guaranteed. See [Startup locale](#startup-locale).
+- `generate` and `audit` read linked files with the permissions of the process. See [Tooling (CLI)](#tooling-cli).
+
+## FAQ
+
+**Why does `tr()` not update outside `build`?**
+Values computed outside `build` are snapshots. Under the localization root, `tr()` and `plural()` called in `build` are recalculated when the root publishes a new presentation.
+
+**How do I keep the user's choice when I use `startLocale`?**
+Omit `startLocale` on later launches. A `startLocale` that is set is applied and saved on every launch.
+
+**Why do I need `fallbackLocale` if keys do not fall back?**
+`fallbackLocale` selects the startup locale. Enable `useFallbackTranslations` to read missing keys from the fallback locale.
+
+**How do I switch the language and know that it is visible?**
+Await `setLocale(...)`, then await `waitForPresentation()`. The change is visible when the outcome is `applied`.
+
+**How do I load the language of a document without changing the UI?**
+Use `translators.once(locale)` for an independent snapshot. See [Translating a document in another language](#translating-a-document-in-another-language).
+
+**What about upstream loaders from `easy_localization_loader`?**
+They depend on `easy_localization` 3.x and must be ported to `AssetLoader`. See [Migrating from 3.x](#migrating-from-3x--upstream-easy_localization).
+
+**How do I run the translations in tests?**
+Use an in-memory `AssetLoader`, initialize a fresh owner, and follow [Testing](#testing).
+
+**What does `useOnlyLangCode` change?**
+With `true`, files are named by language code only (`en.json`). With `false`, they use the full locale (`en-US.json`).
+
+**Why does `generate` fail on `bad-key` or `class`?**
+Generated identifiers must be public Dart identifiers that are not reserved words, and they must not collide. The command reports an error and keeps the existing output. See [Generated keys](#generated-keys).
+
+## Migrating from 3.x / upstream easy_localization
+
+<a id="compatibility-and-migration-to-400"></a>
+
+This section is for apps that use upstream `easy_localization` 3.x. Start with the minimum checklist, use the table to find each replacement, then review the behavior changes. Behavior rules are described once, in the linked sections.
+
+### Minimum checklist
+
+1. Replace `easy_localization: ^3.x` with `easy_localization_continued: ^4.0.0`. A constraint such as `^3.0.8` does not select 4.0.0.
+2. Change the import to `package:easy_localization_continued/easy_localization.dart`.
+3. Use Dart 3.12 and Flutter 3.44 or later.
+4. In scripts, replace `easy_localization:generate` and `easy_localization:audit` with `dart run easy_localization_continued:generate` and `dart run easy_localization_continued:audit`. Then regenerate the keys and loaders.
+5. Remove `ignorePluralRules`, the `EasyLocalization.logger` configuration and any `easy_logger` setup.
+6. Port every upstream loader to `AssetLoader`. See [Porting a custom or upstream loader](#porting-a-custom-or-upstream-loader).
+
+### Replacement table
+
+| 3.x (`easy_localization` 3.0.9) | 4.0.0 |
+| --- | --- |
+| `easy_localization: ^3.x` | `easy_localization_continued: ^4.0.0` |
+| `import 'package:easy_localization/easy_localization.dart';` | `import 'package:easy_localization_continued/easy_localization.dart';` |
+| Dart `>=2.12 <4.0`, `intl >=0.17 <0.21`, `shared_preferences >=2.0 <3.0`, `easy_logger` | Dart `>=3.12`, Flutter `>=3.44`, `intl ^0.20.2`, `shared_preferences >=2.5.6`; `easy_logger` is removed |
+| `flutter pub run easy_localization:generate` / `:audit` | `dart run easy_localization_continued:generate` / `:audit` |
+| `await EasyLocalization.ensureInitialized();` and `runApp(EasyLocalization(...))` | `final owner = await EasyLocalization.initialize(EasyLocalizationConfig(...));` and `runApp(EasyLocalization.withInstance(instance: owner, child: ...))`. The `EasyLocalization(...)` widget still works. `ensureInitialized()` without a config only prepares Flutter. |
+| `fallbackLocale` is optional | `fallbackLocale` is required in `EasyLocalizationConfig`; it must belong to `supportedLocales`. The legacy widget uses the first supported locale when it is omitted. |
+| `startLocale` loses to a saved locale | `startLocale` is applied and saved on every launch. Omit it to keep the user's saved choice. |
+| `context.locale = locale` | `await context.setLocale(locale)` or `await owner.setLocale(locale)`. Handle the returned future. |
+| `context.tr('key')`, `context.plural(...)`, `context.trExists('key')` | `tr('key')`, `plural(...)`, `trExists('key')` without `context`. The scoped forms are deprecated until 5.0. |
+| `tr('key', context: context)` | `tr('key')`. The `context:` parameter is deprecated until 5.0. |
+| `EasyLocalization.logger` | `EasyLocalization.onVerbose`, `onWarning` and `onError` callbacks. Diagnostics are silent by default. |
+| `ignorePluralRules: true / false` | Removed. Plural lookups use explicit 0, 1 and 2 forms, then the locale rules from `intl`. |
+| `AssetLoader({required super.fileLoader, required super.linkedFileResolver})`, base getters | `const AssetLoader()` takes no arguments. `RootBundleAssetLoader` keeps its `fileLoader` and `linkedFileResolver`. `load(String path, Locale locale)` keeps its signature. |
+| Loaders from `easy_localization_loader` (CSV, YAML, XML) | Not compatible. Port them to `AssetLoader`. The built-in format is JSON. |
+| `Localization()` constructor | Removed. Use `Localization.snapshot(...)` for an independent snapshot. |
+| `localeFromString`, `localeToString` | Removed. Use `'en_US'.toLocale()` and `locale.toStringWithSeparator()`, which already exist in 3.x. |
+| `Localization.instance` returns an empty instance before any load | Throws `StateError` until `EasyLocalization.initialize` completes and after the owner is disposed. Keep the owner returned by `initialize`. |
+| `getLinkedLocalePath(basePath, filePath, languageCode, {countryCode})` | Adds a named `scriptCode` parameter. `resolveLinkedFilesForLocale` is removed. |
+| A loader exception for a base-language resource is logged and skipped | A loader exception fails loading. A `null` optional base resource is skipped. Primary and configured fallback resources are required. |
+| Missing scope: top-level `tr(..., context:)` or `plural(..., context:)` fails with a null-check error | `LocalizationNotFoundException`. |
+
+### Owner setup: before and after
+
+Before, in 3.x (text only, not compiled):
+
+```dart
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await EasyLocalization.ensureInitialized();
+  runApp(
+    EasyLocalization(
+      supportedLocales: const [Locale('en', 'US'), Locale('de', 'DE')],
+      path: 'assets/translations',
+      fallbackLocale: const Locale('en', 'US'),
+      child: const MyApp(),
+    ),
+  );
+}
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      localizationsDelegates: context.localizationDelegates,
+      supportedLocales: context.supportedLocales,
+      locale: context.locale,
+      home: const Scaffold(body: Center(child: Text('title'))),
+    );
+  }
+}
+```
+
+After, in 4.0 (this code is compiled against the package):
+
+```dart
+import 'package:easy_localization_continued/easy_localization.dart';
+import 'package:flutter/material.dart';
+
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  final owner = await EasyLocalization.initialize(
+    EasyLocalizationConfig(
+      supportedLocales: const [Locale('en', 'US'), Locale('de', 'DE')],
+      fallbackLocale: const Locale('en', 'US'),
+      path: 'assets/translations',
+    ),
+  );
+  runApp(EasyLocalization.withInstance(instance: owner, child: MyApp(owner: owner)));
+}
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key, required this.owner});
+
+  final EasyLocalizationInstance owner;
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      locale: owner.presentationLocale,
+      supportedLocales: owner.supportedLocales,
+      localizationsDelegates: owner.delegates,
+      home: const Scaffold(body: Center(child: Text('title'))),
+    );
+  }
+}
+```
+
+The owner provides the locale, the supported locales and the delegates. Pass it to `MaterialApp` as shown. See [Initialize before runApp](#initialize-before-runapp) for `waitForPresentation()`. The legacy widget root is described in [Legacy widget root](#legacy-widget-root).
+
+### Behavior changes that compile
+
+Review these items in the app. Each one changes behavior without a compile error.
+
+- **Start locale and saved choice.** In 3.x a saved locale won over `startLocale`. In 4.0 `startLocale` is applied and saved on every launch. See [Startup locale](#startup-locale) and [Saved and explicit choices](#saved-and-explicit-choices).
+- **Fallback.** The owner requires a supported `fallbackLocale`. Translations do not fall back key by key unless you enable `useFallbackTranslations`. Base-language fallback is off by default (`useBaseLanguageFallback`). See [Configuration](#configuration) and [Fallback behavior](#fallback-behavior).
+- **Plurals.** `ignorePluralRules` is removed. All `plural()` calls use the same rules. See [Plurals with plural()](#plurals-with-plural).
+- **Loader errors.** A loader exception fails loading. Only a `null` optional base resource is skipped. See [Custom loaders and multiple modules](#custom-loaders-and-multiple-modules).
+- **Instance access.** `Localization.instance` throws `StateError` before initialization completes and after the owner is disposed. See [Initialize before runApp](#initialize-before-runapp).
+- **Presentation after `setLocale`.** Call `waitForPresentation()` when code must read translations right after a locale change. See [Initialize before runApp](#initialize-before-runapp).
+- **Diagnostics.** Diagnostics are silent by default. Set `onVerbose`, `onWarning` or `onError` to receive them. See [Diagnostic callbacks](#diagnostic-callbacks).
+- **Missing scope.** The owner and the scoped `context` forms report missing scope with `LocalizationNotFoundException`. See [Exceptions](#exceptions).
+
+### Porting a custom or upstream loader
+
+The loader contract is the same as in [Custom loaders and multiple modules](#custom-loaders-and-multiple-modules). Only the constructor changes: the base class takes no arguments, and the loader owns its dependencies.
+
+Before, in 3.x (text only, not compiled):
+
+```dart
+class MyLoader extends AssetLoader {
+  const MyLoader({required super.fileLoader, required super.linkedFileResolver});
+
+  @override
+  Future<Map<String, dynamic>?> load(String path, Locale locale) async {
+    // Read the resource through the base class fileLoader.
+  }
+}
+```
+
+After, in 4.0 (compiled against the package):
+
+```dart
+import 'dart:convert';
+
+import 'package:easy_localization_continued/easy_localization.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+
+class JsonStringAssetLoader extends AssetLoader {
+  const JsonStringAssetLoader();
+
+  @override
+  Future<Map<String, dynamic>?> load(String path, Locale locale) async {
+    final text = await rootBundle.loadString(path);
+    return jsonDecode(text) as Map<String, dynamic>;
+  }
+}
+```
+
+Pass the loader as `assetLoader:` in `EasyLocalizationConfig`. The same parameter name is used by the legacy widget.
+
+Return values follow the contract: return `null` only for a resource you have confirmed is missing, return `{}` for an empty resource, and let read or parse errors throw. A missing primary or configured fallback resource fails loading. A missing optional base-language resource is skipped only when the loader returns `null`.
+
+### What remains from 3.x
+
+- A `path` that ends with `/` does not find assets. This was already true in 3.x. See [Platform support and limitations](#platform-support-and-limitations).
+- Loaders and delegates have no timeout. A hanging loader keeps the app waiting. See [Platform support and limitations](#platform-support-and-limitations).
+- The scoped `context` forms of `tr`, `plural` and `trExists` are deprecated until 5.0. See [BuildContext API](#buildcontext-api).
+- The `EasyLocalization(...)` widget root is supported. It is not deprecated. See [Legacy widget root](#legacy-widget-root).
+- The `easy_localization_loader` plugin is not used by 4.0. Port its loaders as described above.
+
+## Legacy widget root
+
+The `EasyLocalization` widget is supported and is not deprecated. It is the shortest migration path from 3.x. It takes the same properties as `EasyLocalizationConfig`, except that `fallbackLocale` is optional and `preloadLocales` is not available:
+
+| Properties                | Required | Default                   | Description                                                                                                  |
+| ------------------------- | -------- | ------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `key`                     | no       |                           | Widget key.                                                                                                  |
+| `child`                   | yes      |                           | The main page widget.                                                                                        |
+| `supportedLocales`        | yes      |                           | Locales the app can show.                                                                                    |
+| `path`                    | yes      |                           | Folder with the localization files.                                                                          |
+| `assetLoader`             | no       | `RootBundleAssetLoader(fileLoader: RootBundleFileLoader(), linkedFileResolver: JsonLinkedFileResolver(fileLoader: RootBundleFileLoader()))` | Loader for the localization files. `RootBundleAssetLoader.fromRootBundle()` is equivalent. |
+| `extraAssetLoaders`       | no       | `null`                    | Loaders for additional modules or packages.                                                                  |
+| `additionalDelegates`     | no       | `[]`                      | Custom Flutter `LocalizationsDelegate`s.                                                                     |
+| `fallbackLocale`          | no       | first of `supportedLocales` | Startup locale when no start, saved, or system choice applies. Does not enable key fallback.              |
+| `startLocale`             | no       |                           | Overrides the device locale.                                                                                 |
+| `saveLocale`              | no       | `true`                    | Saves the locale in device storage.                                                                          |
+| `useFallbackTranslations` | no       | `false`                   | Reads a missing key from the fallback locale.                                                                |
+| `useBaseLanguageFallback` | no       | `false`                   | Loads the base language before the fallback when fallback translations are enabled.                          |
+| `useFallbackTranslationsForEmptyResources` | no | `false`          | Treats empty strings as missing.                                                                             |
+| `useOnlyLangCode`         | no       | `false`                   | Reads files by language code only. See [Configuration](#configuration).                                      |
+| `errorWidget`             | no       | `ErrorWidget`             | Shows a custom widget when an error occurs. Receives the `FlutterError?` message.                            |
+
+The legacy widget uses the same startup priority as the configuration. Its fallback defaults to the first supported locale, and base-language fallback is disabled by default.
+
+Its configuration must stay unchanged while the root is mounted, including during startup. To change it:
+
+1. Completely unmount the old root and finish that frame.
+2. Mount a new root with a new key in a later frame.
+
+Supported locale lists are compared by value, loaders by identity, and delegates by `==`. Create loaders and delegates once outside `build`, or use `const`.
+
+A ready root can be replaced in one frame with a new key when the configuration is the same, or when the owner is borrowed. A legacy-owned root passes its ownership to the replacement. A waiter for presentation receives `detached` during the replacement. To use a different legacy configuration, render a placeholder for one frame before mounting the new root with a new key.
+
+An initial loading error of the legacy root is shown before any owner or provider is ready. Keep the root key in its parent, and create a new key to retry. Do not call context or global localization APIs from the error widget. `reloadTranslations()` applies only to an owner that has already initialized.
+
+```dart
+class LegacyStartup extends StatefulWidget {
+  const LegacyStartup({super.key});
+
+  @override
+  State<LegacyStartup> createState() => _LegacyStartupState();
+}
+
+class _LegacyStartupState extends State<LegacyStartup> {
+  Key rootKey = UniqueKey();
+
+  @override
+  Widget build(BuildContext context) => EasyLocalization(
+    key: rootKey,
+    supportedLocales: const [Locale('en')],
+    path: 'assets/translations',
+    errorWidget: (_) => MaterialApp(
+      home: TextButton(
+        onPressed: () => setState(() => rootKey = UniqueKey()),
+        child: const Text('Retry'),
+      ),
+    ),
+    child: const MyApp(),
+  );
+}
+```
+
+### BuildContext API
+
+Under the legacy root, `BuildContext` exposes the following members. Each one throws `LocalizationNotFoundException` when there is no root above the context:
+
+| Member | Purpose |
+| --- | --- |
+| `context.locale` | The current locale. |
+| `await context.setLocale(locale)` | Changes the locale. Await it to see errors. |
+| `context.supportedLocales` | The supported locales. |
+| `context.fallbackLocale` | The fallback locale. |
+| `context.localizationDelegates` | The delegates for `MaterialApp`. |
+| `context.deviceLocale` | The device locale. |
+| `context.savedLocale` | The saved locale, or `null`. |
+| `await context.resetLocale()` | Follows the system language again and removes the saved selection. |
+| `await context.deleteSaveLocale()` | Removes the saved locale without changing the selection mode. |
+| `await context.reloadTranslations()` | Reloads the translations after loader changes. |
+
+The deprecated `context.locale = locale` setter is replaced by `setLocale`. The scoped `context` forms of `tr`, `plural` and `trExists` are deprecated until 5.0.
+
+```dart
+ElevatedButton(
+  onPressed: () async => context.setLocale(const Locale('de')),
+  child: Text('title'.tr()),
+);
+```
+
+## About this fork
+
+Easy Localization Continued is developed in [Anfet/easy_localization](https://github.com/Anfet/easy_localization). It is based on [aissat/easy_localization](https://github.com/aissat/easy_localization) 3.0.9. The upstream project is distributed under the MIT license, and its copyright notice is kept in [LICENSE](LICENSE) together with the copyright of the contributors to this fork.
+
+Contributions are welcome. See [CONTRIBUTING](CONTRIBUTING.md). The contributors are listed on the [GitHub contributors graph](https://github.com/Anfet/easy_localization/graphs/contributors).
+
+### Screenshots
+
+| Arabic RTL | English LTR | Error widget |
+| --- | --- | --- |
+| ![Arabic RTL](https://raw.githubusercontent.com/Anfet/easy_localization/develop/screenshots/Screenshot_ar.png "Arabic RTL") | ![English LTR](https://raw.githubusercontent.com/Anfet/easy_localization/develop/screenshots/Screenshot_en.png "English LTR") | ![Error widget](https://raw.githubusercontent.com/Anfet/easy_localization/develop/screenshots/Screenshot_err.png "Error widget") |

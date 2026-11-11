@@ -1,9 +1,24 @@
 import 'package:flutter/widgets.dart';
 import 'package:intl/intl.dart';
 import 'localization.dart';
+import 'easy_localization_app.dart';
+import 'exceptions.dart';
+
+Localization _translator(Locale? locale, BuildContext? context) {
+  if (locale != null) {
+    final owner = EasyLocalization.instance;
+    if (!owner.supportedLocales.contains(locale)) throw ArgumentError.value(locale, 'locale', 'Must be supported');
+    if (locale == owner.locale) return owner.dataTranslator;
+    return owner.translators[locale] ?? (throw StateError('Translations for $locale are not loaded; call instance.translators.load first'));
+  }
+  return context != null ? (Localization.of(context) ?? (throw const LocalizationNotFoundException())) : Localization.instance;
+}
 
 /// {@template tr}
 /// Main function for translate your language keys
+///
+/// The `context` parameter is deprecated and will be removed in 5.0. Ordinary
+/// widgets under the root rebuild on presentation changes; retained strings are snapshots.
 /// [key] Localization key
 /// [BuildContext] The location in the tree where this widget builds
 /// [args] List of localized strings. Replaces {} left to right
@@ -33,28 +48,29 @@ import 'localization.dart';
 /// {@endtemplate}
 String tr(
   String key, {
-  BuildContext? context,
+  @Deprecated('Use translations without context; scoped form is removed in 5.0') BuildContext? context,
   List<String>? args,
   Map<String, String>? namedArgs,
   String? gender,
+  Locale? locale,
 }) {
-  return context != null
-      ? Localization.of(context)!
-          .tr(key, args: args, namedArgs: namedArgs, gender: gender)
-      : Localization.instance
-          .tr(key, args: args, namedArgs: namedArgs, gender: gender);
+  return _translator(locale, context).tr(key, args: args, namedArgs: namedArgs, gender: gender);
 }
 
-bool trExists(String key, {BuildContext? context}) {
-  return context != null
-      ? Localization.of(context)!
-	      .exists(key)
-      : Localization.instance
-	      .exists(key);
+bool trExists(
+  String key, {
+  @Deprecated('Use trExists without context; scoped form is removed in 5.0') BuildContext? context,
+  bool includeFallback = false,
+  Locale? locale,
+}) {
+  return _translator(locale, context).exists(key, includeFallback: includeFallback);
 }
 
 /// {@template plural}
 /// function translate with pluralization
+///
+/// The `context` parameter is deprecated and will be removed in 5.0. Ordinary
+/// widgets under the root rebuild on presentation changes; retained strings are snapshots.
 /// [key] Localization key
 /// [value] Number value for pluralization
 /// [BuildContext] The location in the tree where this widget builds
@@ -96,7 +112,7 @@ bool trExists(String key, {BuildContext? context}) {
 /// ```
 ///
 ///```dart
-/// Text('money').plural(1000000, format: NumberFormat.compact(locale: context.locale.toString())) // output: You have 1M dollars
+/// Text('money').plural(1000000, format: NumberFormat.compact(locale: EasyLocalization.instance.locale.toString())) // output: You have 1M dollars
 /// print('day'.plural(21)); // output: 21 день
 /// var money = plural('money', 10.23) // output: You have 10.23 dollars
 /// var money = plural('money_args', 10.23, args: ['John', '10.23'])  // output: John has 10.23 dollars
@@ -107,14 +123,11 @@ String plural(
   String key,
   num value, {
   List<String>? args,
-  BuildContext? context,
+  @Deprecated('Use translations without context; scoped form is removed in 5.0') BuildContext? context,
   Map<String, String>? namedArgs,
   String? name,
   NumberFormat? format,
+  Locale? locale,
 }) {
-  return context != null
-      ? Localization.of(context)!.plural(key, value,
-          args: args, namedArgs: namedArgs, name: name, format: format)
-      : Localization.instance.plural(key, value,
-          args: args, namedArgs: namedArgs, name: name, format: format);
+  return _translator(locale, context).plural(key, value, args: args, namedArgs: namedArgs, name: name, format: format);
 }

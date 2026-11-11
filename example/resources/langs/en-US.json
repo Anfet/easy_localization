@@ -10,12 +10,7 @@
             "password": "password"
         }
     },
-    "clicked": {
-        "zero": "You didn't click yet!",
-        "few": "You clicked a few times ({})!",
-        "many": "You clicked many times ({})!",
-        "other": "You clicked {} time(s)!"
-    },
+    "clicked": ":/clicked.json",
     "amount": {
         "zero": "Your amount : {} ",
         "one": "Your amount : {} ",

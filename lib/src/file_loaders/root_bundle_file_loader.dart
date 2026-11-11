@@ -1,4 +1,4 @@
-import 'package:easy_localization/src/file_loaders/file_loader.dart';
+import 'package:easy_localization_continued/src/file_loaders/file_loader.dart';
 import 'package:flutter/services.dart';
 
 /// File loader implementation for Flutter applications using rootBundle
@@ -7,6 +7,11 @@ class RootBundleFileLoader implements FileLoader {
 
   @override
   Future<String> loadString(String path) async {
-    return rootBundle.loadString(path);
+    try {
+      return await rootBundle.loadString(path);
+    } catch (error, stackTrace) {
+      rootBundle.evict(path);
+      Error.throwWithStackTrace(error, stackTrace);
+    }
   }
 }

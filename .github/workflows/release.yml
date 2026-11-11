@@ -1,7 +1,6 @@
 name: Release to pub.dev
 
 on:
-  workflow_dispatch:
   push:
     tags:
       - 'v[0-9]+.[0-9]+.[0-9]+*'
@@ -10,7 +9,6 @@ jobs:
   test:
     name: Test
     uses: ./.github/workflows/test.yml
-    secrets: inherit
 
   publish:
     needs: [test]
@@ -21,19 +19,26 @@ jobs:
     timeout-minutes: 5
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - uses: dart-lang/setup-dart@v1
 
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: "3.7.12"
+          flutter-version: "3.44.9"
 
       - name: Install dependencies
         run: dart pub get
 
-      - name: code format
-        run: dart format lib/*/*.dart lib/*.dart
+      - name: Check tag matches version
+        shell: bash
+        run: |
+          version=$(sed -n 's/^version: *//p' pubspec.yaml | head -n 1)
+          expected_tag="v${version}"
+          if [[ "$GITHUB_REF_NAME" != "$expected_tag" ]]; then
+            echo "Tag $GITHUB_REF_NAME does not match pubspec version $version (expected $expected_tag)."
+            exit 1
+          fi
 
       - name: Publish
         run: dart pub publish --force

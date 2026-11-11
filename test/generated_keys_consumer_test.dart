@@ -1,0 +1,47 @@
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:easy_localization_continued/easy_localization.dart' show AssetLoader, EasyLocalization, EasyLocalizationConfig;
+import 'package:flutter/widgets.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+import 'fixtures/generated_keys/locale_keys.g.dart';
+
+void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  test('generated keys expose translations without a second extension import', () async {
+    final config = EasyLocalizationConfig(
+      supportedLocales: const [Locale('en')],
+      fallbackLocale: const Locale('en'),
+      startLocale: const Locale('en'),
+      path: 'unused',
+      assetLoader: const _FixtureLoader(),
+      saveLocale: false,
+    );
+    await EasyLocalization.ensureInitialized(config);
+    addTearDown(() => EasyLocalization.instance.dispose());
+
+    expect(LocaleKeys.title.tr(), 'Welcome');
+    expect(LocaleKeys.one, 'one');
+    expect(LocaleKeys.other, 'other');
+    expect(LocaleKeys.errors_other, 'errors.other');
+    expect(LocaleKeys.items_one, 'items.one');
+    expect(LocaleKeys.items_other, 'items.other');
+    expect(LocaleKeys.person_male, 'person.male');
+    expect(LocaleKeys.person_female, 'person.female');
+    expect(LocaleKeys.person_other, 'person.other');
+    expect(LocaleKeys.section_child, 'section.child');
+    expect(LocaleKeys.section_child.tr(), 'Nested welcome');
+    expect(LocaleKeys.items.plural(2), '2 items');
+    expect(const Text(LocaleKeys.title).tr().data, 'Welcome');
+  });
+}
+
+class _FixtureLoader extends AssetLoader {
+  const _FixtureLoader();
+
+  @override
+  Future<Map<String, dynamic>> load(String path, Locale locale) async =>
+      jsonDecode(await File('test/fixtures/generated_keys/en.json').readAsString()) as Map<String, dynamic>;
+}

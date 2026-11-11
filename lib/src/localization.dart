@@ -1,178 +1,220 @@
-import 'package:easy_localization/easy_localization.dart';
+import 'package:easy_localization_continued/easy_localization.dart';
 import 'package:flutter/widgets.dart';
+import 'package:meta/meta.dart';
 
-import 'plural_rules.dart';
-import 'translations.dart';
+import 'package:easy_localization_continued/src/diagnostics.dart';
+import 'package:easy_localization_continued/src/linked_key_parser.dart';
 
+/// An independent translator snapshot for one locale, held by the caller.
+///
+/// Snapshots you hold survive reload, cache eviction and owner disposal.
 class Localization {
-  Translations? _translations, _fallbackTranslations;
-  late Locale _locale;
+  final Translations? _translations, _baseTranslations, _fallbackTranslations;
+  final Locale? _baseLocale, _fallbackLocale;
+  final Locale _locale;
 
-  final RegExp _replaceArgRegex = RegExp('{}');
-  final RegExp _linkKeyMatcher =
-      RegExp(r'(?:@(?:\.[a-z]+)?:(?:[\w\-_|.]+|\([\w\-_|.]+\)))');
-  final RegExp _linkKeyPrefixMatcher = RegExp(r'^@(?:\.([a-z]+))?:');
+  /// The locale captured by this translation snapshot.
+  Locale get locale => _locale;
+
   final RegExp _bracketsMatcher = RegExp('[()]');
   final _modifiers = <String, String Function(String?)>{
     'upper': (String? val) => val!.toUpperCase(),
     'lower': (String? val) => val!.toLowerCase(),
-    'capitalize': (String? val) => '${val![0].toUpperCase()}${val.substring(1)}'
+    'capitalize': (String? val) => val == null || val.isEmpty ? val ?? '' : '${val[0].toUpperCase()}${val.substring(1)}',
   };
 
-  bool _useFallbackTranslationsForEmptyResources = false;
-  bool _ignorePluralRules = false;
+  final bool _useFallbackTranslationsForEmptyResources;
 
-  Localization();
+  /// An independent translation snapshot. Later loads never change this object.
+  Localization.snapshot(
+    Locale locale, {
+    Translations? translations,
+    Translations? fallbackTranslations,
+    Translations? baseTranslations,
+    Locale? baseLocale,
+    Locale? fallbackLocale,
+    bool useFallbackTranslationsForEmptyResources = false,
+  }) : _locale = locale,
+       _translations = translations == null ? null : Translations.copy(translations),
+       _baseTranslations = baseTranslations == null ? null : Translations.copy(baseTranslations),
+       // ignore: prefer_initializing_formals
+       _baseLocale = baseLocale,
+       // ignore: prefer_initializing_formals
+       _fallbackLocale = fallbackLocale,
+       _fallbackTranslations = fallbackTranslations == null ? null : Translations.copy(fallbackTranslations),
+       // ignore: prefer_initializing_formals
+       _useFallbackTranslationsForEmptyResources = useFallbackTranslationsForEmptyResources;
 
   static Localization? _instance;
 
-  static Localization get instance => _instance ?? (_instance = Localization());
+  static Localization get instance => _instance ?? (throw StateError('Call EasyLocalization.initialize before accessing translations'));
 
-  static Localization? of(BuildContext context) =>
-      Localizations.of<Localization>(context, Localization);
+  /// Publishes a complete snapshot for the legacy global translation helpers.
+  @internal
+  static void publish(Localization? snapshot) => _instance = snapshot;
 
+  static Localization? of(BuildContext context) => Localizations.of<Localization>(context, Localization);
+
+  @internal
   static bool load(
     Locale locale, {
     Translations? translations,
     Translations? fallbackTranslations,
+    Translations? baseTranslations,
+    Locale? baseLocale,
+    Locale? fallbackLocale,
     bool useFallbackTranslationsForEmptyResources = false,
-    bool ignorePluralRules = true,
   }) {
-    instance._locale = locale;
-    instance._translations = translations;
-    instance._fallbackTranslations = fallbackTranslations;
-    instance._useFallbackTranslationsForEmptyResources =
-        useFallbackTranslationsForEmptyResources;
-    instance._ignorePluralRules = ignorePluralRules;
+    _instance = Localization.snapshot(
+      locale,
+      translations: translations,
+      fallbackTranslations: fallbackTranslations,
+      useFallbackTranslationsForEmptyResources: useFallbackTranslationsForEmptyResources,
+      baseTranslations: baseTranslations,
+      baseLocale: baseLocale,
+      fallbackLocale: fallbackLocale,
+    );
     return translations == null ? false : true;
   }
 
-  String tr(
-    String key, {
-    List<String>? args,
-    Map<String, String>? namedArgs,
-    String? gender,
-  }) {
-    late String res;
-
-    if (gender != null) {
-      res = _gender(key, gender: gender);
-    } else {
-      res = _resolve(key);
+  String tr(String key, {List<String>? args, Map<String, String>? namedArgs, String? gender}) {
+    final (text, source) = _resolve(gender == null ? key : '$key.$gender');
+    var res = text;
+    try {
+      res = _replaceLinks(res, source: source, keys: {key});
+    } on _LinkLimitExceeded {
+      reportLocalizationDiagnostic(EasyLocalization.onWarning, 'Linked translation limit exceeded at [$key]');
+      return res;
     }
 
-    res = _replaceLinks(res);
-
-    res = _replaceNamedArgs(res, namedArgs);
-
-    return _replaceArgs(res, args);
+    return _replaceArgs(res, args, namedArgs);
   }
 
-  String _replaceLinks(String res, {bool logging = true}) {
-    // TODO: add recursion detection and a resolve stack.
-    final matches = _linkKeyMatcher.allMatches(res);
-    var result = res;
+  String _replaceLinks(String res, {Translations? source, bool logging = true, Set<String>? keys, Set<String>? cycleWarnings, List<int>? budget}) {
+    final resolvingKeys = keys ?? <String>{};
+    final reportedCycles = cycleWarnings ?? <String>{};
+    final remaining = budget ?? [4096];
+    final matches = linkedKeyMatcher.allMatches(res);
+    final buffer = StringBuffer();
+    var length = 0;
+    var end = 0;
+    void append(String value) {
+      length += value.length;
+      if (length > 256 * 1024) throw _LinkLimitExceeded();
+      buffer.write(value);
+    }
 
+    var hasLinks = false;
     for (final match in matches) {
+      hasLinks = true;
+      if (--remaining[0] < 0) throw _LinkLimitExceeded();
+      append(res.substring(end, match.start));
       final link = match[0]!;
-      final linkPrefixMatches = _linkKeyPrefixMatcher.allMatches(link);
+      final linkPrefixMatches = linkedKeyPrefixMatcher.allMatches(link);
       final linkPrefix = linkPrefixMatches.first[0]!;
       final formatterName = linkPrefixMatches.first[1];
 
       // Remove the leading @:, @.case: and the brackets
-      final linkPlaceholder =
-          link.replaceAll(linkPrefix, '').replaceAll(_bracketsMatcher, '');
+      final linkPlaceholder = link.replaceAll(linkPrefix, '').replaceAll(_bracketsMatcher, '');
 
-      var translated = _resolve(linkPlaceholder);
+      if (resolvingKeys.contains(linkPlaceholder)) {
+        if (logging && reportedCycles.isEmpty) {
+          reportLocalizationDiagnostic(EasyLocalization.onWarning, 'Cyclic linked translation detected at [$linkPlaceholder]');
+          reportedCycles.add(linkPlaceholder);
+        }
+        append(link);
+        end = match.end;
+        continue;
+      }
+
+      resolvingKeys.add(linkPlaceholder);
+      final (linkedText, linkedSource) = _resolve(linkPlaceholder, source: source);
+      var translated = _replaceLinks(
+        linkedText,
+        source: linkedSource,
+        logging: logging,
+        keys: resolvingKeys,
+        cycleWarnings: reportedCycles,
+        budget: remaining,
+      );
+      resolvingKeys.remove(linkPlaceholder);
 
       if (formatterName != null) {
         if (_modifiers.containsKey(formatterName)) {
           translated = _modifiers[formatterName]!(translated);
         } else {
           if (logging) {
-            EasyLocalization.logger.warning(
-                'Undefined modifier $formatterName, available modifiers: ${_modifiers.keys.toString()}');
+            reportLocalizationDiagnostic(
+              EasyLocalization.onWarning,
+              'Undefined modifier $formatterName, available modifiers: ${_modifiers.keys.toString()}',
+            );
           }
         }
       }
 
-      result =
-          translated.isEmpty ? result : result.replaceAll(link, translated);
+      append(translated);
+      end = match.end;
     }
-
-    return result;
+    if (!hasLinks) return res;
+    append(res.substring(end));
+    return buffer.toString();
   }
 
-  String _replaceArgs(String res, List<String>? args) {
-    if (args == null || args.isEmpty) return res;
-    for (var str in args) {
-      res = res.replaceFirst(_replaceArgRegex, str);
+  String _replaceArgs(String res, List<String>? args, Map<String, String>? namedArgs) {
+    final tokens = <String>{if (args != null && args.isNotEmpty) '{}', ...?namedArgs?.keys.map((key) => '{$key}')};
+    if (tokens.isEmpty) return res;
+    final matcher = RegExp(tokens.map(RegExp.escape).join('|'));
+    var index = 0;
+    return res.replaceAllMapped(matcher, (match) {
+      final token = match[0] ?? '';
+      final namedValue = namedArgs?[token.substring(1, token.length - 1)];
+      if (namedValue != null) return namedValue;
+      if (token == '{}' && args != null && index < args.length) return args[index++];
+      return token;
+    });
+  }
+
+  String plural(String key, num value, {List<String>? args, Map<String, String>? namedArgs, String? name, NumberFormat? format}) {
+    final missing = Object();
+    String? selected;
+    Translations? source;
+    for (final (translations, locale) in [
+      (_translations, _locale),
+      (_baseTranslations, _baseLocale ?? _locale),
+      (_fallbackTranslations, _fallbackLocale ?? _locale),
+    ]) {
+      if (translations == null) continue;
+      String? form(String name) {
+        final result = translations.get('$key.$name');
+        return result == null || (_useFallbackTranslationsForEmptyResources && result.isEmpty) ? null : result;
+      }
+
+      final result = Intl.pluralLogic<Object>(
+        value,
+        locale: locale.toString(),
+        zero: form('zero'),
+        one: form('one'),
+        two: form('two'),
+        few: form('few'),
+        many: form('many'),
+        other: form('other') ?? missing,
+      );
+      if (!identical(result, missing)) {
+        selected = result as String;
+        source = translations;
+        break;
+      }
     }
-    return res;
-  }
-
-  String _replaceNamedArgs(String res, Map<String, String>? args) {
-    if (args == null || args.isEmpty) return res;
-    args.forEach((String key, String value) =>
-        res = res.replaceAll(RegExp('{$key}'), value));
-    return res;
-  }
-
-  static PluralRule? _pluralRule(String? locale, num howMany) {
-    if (instance._ignorePluralRules) {
-      return () => _pluralCaseFallback(howMany);
+    if (selected == null) {
+      reportLocalizationDiagnostic(EasyLocalization.onWarning, 'Localization key [$key.other] not found');
     }
-    startRuleEvaluation(howMany);
-    return pluralRules[locale];
-  }
+    var res = selected ?? '$key.other';
 
-  static PluralCase _pluralCaseFallback(num value) {
-    switch (value) {
-      case 0:
-        return PluralCase.ZERO;
-      case 1:
-        return PluralCase.ONE;
-      case 2:
-        return PluralCase.TWO;
-      default:
-        return PluralCase.OTHER;
-    }
-  }
-
-  String plural(
-    String key,
-    num value, {
-    List<String>? args,
-    Map<String, String>? namedArgs,
-    String? name,
-    NumberFormat? format,
-  }) {
-    late String res;
-
-    final pluralRule = _pluralRule(_locale.languageCode, value);
-    final pluralCase = pluralRule != null ? pluralRule() : _pluralCaseFallback(value);
-
-    switch (pluralCase) {
-      case PluralCase.ZERO:
-        res = _resolvePlural(key, 'zero');
-        break;
-      case PluralCase.ONE:
-        res = _resolvePlural(key, 'one');
-        break;
-      case PluralCase.TWO:
-        res = _resolvePlural(key, 'two');
-        break;
-      case PluralCase.FEW:
-        res = _resolvePlural(key, 'few');
-        break;
-      case PluralCase.MANY:
-        res = _resolvePlural(key, 'many');
-        break;
-      case PluralCase.OTHER:
-        res = _resolvePlural(key, 'other');
-        break;
-      default:
-        throw ArgumentError.value(value, 'howMany', 'Invalid plural argument');
+    try {
+      res = _replaceLinks(res, source: source, keys: {key});
+    } on _LinkLimitExceeded {
+      reportLocalizationDiagnostic(EasyLocalization.onWarning, 'Linked translation limit exceeded at [$key]');
+      return res;
     }
 
     final formattedValue = format == null ? '$value' : format.format(value);
@@ -180,51 +222,38 @@ class Localization {
     if (name != null) {
       namedArgs = {...?namedArgs, name: formattedValue};
     }
-    res = _replaceNamedArgs(res, namedArgs);
-
-    return _replaceArgs(res, args ?? [formattedValue]);
+    return _replaceArgs(res, args == null || args.isEmpty ? [formattedValue] : args, namedArgs);
   }
 
-  String _gender(String key, {required String gender}) {
-    return _resolve('$key.$gender');
-  }
+  (String, Translations?) _resolve(String key, {Translations? source, bool logging = true, bool fallback = true}) {
+    bool available(String? value) => value != null && (!_useFallbackTranslationsForEmptyResources || value.isNotEmpty);
 
-  String _resolvePlural(String key, String subKey) {
-    if (subKey == 'other') return _resolve('$key.other');
-
-    final tag = '$key.$subKey';
-    var resource = _resolve(tag, logging: false, fallback: _fallbackTranslations != null);
-    if (resource == tag) {
-      resource = _resolve('$key.other');
-    }
-    return resource;
-  }
-
-  String _resolve(String key, {bool logging = true, bool fallback = true}) {
-    var resource = _translations?.get(key);
-    if (resource == null ||
-        (_useFallbackTranslationsForEmptyResources && resource.isEmpty)) {
-      if (logging) {
-        EasyLocalization.logger.warning('Localization key [$key] not found');
+    final preferred = source?.get(key);
+    if (available(preferred)) return (preferred as String, source);
+    final primary = _translations?.get(key);
+    if (available(primary)) return (primary as String, _translations);
+    if (logging) reportLocalizationDiagnostic(EasyLocalization.onWarning, 'Localization key [$key] not found');
+    if (fallback) {
+      for (final translations in [_baseTranslations, _fallbackTranslations]) {
+        final resource = translations?.get(key);
+        if (available(resource)) return (resource as String, translations);
       }
-      if (_fallbackTranslations == null || !fallback) {
-        return key;
-      } else {
-        resource = _fallbackTranslations?.get(key);
-        if (resource == null ||
-            (_useFallbackTranslationsForEmptyResources && resource.isEmpty)) {
-          if (logging) {
-            EasyLocalization.logger
-                .warning('Fallback localization key [$key] not found');
-          }
-          return key;
-        }
+      if (logging && (_baseTranslations != null || _fallbackTranslations != null)) {
+        reportLocalizationDiagnostic(EasyLocalization.onWarning, 'Fallback localization key [$key] not found');
       }
     }
-    return resource;
+    return (key, null);
   }
 
-  bool exists(String key) {
-    return _translations?.get(key) != null;
+  bool exists(String key, {bool includeFallback = false}) {
+    final primary = _translations?.get(key);
+    if (primary != null && (!_useFallbackTranslationsForEmptyResources || primary.isNotEmpty)) return true;
+    if (!includeFallback) return false;
+    final base = _baseTranslations?.get(key);
+    if (base != null && (!_useFallbackTranslationsForEmptyResources || base.isNotEmpty)) return true;
+    final fallback = _fallbackTranslations?.get(key);
+    return fallback != null && (!_useFallbackTranslationsForEmptyResources || fallback.isNotEmpty);
   }
 }
+
+class _LinkLimitExceeded implements Exception {}

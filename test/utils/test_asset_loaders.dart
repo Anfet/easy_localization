@@ -1,13 +1,10 @@
 import 'dart:ui';
 
-import 'package:easy_localization/easy_localization.dart'
-    show AssetLoader, JsonLinkedFileResolver, RootBundleFileLoader;
+import 'package:easy_localization_continued/easy_localization.dart'
+    show AssetLoader;
 
 class ImmutableJsonAssetLoader extends AssetLoader {
-  const ImmutableJsonAssetLoader()
-      : super(
-            linkedFileResolver: const JsonLinkedFileResolver(fileLoader: RootBundleFileLoader()),
-            fileLoader: const RootBundleFileLoader());
+  const ImmutableJsonAssetLoader();
 
   @override
   Future<Map<String, dynamic>> load(String fullPath, Locale locale) {
@@ -18,10 +15,7 @@ class ImmutableJsonAssetLoader extends AssetLoader {
 }
 
 class JsonAssetLoader extends AssetLoader {
-  const JsonAssetLoader()
-      : super(
-            linkedFileResolver: const JsonLinkedFileResolver(fileLoader: RootBundleFileLoader()),
-            fileLoader: const RootBundleFileLoader());
+  const JsonAssetLoader();
 
   @override
   Future<Map<String, dynamic>> load(String fullPath, Locale locale) {
@@ -143,10 +137,7 @@ class JsonAssetLoader extends AssetLoader {
 }
 
 class ExternalAssetLoader extends AssetLoader {
-  ExternalAssetLoader()
-      : super(
-            linkedFileResolver: const JsonLinkedFileResolver(fileLoader: RootBundleFileLoader()),
-            fileLoader: const RootBundleFileLoader());
+  ExternalAssetLoader();
 
   @override
   Future<Map<String, dynamic>> load(String fullPath, Locale locale) => Future.value(const {
@@ -157,10 +148,7 @@ class ExternalAssetLoader extends AssetLoader {
 }
 
 class NestedAssetLoader extends AssetLoader {
-  NestedAssetLoader()
-      : super(
-            linkedFileResolver: const JsonLinkedFileResolver(fileLoader: RootBundleFileLoader()),
-            fileLoader: const RootBundleFileLoader());
+  NestedAssetLoader();
 
   @override
   Future<Map<String, dynamic>> load(String fullPath, Locale locale) => Future.value({

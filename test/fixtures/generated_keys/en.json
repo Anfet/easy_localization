@@ -1,0 +1,9 @@
+{
+  "title": "Welcome",
+  "one": "Root one",
+  "other": "Root other",
+  "errors": {"other": "Other error"},
+  "section": {"child": "Nested welcome"},
+  "items": {"one": "one item", "other": "{} items"},
+  "person": {"male": "He", "female": "She", "other": "They"}
+}
