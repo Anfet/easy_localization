@@ -18,25 +18,13 @@ class FailingLoader extends AssetLoader {
 }
 
 void main() {
-  late List<String> translationAssets;
-  setUpAll(() async {
-    final manifest = await AssetManifest.loadFromAssetBundle(rootBundle);
-    translationAssets = manifest.listAssets().where((asset) => asset.startsWith('resources/langs/') && asset.endsWith('.json')).toList();
-    for (final asset in translationAssets) {
-      await rootBundle.loadString(asset);
-    }
-  });
-  tearDownAll(() {
-    for (final asset in translationAssets) {
-      rootBundle.evict(asset);
-    }
-  });
+  setUp(rootBundle.clear);
+  tearDown(rootBundle.clear);
 
   testWidgets('starts in English, switches to Russian and resets', (tester) async {
     SharedPreferences.setMockInitialValues({});
     tester.binding.platformDispatcher.localesTestValue = const [Locale('en', 'US')];
-    final localization = await tester.runAsync(() => EasyLocalization.initialize(localizationConfig));
-    if (localization == null) throw StateError('Localization initialization failed');
+    final localization = await EasyLocalization.initialize(localizationConfig);
     try {
       await tester.pumpWidget(EasyLocalization.withInstance(instance: localization, child: MyApp()));
       await tester.pumpAndSettle();
@@ -61,19 +49,16 @@ void main() {
 
   testWidgets('reports a loader failure while waiting for the locale', (tester) async {
     SharedPreferences.setMockInitialValues({});
-    final localization = await tester.runAsync(
-      () => EasyLocalization.initialize(
-        EasyLocalizationConfig(
-          supportedLocales: [const Locale('en', 'US'), const Locale('ru', 'RU')],
-          fallbackLocale: const Locale('en', 'US'),
-          startLocale: const Locale('en', 'US'),
-          path: 'unused',
-          saveLocale: false,
-          assetLoader: FailingLoader(),
-        ),
+    final localization = await EasyLocalization.initialize(
+      EasyLocalizationConfig(
+        supportedLocales: [const Locale('en', 'US'), const Locale('ru', 'RU')],
+        fallbackLocale: const Locale('en', 'US'),
+        startLocale: const Locale('en', 'US'),
+        path: 'unused',
+        saveLocale: false,
+        assetLoader: FailingLoader(),
       ),
     );
-    if (localization == null) throw StateError('Localization initialization failed');
     try {
       await tester.pumpWidget(EasyLocalization.withInstance(instance: localization, child: MyApp()));
       await tester.pumpAndSettle();
@@ -81,7 +66,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('Русский'));
       await expectLater(
-        waitForLocale(tester, localization, const Locale('ru', 'RU')),
+        () => waitForLocale(tester, localization, const Locale('ru', 'RU')),
         throwsA(isA<StateError>().having((e) => e.toString(), 'cause', contains('deliberate loader failure'))),
       );
       await tester.pump();

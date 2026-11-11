@@ -1,8 +1,9 @@
+import 'dart:ui' as ui;
+
 import 'package:easy_localization_continued/easy_localization.dart';
 import 'package:example/main.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'dart:ui' as ui;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -10,20 +11,11 @@ import 'locale_wait.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
-  late List<String> translationAssets;
+  setUp(rootBundle.clear);
+  tearDown(rootBundle.clear);
   setUpAll(() async {
-    final manifest = await AssetManifest.loadFromAssetBundle(rootBundle);
-    translationAssets = manifest.listAssets().where((asset) => asset.startsWith('resources/langs/') && asset.endsWith('.json')).toList();
-    for (final asset in translationAssets) {
-      await rootBundle.loadString(asset);
-    }
     final loader = FontLoader('Roboto')..addFont(rootBundle.load('packages/alchemist/assets/fonts/Roboto/Roboto-Regular.ttf'));
     await loader.load();
-  });
-  tearDownAll(() {
-    for (final asset in translationAssets) {
-      rootBundle.evict(asset);
-    }
   });
 
   testWidgets('large German text keeps language and reset actions reachable; Arabic is RTL', (tester) async {
@@ -31,8 +23,7 @@ void main() {
     tester.view.physicalSize = const Size(360, 640);
     tester.view.devicePixelRatio = 1;
     tester.binding.platformDispatcher.localesTestValue = const [Locale('de', 'DE')];
-    final localization = await tester.runAsync(() => EasyLocalization.initialize(localizationConfig));
-    if (localization == null) throw StateError('Localization initialization failed');
+    final localization = await EasyLocalization.initialize(localizationConfig);
     try {
       await tester.pumpWidget(
         MediaQuery(
