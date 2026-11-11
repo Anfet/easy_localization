@@ -184,8 +184,10 @@ class EasyLocalizationController extends ChangeNotifier {
     return (() async {
       late _LocaleResources resources;
       try {
-        resources = await _loadResources(target);
-        if (prepareCommit != null) await prepareCommit();
+        await Future.wait<void>([
+          _loadResources(target).then((value) => resources = value),
+          if (prepareCommit != null) prepareCommit(),
+        ], eagerError: true);
         if (prepareCommit != null) onReloadPreparedForTesting?.call();
         if (_disposed || request != _request) return;
         commitPrepared?.call();

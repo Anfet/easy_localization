@@ -989,6 +989,50 @@ void main() {
     expect(owner.dataTranslator.tr('value'), 'new ru');
     expect(owner.translators[const Locale('de')]?.tr('value'), 'new de');
   });
+  for (final failedLocale in ['ru', 'de']) {
+    test('reload reports $failedLocale failure while the other snapshot is held', () async {
+      final owner = await EasyLocalization.initialize(
+        EasyLocalizationConfig(
+          supportedLocales: const [Locale('ru'), Locale('de')],
+          fallbackLocale: const Locale('ru'),
+          startLocale: const Locale('ru'),
+          preloadLocales: const [Locale('de')],
+          path: 'unused',
+          assetLoader: loader,
+          saveLocale: false,
+        ),
+      );
+      final active = owner.dataTranslator;
+      final cached = owner.translators[const Locale('de')];
+      final held = Completer<Map<String, dynamic>?>();
+      final failed = Completer<Map<String, dynamic>?>();
+      loader.gates[failedLocale] = [failed];
+      loader.gates[failedLocale == 'ru' ? 'de' : 'ru'] = [held];
+      final error = StateError('reload failure');
+      final stack = StackTrace.current;
+      final reload = owner.reloadTranslations();
+      final result = reload.then<void>(
+        (_) => fail('reload succeeded'),
+        onError: (Object caught, StackTrace caughtStack) {
+          expect(caught, same(error));
+          expect(caughtStack, same(stack));
+        },
+      );
+      failed.completeError(error, stack);
+      await result;
+      expect(owner.dataTranslator, same(active));
+      expect(owner.translators[const Locale('de')], same(cached));
+      held.completeError(StateError('late failure'));
+      await Future<void>.delayed(Duration.zero);
+      expect(owner.dataTranslator, same(active));
+      expect(owner.translators[const Locale('de')], same(cached));
+      loader.data['ru'] = {'value': 'new ru'};
+      loader.data['de'] = {'value': 'new de'};
+      await owner.reloadTranslations();
+      expect(owner.dataTranslator.tr('value'), 'new ru');
+      expect(owner.translators[const Locale('de')]?.tr('value'), 'new de');
+    });
+  }
   test('unload during reload supersedes it without replacing current data', () async {
     final owner = await EasyLocalization.initialize(
       EasyLocalizationConfig(

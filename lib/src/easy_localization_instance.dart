@@ -163,7 +163,6 @@ class EasyLocalizationInstance with WidgetsBindingObserver {
     _checkLive();
     return _change(() {
       final staged = translators._stageReload();
-      staged.ignore();
       late _TranslatorReload prepared;
       return _controller.reloadTranslations(
         supersede: true,
