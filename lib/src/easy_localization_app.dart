@@ -370,21 +370,44 @@ class _EasyLocalizationState extends State<EasyLocalization> {
         selectedDelegates.add(useDelegate);
         if (useDelegate) selected.add(delegate.type);
       }
-      // Normalize SynchronousFuture before Future.wait, whose callbacks expect asynchronous completion.
-      final loads = <Future<LocalizationsDelegate<dynamic>>>[];
+      final loadedDelegates = <FutureOr<LocalizationsDelegate<dynamic>>>[];
+      var hasAsynchronousLoad = false;
       for (var i = 0; i < delegates.length; i++) {
         final delegate = delegates[i];
-        loads.add(
-          selectedDelegates[i]
-              ? Future.sync(
-                  () async => await delegate.load(locale),
-                ).then((value) => _PreparedDelegate(type: delegate.type, value: value, revision: revision, locale: locale, original: delegate))
-              : Future.value(delegate),
-        );
+        if (!selectedDelegates[i]) {
+          loadedDelegates.add(delegate);
+          continue;
+        }
+
+        Future<dynamic> load;
+        try {
+          load = delegate.load(locale);
+        } catch (error, stack) {
+          hasAsynchronousLoad = true;
+          loadedDelegates.add(
+            Future<LocalizationsDelegate<dynamic>>.error(
+              error,
+              stack,
+            ).then((value) => _PreparedDelegate(type: delegate.type, value: value, revision: revision, locale: locale, original: delegate)),
+          );
+          continue;
+        }
+        if (load is SynchronousFuture<dynamic> && !hasAsynchronousLoad) {
+          final value = await load;
+          loadedDelegates.add(_PreparedDelegate(type: delegate.type, value: value, revision: revision, locale: locale, original: delegate));
+        } else {
+          hasAsynchronousLoad = true;
+          loadedDelegates.add(
+            load.then((value) => _PreparedDelegate(type: delegate.type, value: value, revision: revision, locale: locale, original: delegate)),
+          );
+        }
       }
+      final preparedDelegates = hasAsynchronousLoad
+          ? await Future.wait(loadedDelegates.map(Future.value), eagerError: true)
+          : loadedDelegates.cast<LocalizationsDelegate<dynamic>>();
       final adapters = <LocalizationsDelegate<dynamic>>[
         _PreparedDelegate(type: Localization, value: snapshot, revision: revision, locale: locale),
-        ...await Future.wait(loads, eagerError: true),
+        ...preparedDelegates,
       ];
       if (!mounted || generation != _preparationGeneration || !_owner._canPresent(revision)) {
         if (generation == _preparationGeneration && _preparingRevision == revision) _preparingRevision = -1;

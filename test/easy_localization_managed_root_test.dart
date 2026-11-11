@@ -21,6 +21,22 @@ void main() {
       additionalDelegates: [?delegate, if (delegate != null) _DuplicateDelegate()],
     ),
   );
+  testWidgets('borrowed owner presents standard delegates in the first frame', (tester) async {
+    final instance = await owner(_Loader());
+    try {
+      await tester.pumpWidget(
+        EasyLocalization.withInstance(
+          instance: instance,
+          child: const _App(home: _Leaf(label: 'home')),
+        ),
+      );
+      expect(find.text('en-1 home'), findsOneWidget);
+      expect(instance.presentationLocale, const Locale('en'));
+    } finally {
+      await tester.pumpWidget(const SizedBox());
+      instance.dispose();
+    }
+  });
 
   testWidgets('legacy root displays translations when storage cannot be read', (tester) async {
     final original = SharedPreferencesStorePlatform.instance;
