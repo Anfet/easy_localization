@@ -614,9 +614,11 @@ Output:
 print('example.emptyNameError'.tr()); //Output: Please fill in your full name
 ```
 
+Linked text expansion is limited to 4,096 link transitions and 256 Ki UTF-16 code units per result. On exceeding either limit, the original template is returned without argument substitution and a warning is emitted. The audit command reports excessive link traversal as an input error.
+
 ### 🔥 Linked files:
 
-You can split translations for a single locale into multiple files by using linked files. This helps keep your JSON clean and maintainable.
+Each root linked JSON is limited to 4,096 file transitions; exceeding the limit fails resolution before the next file is read. You can split translations for a single locale into multiple files by using linked files. This helps keep your JSON clean and maintainable.
 
 To link an external file, set the key’s value to a path prefixed with `:/`, relative to your translations directory. For example, with default path `assets/translations` and locale `en-US`:
 

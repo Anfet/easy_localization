@@ -83,15 +83,35 @@ class Localization {
       res = _resolve(key);
     }
 
-    res = _replaceLinks(res, keys: {key});
+    try {
+      res = _replaceLinks(res, keys: {key});
+    } on _LinkLimitExceeded {
+      reportLocalizationDiagnostic(EasyLocalization.onWarning, 'Linked translation limit exceeded at [$key]');
+      return res;
+    }
 
     return _replaceArgs(res, args, namedArgs);
   }
 
-  String _replaceLinks(String res, {bool logging = true, Set<String>? keys, Set<String>? cycleWarnings}) {
+  String _replaceLinks(String res, {bool logging = true, Set<String>? keys, Set<String>? cycleWarnings, List<int>? budget}) {
     final resolvingKeys = keys ?? <String>{};
     final reportedCycles = cycleWarnings ?? <String>{};
-    return res.replaceAllMapped(linkedKeyMatcher, (match) {
+    final remaining = budget ?? [4096];
+    final matches = linkedKeyMatcher.allMatches(res);
+    final buffer = StringBuffer();
+    var length = 0;
+    var end = 0;
+    void append(String value) {
+      length += value.length;
+      if (length > 256 * 1024) throw _LinkLimitExceeded();
+      buffer.write(value);
+    }
+
+    var hasLinks = false;
+    for (final match in matches) {
+      hasLinks = true;
+      if (--remaining[0] < 0) throw _LinkLimitExceeded();
+      append(res.substring(end, match.start));
       final link = match[0]!;
       final linkPrefixMatches = linkedKeyPrefixMatcher.allMatches(link);
       final linkPrefix = linkPrefixMatches.first[0]!;
@@ -105,11 +125,19 @@ class Localization {
           reportLocalizationDiagnostic(EasyLocalization.onWarning, 'Cyclic linked translation detected at [$linkPlaceholder]');
           reportedCycles.add(linkPlaceholder);
         }
-        return link;
+        append(link);
+        end = match.end;
+        continue;
       }
 
       resolvingKeys.add(linkPlaceholder);
-      var translated = _replaceLinks(_resolve(linkPlaceholder), logging: logging, keys: resolvingKeys, cycleWarnings: reportedCycles);
+      var translated = _replaceLinks(
+        _resolve(linkPlaceholder),
+        logging: logging,
+        keys: resolvingKeys,
+        cycleWarnings: reportedCycles,
+        budget: remaining,
+      );
       resolvingKeys.remove(linkPlaceholder);
 
       if (formatterName != null) {
@@ -125,8 +153,12 @@ class Localization {
         }
       }
 
-      return translated;
-    });
+      append(translated);
+      end = match.end;
+    }
+    if (!hasLinks) return res;
+    append(res.substring(end));
+    return buffer.toString();
   }
 
   String _replaceArgs(String res, List<String>? args, Map<String, String>? namedArgs) {
@@ -177,7 +209,12 @@ class Localization {
     }
     var res = selected ?? '$key.other';
 
-    res = _replaceLinks(res, keys: {key});
+    try {
+      res = _replaceLinks(res, keys: {key});
+    } on _LinkLimitExceeded {
+      reportLocalizationDiagnostic(EasyLocalization.onWarning, 'Linked translation limit exceeded at [$key]');
+      return res;
+    }
 
     final formattedValue = format == null ? '$value' : format.format(value);
 
@@ -218,3 +255,5 @@ class Localization {
     return fallback != null && (!_useFallbackTranslationsForEmptyResources || fallback.isNotEmpty);
   }
 }
+
+class _LinkLimitExceeded implements Exception {}

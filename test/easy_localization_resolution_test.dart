@@ -6,6 +6,23 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/intl.dart';
 
 void main() {
+  test('bounds linked expansion and preserves the original template on failure', () {
+    final values = <String, dynamic>{'leaf': 'x', 'diamond': '@:left@:right', 'left': '@:leaf', 'right': '@:leaf', 'plain': 'x' * (256 * 1024 + 1)};
+    for (var i = 0; i <= 18; i++) {
+      values['k$i'] = i == 0 ? 'x' : '@:k${i - 1}@:k${i - 1}';
+    }
+    values['root'] = '@:k18 {name}';
+    values['limit'] = 'x' * (256 * 1024);
+    values['atSize'] = '@:limit';
+    values['overSize'] = '@:limit!';
+    final localization = Localization.snapshot(const Locale('en'), translations: Translations(values));
+    expect(localization.tr('diamond'), 'xx');
+    expect(localization.tr('k11').length, 2048);
+    expect(localization.tr('root', namedArgs: {'name': 'changed'}), '@:k18 {name}');
+    expect(localization.tr('atSize').length, 256 * 1024);
+    expect(localization.tr('overSize'), '@:limit!');
+    expect(localization.tr('plain').length, 256 * 1024 + 1);
+  });
   test('exists can inspect usable primary and fallback strings without diagnostics', () {
     for (final skipEmpty in [false, true]) {
       final snapshot = Localization.snapshot(

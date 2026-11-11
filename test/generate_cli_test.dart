@@ -265,5 +265,8 @@ void main() {
     await fragments.create();
     await File(path.join(fragments.path, 'section.json')).writeAsString('{"section":":/section.json"}');
     await fails([]);
+    await File(path.join(fragments.path, 'section.json')).writeAsString('{"value":"ok"}');
+    await root.writeAsString(jsonEncode({for (var i = 0; i < 4097; i++) '$i': ':/section.json'}));
+    await fails([]);
   });
 }

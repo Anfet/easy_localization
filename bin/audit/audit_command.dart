@@ -240,13 +240,16 @@ class AuditCommand {
       final unverified = <String>{};
       final incomplete = <String>{};
 
+      var remainingLinks = 4096;
       void checkLinks(String key, List<String> path) {
+        if (path.length == 1) remainingLinks = 4096;
         final value = _lookup(entry.value, key);
         if (value is! String) {
           missing.add(path.length == 1 ? key : '$key (${path.join(' -> ')})');
           return;
         }
         for (final match in linkedKeyMatcher.allMatches(value)) {
+          if (--remainingLinks < 0) throw StateError('Maximum linked translation transitions (4096) exceeded for [${path.first}] in ${entry.key}.');
           final target = (match[0] ?? '').replaceFirst(linkedKeyPrefixMatcher, '').replaceAll(RegExp(r'[()]'), '');
           final next = [...path, target];
           if (path.contains(target)) {

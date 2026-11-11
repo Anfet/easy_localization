@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as path;
@@ -42,6 +43,16 @@ void main() {
     expect(result.stderr, contains('Error'));
     expect(result.stdout, isNot(contains('all good')));
   }
+
+  test('rejects excessive acyclic linked traversal as an input error', () async {
+    final values = <String, String>{'k0': 'x'};
+    for (var i = 1; i <= 13; i++) {
+      values['k$i'] = '@:k${i - 1}@:k${i - 1}';
+    }
+    File(path.join(translations.path, 'en.json')).writeAsStringSync(jsonEncode(values));
+    writeSource("void f() { 'k13'.tr(); }");
+    expectError(await audit());
+  });
 
   test('complete translations succeed with and without strict', () async {
     writeSource("tr('present');");

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:easy_localization_continued/src/file_loaders/file_loader.dart';
@@ -40,6 +41,35 @@ class JsonLinkedFileResolver extends LinkedFileResolver {
     Set<String>? visited,
     int depth = 0,
   }) async {
+    Future<Map<String, dynamic>> resolve() => _resolveLinkedFiles(
+      basePath: basePath,
+      languageCode: languageCode,
+      baseJson: baseJson,
+      scriptCode: scriptCode,
+      countryCode: countryCode,
+      visited: visited,
+      depth: depth,
+    );
+    return Zone.current[_linkedBudgetKey] == null
+        ? runZoned(
+            resolve,
+            zoneValues: {
+              _linkedBudgetKey: [4096],
+            },
+          )
+        : resolve();
+  }
+
+  Future<Map<String, dynamic>> _resolveLinkedFiles({
+    required String basePath,
+    required String languageCode,
+    required Map<String, dynamic> baseJson,
+    String? scriptCode,
+    String? countryCode,
+    Set<String>? visited,
+    required int depth,
+  }) async {
+    final budget = Zone.current[_linkedBudgetKey] as List<int>;
     visited ??= <String>{};
     if (depth > maxLinkedDepth) {
       throw StateError('Maximum linked files depth ($maxLinkedDepth) exceeded for $languageCode at $basePath.');
@@ -49,6 +79,7 @@ class JsonLinkedFileResolver extends LinkedFileResolver {
       final key = entry.key;
       final value = entry.value;
       if (value is String && value.startsWith(':/')) {
+        if (--budget[0] < 0) throw StateError('Maximum linked files transitions (4096) exceeded for key "$key" in $basePath ($languageCode).');
         final linkedAssetPath = getLinkedLocalePath(
           basePath,
           value.substring(2).trim(),
@@ -95,3 +126,5 @@ class JsonLinkedFileResolver extends LinkedFileResolver {
     return fullJson;
   }
 }
+
+final Object _linkedBudgetKey = Object();

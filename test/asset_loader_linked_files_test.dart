@@ -15,6 +15,18 @@ void main() async {
   await EasyLocalization.ensureInitialized();
 
   group('Linked resolver contracts', () {
+    test('limits wide linked roots before the next file read', () async {
+      final files = _Files({
+        'i18n/en/common.json': {'value': 'ok'},
+      });
+      final resolver = JsonLinkedFileResolver(fileLoader: files);
+      final atLimit = {for (var i = 0; i < 4096; i++) '$i': ':/common.json'};
+      expect((await resolver.resolveLinkedFiles(basePath: 'i18n', languageCode: 'en', baseJson: atLimit)).length, 4096);
+      await expectLater(
+        resolver.resolveLinkedFiles(basePath: 'i18n', languageCode: 'en', baseJson: {...atLimit, 'overflow': ':/missing.json'}),
+        throwsA(predicate((error) => error.toString().contains('4096') && error.toString().contains('overflow'))),
+      );
+    });
     test('resolves independent and diamond references and restores ancestors', () async {
       final files = _Files({
         'i18n/en/common.json': {'value': 'shared'},
