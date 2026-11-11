@@ -10,9 +10,20 @@ import 'locale_wait.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  late List<String> translationAssets;
   setUpAll(() async {
+    final manifest = await AssetManifest.loadFromAssetBundle(rootBundle);
+    translationAssets = manifest.listAssets().where((asset) => asset.startsWith('resources/langs/') && asset.endsWith('.json')).toList();
+    for (final asset in translationAssets) {
+      await rootBundle.loadString(asset);
+    }
     final loader = FontLoader('Roboto')..addFont(rootBundle.load('packages/alchemist/assets/fonts/Roboto/Roboto-Regular.ttf'));
     await loader.load();
+  });
+  tearDownAll(() {
+    for (final asset in translationAssets) {
+      rootBundle.evict(asset);
+    }
   });
 
   testWidgets('large German text keeps language and reset actions reachable; Arabic is RTL', (tester) async {

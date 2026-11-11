@@ -1,6 +1,7 @@
 import 'package:easy_localization_continued/easy_localization.dart';
 import 'package:example/main.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -17,6 +18,20 @@ class FailingLoader extends AssetLoader {
 }
 
 void main() {
+  late List<String> translationAssets;
+  setUpAll(() async {
+    final manifest = await AssetManifest.loadFromAssetBundle(rootBundle);
+    translationAssets = manifest.listAssets().where((asset) => asset.startsWith('resources/langs/') && asset.endsWith('.json')).toList();
+    for (final asset in translationAssets) {
+      await rootBundle.loadString(asset);
+    }
+  });
+  tearDownAll(() {
+    for (final asset in translationAssets) {
+      rootBundle.evict(asset);
+    }
+  });
+
   testWidgets('starts in English, switches to Russian and resets', (tester) async {
     SharedPreferences.setMockInitialValues({});
     tester.binding.platformDispatcher.localesTestValue = const [Locale('en', 'US')];
