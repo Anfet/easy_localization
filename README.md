@@ -305,7 +305,7 @@ data. Delegate errors preserve the previous presentation and appear in
 Issue another command to retry. A `ValueListenableBuilder<LocalizationState>` can
 show progress while `state.isLoading` and display errors.
 
-Await a command for resources and storage, then await `localization.waitForPresentation()` when visible completion matters. Its outcome can be `applied`, `superseded`, `detached`, `failed`, or `disposed`; `applied` confirms root publication when the consumer is wired as above; it does not inspect an arbitrary MaterialApp. Borrowed owners survive root removal. Strings computed outside build remain captured values. For a local scope use a scoped adapter or an explicit translator.
+Await a command for resources and storage, then await `localization.waitForPresentation()` when visible completion matters. Its outcome can be `applied`, `superseded`, `detached`, `failed`, or `disposed`; `applied` confirms root publication when the consumer is wired as above; it does not inspect an arbitrary MaterialApp. Borrowed owners survive root removal. Strings computed outside build remain captured values. A `Localizations.override` can load Flutter resources for its own locale. For a scoped plugin dictionary, use a scoped adapter or an explicit translator; global `tr` and `plural` continue to follow the root.
 
 `initialize` ensures the Flutter binding and completes after all selected resources
 and the required startup write. It chooses `startLocale` first, otherwise the saved

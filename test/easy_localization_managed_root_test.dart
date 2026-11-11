@@ -266,6 +266,72 @@ void main() {
     }
   });
 
+  testWidgets('local override loads its own Flutter resources and preserves delegate priority', (tester) async {
+    final instance = await EasyLocalization.initialize(
+      EasyLocalizationConfig(
+        supportedLocales: const [Locale('en'), Locale('ar')],
+        fallbackLocale: const Locale('en'),
+        startLocale: const Locale('en'),
+        path: 'unused',
+        saveLocale: false,
+        assetLoader: _Loader(),
+        additionalDelegates: const [_ScopedDelegate('en', 'root'), _ScopedDelegate('ar', 'arabic'), _ScopedDelegate('ar', 'later')],
+      ),
+    );
+    try {
+      await tester.pumpWidget(
+        EasyLocalization.withInstance(
+          instance: instance,
+          child: _App(
+            home: Builder(
+              builder: (root) => Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  const Text('root'),
+                  Localizations.override(
+                    context: root,
+                    locale: const Locale('ar'),
+                    child: Builder(
+                      builder: (arabic) => Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          const Text('arabic'),
+                          Localizations.override(
+                            context: arabic,
+                            delegates: const [_ScopedDelegate('ar', 'override')],
+                            child: const Text('override'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final root = tester.element(find.text('root'));
+      final arabic = tester.element(find.text('arabic'));
+      final override = tester.element(find.text('override'));
+      expect(MaterialLocalizations.of(root).closeButtonLabel, 'Close');
+      expect(Directionality.of(root), ui.TextDirection.ltr);
+      expect(Localizations.of<_ScopedResource>(root, _ScopedResource)?.value, 'root');
+      expect(Localizations.localeOf(arabic), const Locale('ar'));
+      expect(MaterialLocalizations.of(arabic).closeButtonLabel, isNot('Close'));
+      expect(Directionality.of(arabic), ui.TextDirection.rtl);
+      expect(Localizations.of<_ScopedResource>(arabic, _ScopedResource)?.value, 'arabic');
+      expect(Localizations.of<_ScopedResource>(override, _ScopedResource)?.value, 'override');
+      expect(tr('value'), 'en-1');
+    } finally {
+      await tester.pumpWidget(const SizedBox());
+      instance.dispose();
+    }
+  });
+
   testWidgets('slow and failed delegates preserve whole presentation and late superseded resources cannot apply', (tester) async {
     for (final useOwner in [false, true]) {
       final delegate = _Delegate();
@@ -698,6 +764,24 @@ class _Loader extends AssetLoader {
     if (gate != null) return gate.future;
     return {'value': '${locale.languageCode}-$count'};
   }
+}
+
+class _ScopedResource {
+  final String value;
+  const _ScopedResource(this.value);
+}
+
+class _ScopedDelegate extends LocalizationsDelegate<_ScopedResource> {
+  final String language;
+  final String value;
+  const _ScopedDelegate(this.language, this.value);
+
+  @override
+  bool isSupported(Locale locale) => locale.languageCode == language;
+  @override
+  Future<_ScopedResource> load(Locale locale) => SynchronousFuture(_ScopedResource(value));
+  @override
+  bool shouldReload(_ScopedDelegate old) => false;
 }
 
 class _Resource {

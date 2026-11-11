@@ -364,12 +364,14 @@ class _EasyLocalizationState extends State<EasyLocalization> {
         GlobalCupertinoLocalizations.delegate,
       ];
       final selected = <Type>{Localization};
-      final adapters = <LocalizationsDelegate<dynamic>>[_PreparedDelegate(type: Localization, value: snapshot, revision: revision)];
+      final adapters = <LocalizationsDelegate<dynamic>>[_PreparedDelegate(type: Localization, value: snapshot, revision: revision, locale: locale)];
       for (final delegate in delegates) {
         if (!selected.contains(delegate.type) && delegate.isSupported(locale)) {
           selected.add(delegate.type);
           final value = await delegate.load(locale);
-          adapters.add(_PreparedDelegate(type: delegate.type, value: value, revision: revision));
+          adapters.add(_PreparedDelegate(type: delegate.type, value: value, revision: revision, locale: locale, original: delegate));
+        } else {
+          adapters.add(delegate);
         }
       }
       if (!mounted || generation != _preparationGeneration || !_owner._canPresent(revision)) {
@@ -421,17 +423,23 @@ class _PreparedDelegate extends LocalizationsDelegate<dynamic> {
   final Type type;
   final dynamic value;
   final int revision;
+  final Locale locale;
+  final LocalizationsDelegate<dynamic>? original;
 
-  const _PreparedDelegate({required this.type, required this.value, required this.revision});
-
-  @override
-  bool isSupported(Locale locale) => true;
-
-  @override
-  Future<dynamic> load(Locale locale) => SynchronousFuture<dynamic>(value);
+  const _PreparedDelegate({required this.type, required this.value, required this.revision, required this.locale, this.original});
 
   @override
-  bool shouldReload(_PreparedDelegate old) => old.revision != revision || !identical(old.value, value);
+  bool isSupported(Locale locale) => locale == this.locale || (original?.isSupported(locale) ?? true);
+
+  @override
+  Future<dynamic> load(Locale locale) {
+    final delegate = original;
+    return locale == this.locale || delegate == null ? SynchronousFuture<dynamic>(value) : delegate.load(locale);
+  }
+
+  @override
+  bool shouldReload(_PreparedDelegate old) =>
+      old.revision != revision || old.locale != locale || !identical(old.value, value) || !identical(old.original, original);
 }
 
 class _EasyLocalizationProvider extends InheritedWidget {

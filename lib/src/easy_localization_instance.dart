@@ -125,7 +125,7 @@ class EasyLocalizationInstance with WidgetsBindingObserver {
   List<LocalizationsDelegate<dynamic>> get delegates =>
       _publishedPresentation?.delegates ??
       List.unmodifiable([
-        if (_data != null) _PreparedDelegate(type: Localization, value: _data, revision: _committedRevision),
+        if (_data != null) _PreparedDelegate(type: Localization, value: _data, revision: _committedRevision, locale: locale),
         ..._config.additionalDelegates,
         GlobalMaterialLocalizations.delegate,
         GlobalWidgetsLocalizations.delegate,
