@@ -561,6 +561,8 @@ Generate a loader from JSON files:
 3. Use the generated loader:
 
 ```dart
+import 'package:flutter/material.dart';
+import 'package:easy_localization_continued/easy_localization.dart';
 import 'generated/codegen_loader.g.dart';
 
 void main() async {
