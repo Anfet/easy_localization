@@ -1,8 +1,11 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:easy_localization_continued/easy_localization.dart';
 import 'package:easy_localization_continued/src/easy_localization_controller.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_platform_interface.dart';
@@ -119,6 +122,37 @@ void main() {
     SharedPreferences.resetStatic();
   });
 
+  test('root bundle asset failure can be retried during initialization', () async {
+    const path = 'probe/de.json';
+    final messenger = binding.defaultBinaryMessenger;
+    var requests = 0;
+
+    messenger.setMockMessageHandler('flutter/assets', (message) async {
+      final requestedPath = utf8.decode(Uint8List.sublistView(message!));
+      if (requestedPath != path) return null;
+      requests++;
+      if (requests == 1) return null;
+      return ByteData.sublistView(Uint8List.fromList(utf8.encode('{"value":"recovered"}')));
+    });
+    final inputs = EasyLocalizationConfig(
+      supportedLocales: const [Locale('de')],
+      fallbackLocale: const Locale('de'),
+      startLocale: const Locale('de'),
+      path: 'probe',
+      saveLocale: false,
+    );
+
+    try {
+      await expectLater(EasyLocalization.initialize(inputs), throwsA(isA<FlutterError>()));
+      final owner = await EasyLocalization.initialize(inputs);
+      expect(requests, 2);
+      expect(tr('value'), 'recovered');
+      owner.dispose();
+    } finally {
+      rootBundle.evict(path);
+      messenger.setMockMessageHandler('flutter/assets', null);
+    }
+  });
   test('loader failure completes startup and locale change before other loaders', () async {
     final extra = InstanceLoader();
     final inputs = EasyLocalizationConfig(

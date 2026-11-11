@@ -7,6 +7,11 @@ class RootBundleFileLoader implements FileLoader {
 
   @override
   Future<String> loadString(String path) async {
-    return rootBundle.loadString(path);
+    try {
+      return await rootBundle.loadString(path);
+    } catch (error, stackTrace) {
+      rootBundle.evict(path);
+      Error.throwWithStackTrace(error, stackTrace);
+    }
   }
 }
