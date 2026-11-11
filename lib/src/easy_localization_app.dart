@@ -379,27 +379,17 @@ class _EasyLocalizationState extends State<EasyLocalization> {
           continue;
         }
 
-        Future<dynamic> load;
-        try {
-          load = delegate.load(locale);
-        } catch (error, stack) {
-          hasAsynchronousLoad = true;
-          loadedDelegates.add(
-            Future<LocalizationsDelegate<dynamic>>.error(
-              error,
-              stack,
-            ).then((value) => _PreparedDelegate(type: delegate.type, value: value, revision: revision, locale: locale, original: delegate)),
-          );
-          continue;
-        }
+        final load = delegate.load(locale);
         if (load is SynchronousFuture<dynamic> && !hasAsynchronousLoad) {
           final value = await load;
           loadedDelegates.add(_PreparedDelegate(type: delegate.type, value: value, revision: revision, locale: locale, original: delegate));
         } else {
           hasAsynchronousLoad = true;
-          loadedDelegates.add(
-            load.then((value) => _PreparedDelegate(type: delegate.type, value: value, revision: revision, locale: locale, original: delegate)),
+          final preparedLoad = load.then(
+            (value) => _PreparedDelegate(type: delegate.type, value: value, revision: revision, locale: locale, original: delegate),
           );
+          preparedLoad.ignore();
+          loadedDelegates.add(preparedLoad);
         }
       }
       final preparedDelegates = hasAsynchronousLoad

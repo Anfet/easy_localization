@@ -592,6 +592,36 @@ void main() {
     }
   });
 
+  testWidgets('synchronous delegate failure skips later delegates', (tester) async {
+    final failing = _FailingDelegate();
+    final later = _CountingDelegate();
+    final instance = await EasyLocalization.initialize(
+      EasyLocalizationConfig(
+        supportedLocales: const [Locale('en')],
+        fallbackLocale: const Locale('en'),
+        startLocale: const Locale('en'),
+        path: 'unused',
+        saveLocale: false,
+        assetLoader: _Loader(),
+        additionalDelegates: [failing, later],
+      ),
+    );
+    try {
+      await tester.pumpWidget(
+        EasyLocalization.withInstance(
+          instance: instance,
+          child: const _App(home: _Leaf(label: 'home')),
+        ),
+      );
+      expect(await instance.waitForPresentation(), LocalizationApplyOutcome.failed);
+      expect(instance.state.value.errorStage, LocalizationErrorStage.flutterDelegates);
+      expect(later.loads, 0);
+    } finally {
+      await tester.pumpWidget(const SizedBox());
+      instance.dispose();
+    }
+  });
+
   testWidgets('first mount waits for all delegates and recovers from preflight failure without changing data', (tester) async {
     final delegate = _Delegate()..fail = true;
     final instance = await owner(_Loader(), delegate);
@@ -883,6 +913,22 @@ class _FailingDelegate extends LocalizationsDelegate<_OtherResource> {
 
   @override
   bool shouldReload(_FailingDelegate old) => false;
+}
+
+class _CountingDelegate extends LocalizationsDelegate<_OtherResource> {
+  int loads = 0;
+
+  @override
+  bool isSupported(Locale locale) => true;
+
+  @override
+  Future<_OtherResource> load(Locale locale) {
+    loads++;
+    return SynchronousFuture(const _OtherResource());
+  }
+
+  @override
+  bool shouldReload(_CountingDelegate old) => false;
 }
 
 class _OtherResource {
