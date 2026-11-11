@@ -637,6 +637,15 @@ assets
         └── notifications.json  
 ```
 
+Declare the translations directory and each nested directory containing linked files in `pubspec.yaml`:
+
+```yaml
+flutter:
+  assets:
+    - assets/translations/
+    - assets/translations/en-US/
+```
+
 The built-in JSON resolver uses `language[-Script][-COUNTRY]/file.json`: for example,
 `en/errors.json`, `en-US/errors.json`, `zh-Hans/errors.json`, `zh-Hant/errors.json`, and
 `zh-Hans-CN/errors.json`. A missing script-specific file is an error; another script is not used as a fallback.
