@@ -4,7 +4,11 @@ part of 'easy_localization_app.dart';
 class LocaleTranslators {
   LocaleTranslators._(this._owner);
 
-  /// Loads all requested locales atomically, sharing concurrent loads.
+  /// Loads all requested locales atomically, sharing concurrent locale reads.
+  ///
+  /// A successful read does not guarantee that this batch will be published.
+  /// A newer overlapping batch can publish first and supersede this batch,
+  /// completing this future with [LocalizationOperationSupersededException].
   Future<void> load(Iterable<Locale> locales) async {
     _owner._checkLive();
     final requested = locales.toSet();

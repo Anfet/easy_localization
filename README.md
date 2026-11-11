@@ -305,7 +305,7 @@ data. Delegate errors preserve the previous presentation and appear in
 Issue another command to retry. A `ValueListenableBuilder<LocalizationState>` can
 show progress while `state.isLoading` and display errors.
 
-Await a command for resources and storage, then await `localization.waitForPresentation()` when visible completion matters. Its outcome can be `applied`, `superseded`, `detached`, `failed`, or `disposed`; `applied` confirms root publication when the consumer is wired as above; it does not inspect an arbitrary MaterialApp. Borrowed owners survive root removal. Strings computed outside build remain captured values. A `Localizations.override` can load Flutter resources for its own locale. For a scoped plugin dictionary, use a scoped adapter or an explicit translator; global `tr` and `plural` continue to follow the root.
+Await a command for resources and storage, then await `localization.waitForPresentation()` when visible completion matters. It waits for the currently committed snapshot, not a particular command. With competing commands, check `localization.presentationLocale` against the locale you expect. Its outcome can be `applied`, `superseded`, `detached`, `failed`, or `disposed`; `applied` confirms root publication when the consumer is wired as above; it does not inspect an arbitrary MaterialApp. Borrowed owners survive root removal. Strings computed outside build remain captured values. A `Localizations.override` can load Flutter resources for its own locale. For a scoped plugin dictionary, use a scoped adapter or an explicit translator; global `tr` and `plural` continue to follow the root.
 
 `initialize` ensures the Flutter binding and completes after all selected resources
 and the required startup write. It chooses `startLocale` first, otherwise the saved
@@ -343,7 +343,7 @@ if (outcome == LocalizationApplyOutcome.applied) {
 
 Handle command errors and non-applied outcomes. A newer command can supersede an outstanding load. A storage failure can leave the new data active; selecting it again retries persistence.
 
-After updating your `AssetLoader` data and its cache, call `await localization.reloadTranslations()`. It reloads the requested language and its fallback, superseding any outstanding locale change or reload. The superseded command completes with `LocalizationOperationSupersededException`. A later command can supersede the reload in turn. A failed reload leaves the previous translations available. Await `localization.waitForPresentation()` and check for `LocalizationApplyOutcome.applied` when the updated widgets must be visible.
+After updating your `AssetLoader` data and its cache, call `await localization.reloadTranslations()`. It reloads the requested language and its fallback, superseding any outstanding locale change or reload. The superseded command completes with `LocalizationOperationSupersededException`. A later command can supersede the reload in turn. A failed reload leaves the previous translations available. Await `localization.waitForPresentation()` and check for `LocalizationApplyOutcome.applied` when the updated widgets must be visible; if commands compete, also check that `localization.presentationLocale` is the expected locale.
 
 For an initial loading failure, keep the same config outside the localization root and retry initialization from a startup screen. The root is created only after initialization succeeds:
 
@@ -935,7 +935,7 @@ Custom loaders use the parameterless `AssetLoader` constructor. The removed `eas
 | Context translation extensions | Use `tr`, `String.tr` and owner commands; use a scoped adapter or explicit translator for local overrides. |
 | `ignorePluralRules` | Remove it; the unified plural rules apply. |
 
-`translators.once(locale)` loads an independent immutable snapshot. `translators` also manages cached snapshots; held snapshots survive reload, cache eviction and owner disposal. Load a locale before forcing it in global calls:
+`translators.once(locale)` loads an independent immutable snapshot. `translators` also manages cached snapshots; held snapshots survive reload, cache eviction and owner disposal. `translators.load()` shares unfinished reads for each locale, then publishes each batch atomically. If overlapping batches compete, a newer batch can publish first and the older batch completes with `LocalizationOperationSupersededException`; a completed asset read alone does not mean its batch was published. Load a locale before forcing it in global calls:
 
 ```dart
 await localization.translators.load([const Locale('de')]);

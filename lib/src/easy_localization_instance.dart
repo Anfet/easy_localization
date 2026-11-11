@@ -181,7 +181,10 @@ class EasyLocalizationInstance with WidgetsBindingObserver {
     return _controller.deleteSaveLocale();
   }
 
-  /// Waits for presentation of the currently committed snapshot.
+  /// Waits until the root presents its currently committed snapshot.
+  ///
+  /// This is not tied to a particular command: if commands compete, compare
+  /// [presentationLocale] with the locale whose presentation you expect.
   Future<LocalizationApplyOutcome> waitForPresentation() {
     if (_disposed) return Future.value(LocalizationApplyOutcome.disposed);
     if (!_attached) return Future.value(LocalizationApplyOutcome.detached);
