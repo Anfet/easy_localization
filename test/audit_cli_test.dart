@@ -95,6 +95,26 @@ void main() {
     expectSuccess(await audit(strict: true), 0);
   });
 
+  test('normalizes locale paths and rejects invalid or duplicate filenames', () async {
+    File(path.join(translations.path, 'en.json')).deleteSync();
+    File(path.join(translations.path, 'fr.json')).deleteSync();
+    writeSource("tr('section.title');");
+    for (final pair in {'en-us': 'en-US', 'en_US': 'en-US', 'zh_hans_cn': 'zh-Hans-CN', 'es_419': 'es-419'}.entries) {
+      final input = File(path.join(translations.path, '${pair.key}.json'))..writeAsStringSync('{"section":":/section.json"}');
+      final linked = Directory(path.join(translations.path, pair.value))..createSync(recursive: true);
+      File(path.join(linked.path, 'section.json')).writeAsStringSync('{"title":"Title"}');
+      expectSuccess(await audit(strict: true), 0);
+      input.deleteSync();
+    }
+    File(path.join(translations.path, 'en-us.json')).writeAsStringSync('{}');
+    File(path.join(translations.path, 'en_US.json')).writeAsStringSync('{}');
+    expectError(await audit());
+    File(path.join(translations.path, 'en-us.json')).deleteSync();
+    File(path.join(translations.path, 'en_US.json')).deleteSync();
+    File(path.join(translations.path, 'invalid.name.json')).writeAsStringSync('{}');
+    expectError(await audit());
+  });
+
   test('static missing key only fails in strict mode', () async {
     File(path.join(translations.path, 'en.json')).writeAsStringSync('{"absent":"Present"}');
     writeSource("tr('absent');");

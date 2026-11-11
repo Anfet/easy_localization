@@ -708,6 +708,8 @@ print(localization.fallbackLocale); // output: en_US
 
 Code generation supports only json files, for more information run in terminal `dart run easy_localization_continued:generate -h`
 
+For JSON loaders and audit, filenames use a 2–3 letter language, optional 4-letter script, and optional 2-letter or 3-digit region, separated by `-` or `_`. Names are normalized (for example `zh_hans_cn.json` becomes `zh_Hans_CN`); linked files are read from `zh-Hans-CN/`. Invalid names and names that normalize to the same locale are rejected. Key generation also accepts arbitrary source filenames.
+
 ### Command line arguments
 
 | Arguments                    | Short | Default               | Description                                                                 |

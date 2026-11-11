@@ -1,3 +1,4 @@
+import 'locale_name.dart';
 import 'dart:convert';
 import 'dart:io';
 
@@ -178,10 +179,11 @@ Future<void> generateFile(List<FileSystemEntity> files, Directory outputPath, Ge
   final localeFiles = <String, String>{};
   for (final file in options.format == 'keys' ? files.take(1) : files) {
     final locale = path.basenameWithoutExtension(file.path);
-    final normalized = locale.replaceAll('-', '_');
+    final parsed = LocaleName.parse(locale);
+    final normalized = parsed?.key ?? locale.replaceAll('-', '_');
     if (options.format == 'json') {
       final filename = path.basename(file.path);
-      if (!RegExp(r'^[a-zA-Z0-9_]+$').hasMatch(normalized)) {
+      if (parsed == null) {
         throw FormatException('Unsupported JSON locale filename: $filename');
       }
       final previous = localeFiles[normalized];
@@ -194,9 +196,9 @@ Future<void> generateFile(List<FileSystemEntity> files, Directory outputPath, Ge
     final hasScript = parts.length > 1 && parts[1].length == 4;
     translations[normalized] = await resolver.resolveLinkedFiles(
       basePath: path.dirname(file.path),
-      languageCode: parts.first,
-      scriptCode: hasScript ? parts[1] : null,
-      countryCode: parts.length > (hasScript ? 2 : 1) ? parts.last : null,
+      languageCode: parsed?.language ?? parts.first,
+      scriptCode: parsed?.script ?? (parsed == null && hasScript ? parts[1] : null),
+      countryCode: parsed?.region ?? (parsed == null && parts.length > (hasScript ? 2 : 1) ? parts.last : null),
       baseJson: json.decode(await loader.loadString(file.path)) as Map<String, dynamic>,
     );
   }

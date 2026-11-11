@@ -141,6 +141,20 @@ void main() {
     expect(keys, contains("section_title = 'section.title'"));
   });
 
+  test('normalizes locale filenames and finds canonical linked directories', () async {
+    final source = Directory(path.join(scratch.path, 'langs'))..createSync();
+    for (final pair in {'en-us': 'en-US', 'en_US': 'en-US', 'zh_hans_cn': 'zh-Hans-CN', 'es_419': 'es-419'}.entries) {
+      final input = File(path.join(source.path, '${pair.key}.json'))..writeAsStringSync('{"section":":/section.json"}');
+      final fragment = Directory(path.join(source.path, pair.value))..createSync(recursive: true);
+      File(path.join(fragment.path, 'section.json')).writeAsStringSync('{"title":"${pair.value}"}');
+      final output = await generate(source, 'json');
+      expect(output, contains('"${pair.value.replaceAll('-', '_')}"'));
+      expect(output, contains('"title": "${pair.value}"'));
+      expect(await generate(source, 'keys', sourceFile: '${pair.key}.json'), contains("section_title = 'section.title'"));
+      input.deleteSync();
+    }
+  });
+
   test('invalid generated identifiers preserve the previous keys file', () async {
     final source = Directory(path.join(scratch.path, 'langs'));
     await source.create();
@@ -180,7 +194,9 @@ void main() {
     for (final names in [
       ['En.US.json'],
       [r'en$.json'],
-      ['en-US.json', 'en_US.json'],
+      ['en-us.json', 'en_US.json'],
+      ['english.json'],
+      ['en-1234.json'],
     ]) {
       for (final name in names) {
         await File(path.join(source.path, name)).writeAsString('{"hello":"Hello"}');
@@ -208,8 +224,9 @@ void main() {
     final expected = await File(path.join(fixture.path, 'codegen_loader.g.dart')).readAsString();
     final source = Directory(path.join(scratch.path, 'source files'));
     await source.create();
-    for (final locale in ['en', 'zh-Hans-CN']) {
-      await File(path.join(source.path, '$locale.json')).writeAsString('{"section":":/section.json"}');
+    for (final locale in ['en', 'en-US', 'zh-Hans-CN']) {
+      final filename = locale == 'en-US' ? 'en-us' : locale;
+      await File(path.join(source.path, '$filename.json')).writeAsString('{"section":":/section.json"}');
       final fragments = Directory(path.join(source.path, locale));
       await fragments.create();
       await File(path.join(fragments.path, 'section.json')).writeAsString('{"title":"$locale"}');

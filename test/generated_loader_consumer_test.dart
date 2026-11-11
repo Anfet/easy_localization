@@ -11,6 +11,9 @@ void main() {
     expect(await loader.load('', const Locale('en')), {
       'section': {'title': 'en'},
     });
+    expect(await loader.load('', const Locale('en', 'US')), {
+      'section': {'title': 'en-US'},
+    });
     expect(await loader.load('', const Locale.fromSubtags(languageCode: 'zh', scriptCode: 'Hans', countryCode: 'CN')), {
       'section': {'title': 'zh-Hans-CN'},
     });

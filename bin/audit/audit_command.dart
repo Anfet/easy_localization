@@ -6,6 +6,7 @@ import 'package:easy_localization_continued/src/linked_key_parser.dart';
 import 'package:path/path.dart';
 
 import '../io_file_loader.dart';
+import '../locale_name.dart';
 
 class AuditCommand {
   /// Returns whether any locale has confirmed missing translations.
@@ -18,17 +19,22 @@ class AuditCommand {
   Future<Map<String, Map<String, dynamic>>> _loadTranslations(Directory directory) async {
     final result = <String, Map<String, dynamic>>{};
     const resolver = JsonLinkedFileResolver(fileLoader: IOFileLoader());
+    final localeFiles = <String, String>{};
     for (final file in directory.listSync().whereType<File>()) {
       if (!file.path.endsWith('.json')) continue;
       final locale = basenameWithoutExtension(file.path);
-      final parts = locale.split('-');
-      final hasScript = parts.length > 1 && parts[1].length == 4;
-      result[locale] = await resolver.resolveLinkedFiles(
+      final parsed = LocaleName.parse(locale);
+      if (parsed == null) throw FormatException('Unsupported JSON locale filename: ${basename(file.path)}');
+      final filename = basename(file.path);
+      final previous = localeFiles[parsed.key];
+      if (previous != null) throw FormatException('Duplicate JSON locale filenames: $previous and $filename');
+      localeFiles[parsed.key] = filename;
+      result[parsed.key] = await resolver.resolveLinkedFiles(
         basePath: directory.path,
-        languageCode: parts.first,
+        languageCode: parsed.language,
         baseJson: json.decode(file.readAsStringSync()) as Map<String, dynamic>,
-        scriptCode: hasScript ? parts[1] : null,
-        countryCode: parts.length > (hasScript ? 2 : 1) ? parts.last : null,
+        scriptCode: parsed.script,
+        countryCode: parsed.region,
       );
     }
     return result;
