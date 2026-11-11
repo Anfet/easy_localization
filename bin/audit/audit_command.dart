@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:easy_localization_continued/src/linked_file_resolver.dart';
+import 'package:easy_localization_continued/src/linked_key_parser.dart';
 import 'package:path/path.dart';
 
 import '../io_file_loader.dart';
@@ -238,8 +239,6 @@ class AuditCommand {
       final missing = <String>{};
       final unverified = <String>{};
       final incomplete = <String>{};
-      final linkMatcher = RegExp(r'(?:@(?:\.[a-z]+)?:(?:[\w\-|]+(?:\.[\w\-|]+)*|\([\w\-|.]+\)))');
-      final prefixMatcher = RegExp(r'^@(?:\.[a-z]+)?:');
 
       void checkLinks(String key, List<String> path) {
         final value = _lookup(entry.value, key);
@@ -247,8 +246,8 @@ class AuditCommand {
           missing.add(path.length == 1 ? key : '$key (${path.join(' -> ')})');
           return;
         }
-        for (final match in linkMatcher.allMatches(value)) {
-          final target = (match[0] ?? '').replaceFirst(prefixMatcher, '').replaceAll(RegExp(r'[()]'), '');
+        for (final match in linkedKeyMatcher.allMatches(value)) {
+          final target = (match[0] ?? '').replaceFirst(linkedKeyPrefixMatcher, '').replaceAll(RegExp(r'[()]'), '');
           final next = [...path, target];
           if (path.contains(target)) {
             unverified.add('cycle: ${next.join(' -> ')}');

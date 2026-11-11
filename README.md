@@ -547,6 +547,7 @@ The package uses `Intl.pluralLogic` with the full locale. If present, `zero`, `o
 For English, 3, 4, and 5 use `other` even when `few` or `many` are present. Russian uses `one`, `few`, and `many` for 21, 22, and 5. Each language's own forms are tried before base and fallback translations, using each source locale's rules.
 
 ### 🔥 Linked translations:
+Link keys support Unicode letters, combining marks and numbers, alongside ASCII `_`, `-` and `|` characters.
 
 If there's a translation key that will always have the same concrete text as another one you can just link to it. To link to another translation key, all you have to do is to prefix its contents with an `@:` sign followed by the full name of the translation key including the namespace you want to link to.
 

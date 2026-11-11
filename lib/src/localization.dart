@@ -3,6 +3,7 @@ import 'package:flutter/widgets.dart';
 import 'package:meta/meta.dart';
 
 import 'package:easy_localization_continued/src/diagnostics.dart';
+import 'package:easy_localization_continued/src/linked_key_parser.dart';
 
 class Localization {
   final Translations? _translations, _baseTranslations, _fallbackTranslations;
@@ -12,8 +13,6 @@ class Localization {
   /// The locale captured by this translation snapshot.
   Locale get locale => _locale;
 
-  final RegExp _linkKeyMatcher = RegExp(r'(?:@(?:\.[a-z]+)?:(?:[\w\-|]+(?:\.[\w\-|]+)*|\([\w\-|.]+\)))');
-  final RegExp _linkKeyPrefixMatcher = RegExp(r'^@(?:\.([a-z]+))?:');
   final RegExp _bracketsMatcher = RegExp('[()]');
   final _modifiers = <String, String Function(String?)>{
     'upper': (String? val) => val!.toUpperCase(),
@@ -92,9 +91,9 @@ class Localization {
   String _replaceLinks(String res, {bool logging = true, Set<String>? keys, Set<String>? cycleWarnings}) {
     final resolvingKeys = keys ?? <String>{};
     final reportedCycles = cycleWarnings ?? <String>{};
-    return res.replaceAllMapped(_linkKeyMatcher, (match) {
+    return res.replaceAllMapped(linkedKeyMatcher, (match) {
       final link = match[0]!;
-      final linkPrefixMatches = _linkKeyPrefixMatcher.allMatches(link);
+      final linkPrefixMatches = linkedKeyPrefixMatcher.allMatches(link);
       final linkPrefix = linkPrefixMatches.first[0]!;
       final formatterName = linkPrefixMatches.first[1];
 

@@ -75,6 +75,20 @@ void main() {
     expect(localization.tr('bracketed'), 'Nested value');
   });
 
+  test('linked keys resolve Unicode letters, combining marks and dotted keys', () {
+    final localization = Localization.snapshot(
+      const Locale('en'),
+      translations: Translations({
+        'привет': 'Hello',
+        'раздел': {'ключ': 'Nested'},
+        'е\u0301': 'Combined',
+        'plain': '@:привет @:(раздел.ключ) @:е\u0301',
+      }),
+    );
+
+    expect(localization.tr('plain'), 'Hello Nested Combined');
+  });
+
   test('linked translations resolve nested and sibling links in one call', () {
     final localization = Localization.snapshot(
       const Locale('en'),

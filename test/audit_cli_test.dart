@@ -278,6 +278,17 @@ void main() {
     }
   });
 
+  test('strict audit follows Unicode linked keys and reports missing Unicode targets', () async {
+    File(path.join(translations.path, 'en.json')).writeAsStringSync('{"заголовок":"@:привет","привет":"OK"}');
+    File(path.join(translations.path, 'fr.json')).writeAsStringSync('{"заголовок":"@:(раздел.ключ)"}');
+    writeSource("tr('заголовок');");
+
+    final result = await audit(strict: true);
+
+    expectSuccess(result, 2);
+    expect(result.stdout, contains('Missing (1)'));
+  });
+
   test('gender and plural links are checked, diamond succeeds and cycle is unverified', () async {
     for (final file in translations.listSync().whereType<File>()) {
       file.writeAsStringSync(
