@@ -123,6 +123,27 @@ void main() {
     expect(localization.tr('siblings'), 'Email / Email');
   });
 
+  test('linked phrases prefer their source and nested links follow the selected layer', () {
+    final localization = Localization.snapshot(
+      const Locale('fr'),
+      translations: Translations({'recipient': 'destinataire', 'bridge': '@:recipient', 'primaryOnly': 'primary'}),
+      baseTranslations: Translations({'recipient': 'base recipient', 'basePhrase': '@:recipient', 'baseOnly': '@:recipient'}),
+      fallbackTranslations: Translations({
+        'message': 'Send to @:recipient',
+        'gender': {'female': 'Send to @:recipient'},
+        'items': {'one': 'Send to @:recipient', 'other': 'Send to @:bridge'},
+        'recipient': 'recipient',
+        'nested': '@:baseOnly / @:primaryOnly',
+      }),
+    );
+    expect(localization.tr('message'), 'Send to recipient');
+    expect(localization.tr('gender', gender: 'female'), 'Send to recipient');
+    expect(localization.plural('items', 1), 'Send to recipient');
+    expect(localization.plural('items', 2), 'Send to destinataire');
+    expect(localization.tr('nested'), 'base recipient / primary');
+    expect(localization.tr('basePhrase'), 'base recipient');
+  });
+
   test('linked keys with common prefixes are replaced independently', () {
     final localization = Localization.snapshot(
       const Locale('en'),

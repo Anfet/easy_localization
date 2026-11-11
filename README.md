@@ -568,6 +568,8 @@ Example:
 print('example.helloWorld'.tr()); //Output: Hello World!
 ```
 
+Linked keys are looked up first in the dictionary that supplied the containing phrase, then in the usual primary, base-language and fallback order. Each nested link uses the dictionary that supplied its containing text. Empty translations follow the configured fallback-for-empty setting.
+
 You can also do nested anonymous and named arguments inside the linked messages.
 
 Example:

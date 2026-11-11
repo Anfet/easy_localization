@@ -75,16 +75,10 @@ class Localization {
   }
 
   String tr(String key, {List<String>? args, Map<String, String>? namedArgs, String? gender}) {
-    late String res;
-
-    if (gender != null) {
-      res = _gender(key, gender: gender);
-    } else {
-      res = _resolve(key);
-    }
-
+    final (text, source) = _resolve(gender == null ? key : '$key.$gender');
+    var res = text;
     try {
-      res = _replaceLinks(res, keys: {key});
+      res = _replaceLinks(res, source: source, keys: {key});
     } on _LinkLimitExceeded {
       reportLocalizationDiagnostic(EasyLocalization.onWarning, 'Linked translation limit exceeded at [$key]');
       return res;
@@ -93,7 +87,7 @@ class Localization {
     return _replaceArgs(res, args, namedArgs);
   }
 
-  String _replaceLinks(String res, {bool logging = true, Set<String>? keys, Set<String>? cycleWarnings, List<int>? budget}) {
+  String _replaceLinks(String res, {Translations? source, bool logging = true, Set<String>? keys, Set<String>? cycleWarnings, List<int>? budget}) {
     final resolvingKeys = keys ?? <String>{};
     final reportedCycles = cycleWarnings ?? <String>{};
     final remaining = budget ?? [4096];
@@ -131,8 +125,10 @@ class Localization {
       }
 
       resolvingKeys.add(linkPlaceholder);
+      final (linkedText, linkedSource) = _resolve(linkPlaceholder, source: source);
       var translated = _replaceLinks(
-        _resolve(linkPlaceholder),
+        linkedText,
+        source: linkedSource,
         logging: logging,
         keys: resolvingKeys,
         cycleWarnings: reportedCycles,
@@ -178,6 +174,7 @@ class Localization {
   String plural(String key, num value, {List<String>? args, Map<String, String>? namedArgs, String? name, NumberFormat? format}) {
     final missing = Object();
     String? selected;
+    Translations? source;
     for (final (translations, locale) in [
       (_translations, _locale),
       (_baseTranslations, _baseLocale ?? _locale),
@@ -201,6 +198,7 @@ class Localization {
       );
       if (!identical(result, missing)) {
         selected = result as String;
+        source = translations;
         break;
       }
     }
@@ -210,7 +208,7 @@ class Localization {
     var res = selected ?? '$key.other';
 
     try {
-      res = _replaceLinks(res, keys: {key});
+      res = _replaceLinks(res, source: source, keys: {key});
     } on _LinkLimitExceeded {
       reportLocalizationDiagnostic(EasyLocalization.onWarning, 'Linked translation limit exceeded at [$key]');
       return res;
@@ -224,25 +222,24 @@ class Localization {
     return _replaceArgs(res, args == null || args.isEmpty ? [formattedValue] : args, namedArgs);
   }
 
-  String _gender(String key, {required String gender}) {
-    return _resolve('$key.$gender');
-  }
-
-  String _resolve(String key, {bool logging = true, bool fallback = true}) {
+  (String, Translations?) _resolve(String key, {Translations? source, bool logging = true, bool fallback = true}) {
     bool available(String? value) => value != null && (!_useFallbackTranslationsForEmptyResources || value.isNotEmpty);
+
+    final preferred = source?.get(key);
+    if (available(preferred)) return (preferred as String, source);
     final primary = _translations?.get(key);
-    if (available(primary)) return primary as String;
+    if (available(primary)) return (primary as String, _translations);
     if (logging) reportLocalizationDiagnostic(EasyLocalization.onWarning, 'Localization key [$key] not found');
     if (fallback) {
       for (final translations in [_baseTranslations, _fallbackTranslations]) {
         final resource = translations?.get(key);
-        if (available(resource)) return resource as String;
+        if (available(resource)) return (resource as String, translations);
       }
       if (logging && (_baseTranslations != null || _fallbackTranslations != null)) {
         reportLocalizationDiagnostic(EasyLocalization.onWarning, 'Fallback localization key [$key] not found');
       }
     }
-    return key;
+    return (key, null);
   }
 
   bool exists(String key, {bool includeFallback = false}) {
