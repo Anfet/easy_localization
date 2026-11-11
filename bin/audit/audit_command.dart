@@ -242,6 +242,7 @@ class AuditCommand {
     stdout.writeln('=== Keys Audit ===');
     const forms = ['zero', 'one', 'two', 'few', 'many', 'other'];
     final parameterSetsByLocale = <String, Map<String, Map<String, Set<String>>>>{};
+    final incompleteVariantsByLocale = <String, Set<String>>{};
     for (final entry in translations.entries) {
       final missing = <String>{};
       final unverified = <String>{};
@@ -252,6 +253,7 @@ class AuditCommand {
         if (path.length == 1) remainingLinks = 4096;
         final value = _lookup(entry.value, key);
         if (value is! String) {
+          if (path.length > 1) incompleteVariantsByLocale.putIfAbsent(entry.key, () => <String>{}).add(variant);
           missing.add(path.length == 1 ? key : '$key (${path.join(' -> ')})');
           return;
         }
@@ -267,6 +269,7 @@ class AuditCommand {
           final next = [...path, target];
           if (path.contains(target)) {
             unverified.add('cycle: ${next.join(' -> ')}');
+            incompleteVariantsByLocale.putIfAbsent(entry.key, () => <String>{}).add(variant);
           } else {
             checkLinks(target, next, variant);
           }
@@ -339,10 +342,14 @@ class AuditCommand {
         for (var second = first + 1; second < locales.length; second++) {
           final firstStrings = locales[first].value[variant]!;
           final secondStrings = locales[second].value[variant]!;
-          final commonStrings = firstStrings.keys.toSet().intersection(secondStrings.keys.toSet());
-          if (commonStrings.isEmpty) continue;
-          final firstParameters = commonStrings.expand((key) => firstStrings[key]!).toSet();
-          final secondParameters = commonStrings.expand((key) => secondStrings[key]!).toSet();
+          final firstComplete = !(incompleteVariantsByLocale[locales[first].key]?.contains(variant) ?? false);
+          final secondComplete = !(incompleteVariantsByLocale[locales[second].key]?.contains(variant) ?? false);
+          final firstParameters = firstComplete && secondComplete
+              ? firstStrings.values.expand((parameters) => parameters).toSet()
+              : firstStrings[variant]!;
+          final secondParameters = firstComplete && secondComplete
+              ? secondStrings.values.expand((parameters) => parameters).toSet()
+              : secondStrings[variant]!;
           if (firstParameters.length == secondParameters.length && firstParameters.containsAll(secondParameters)) continue;
           mismatches.add(
             '  ⚠️ $variant: ${locales[first].key} {${(firstParameters.toList()..sort()).join(', ')}}; '

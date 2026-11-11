@@ -85,6 +85,24 @@ void main() {
     }
   });
 
+  test('named parameter mismatches compare linked strings with different target keys', () async {
+    File(path.join(translations.path, 'en.json')).writeAsStringSync('{"screen":{"title":"@:strings.enTitle"},"strings":{"enTitle":"Hello {name}"}}');
+    File(
+      path.join(translations.path, 'fr.json'),
+    ).writeAsStringSync('{"screen":{"title":"@:strings.frTitle"},"strings":{"frTitle":"Bonjour {naem}"}}');
+    writeSource("tr('screen.title');");
+
+    for (final strict in [false, true]) {
+      final result = await audit(strict: strict);
+      expectSuccess(result, 0);
+      expect(result.stdout, contains('Named parameter mismatches'));
+      expect(result.stdout, contains('screen.title'));
+      expect(result.stdout, contains('{name}'));
+      expect(result.stdout, contains('{naem}'));
+      expect(result.stdout, isNot(contains('Missing')));
+    }
+  });
+
   test('audit resolves links in script and region locale directories', () async {
     File(path.join(translations.path, 'en.json')).deleteSync();
     File(path.join(translations.path, 'fr.json')).deleteSync();
