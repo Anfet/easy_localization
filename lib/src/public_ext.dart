@@ -29,12 +29,12 @@ Text _withData(Text source, String data) => Text(
 );
 
 /// Text widget extension method for access to [tr()] and [plural()]
-/// Pass context to use and subscribe to its localization scope. Ordinary widgets
+/// The `context` parameter is deprecated and will be removed in 5.0. Ordinary widgets
 /// under the root rebuild on presentation changes; retained strings are snapshots.
 /// Example :
 /// ```dart
-/// Text('title').tr(context: context)
-/// Text('day').plural(21, context: context)
+/// Text('title').tr()
+/// Text('day').plural(21)
 /// ```
 extension TextTranslateExtension on Text {
   /// {@macro tr}
@@ -81,12 +81,12 @@ extension TextTranslateExtension on Text {
 }
 
 /// Strings extension method for access to [tr()] and [plural()]
-/// Pass context to use and subscribe to its localization scope. Ordinary widgets
+/// The `context` parameter is deprecated and will be removed in 5.0. Ordinary widgets
 /// under the root rebuild on presentation changes; retained strings are snapshots.
 /// Example :
 /// ```dart
-/// 'title'.tr(context: context)
-/// 'day'.plural(21, context: context)
+/// 'title'.tr()
+/// 'day'.plural(21)
 /// ```
 extension StringTranslateExtension on String {
   /// {@macro tr}
