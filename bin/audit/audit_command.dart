@@ -52,18 +52,18 @@ class AuditCommand {
         }
       }
     }
-    final textReceiver = RegExp(r'\bText\s*\(([^,()]+)(?:[^()]|\([^()]*\))*\)\s*\.\s*(tr|plural)\s*\(');
-    final receiver = RegExp(r'(?<![\w.])(Q+|\w+(?:\s*\.\s*\w+)*)\s*\.\s*(tr|plural)\s*\(');
+    final textReceiver = RegExp(r'\bText\s*\(((?:r?Q+)|[^,()]+)(?:[^()]|\([^()]*\))*\)\s*\.\s*(tr|plural)\s*\(');
+    final receiver = RegExp(r'(?<![\w.])((?:r?Q+)|\w+(?:\s*\.\s*\w+)*)\s*\.\s*(tr|plural)\s*\(');
     final function = RegExp(r'(?<![\w.])(?:context\s*\.\s*)?\b(tr|plural)\s*\(');
     final usages = <_Usage>[];
 
     void add(String expression, String method, String arguments, String maskedArguments) {
       final value = expression.trim();
       String? key;
-      final literal = RegExp(r'''^(['"])([^'"\\]*)\1$''').firstMatch(value);
+      final literal = RegExp(r'''^(r)?(['"])(.*?)\2$''').firstMatch(value);
       final reference = RegExp(r'^LocaleKeys\s*\.\s*(\w+)$').firstMatch(value);
-      if (literal != null && !(literal[2] ?? '').contains(r'$')) {
-        key = literal[2];
+      if (literal != null && (literal[1] != null || (!(literal[3] ?? '').contains(r'$') && !(literal[3] ?? '').contains(r'\')))) {
+        key = literal[3];
       } else if (reference != null) {
         final values = constants[reference[1]];
         if (values != null && values.length == 1) key = values.first;
@@ -83,14 +83,18 @@ class AuditCommand {
         }
       }
       final topLevelArguments = topLevel.join();
-      final gender = RegExp(r'\bgender\s*:\s*(Q+)\s*(?:,|$)').firstMatch(topLevelArguments);
-      final hasGender = RegExp(r'\bgender\s*:').hasMatch(topLevelArguments);
+      final gender = RegExp(r'\bgender\s*:\s*(r?Q+|null)\s*(?:,|$)').firstMatch(topLevelArguments);
+      var hasGender = RegExp(r'\bgender\s*:').hasMatch(topLevelArguments);
       String? genderValue;
-      if (gender != null) {
+      if (gender != null && gender[1] != 'null') {
         final start = gender.start + (gender[0]?.indexOf(gender[1] ?? '') ?? 0);
         final literal = arguments.substring(start, start + (gender[1]?.length ?? 0));
-        final match = RegExp(r'''^(['"])([^'"$\\]*)\1$''').firstMatch(literal);
-        genderValue = match?[2];
+        final match = RegExp(r'''^(r)?(['"])(.*?)\2$''').firstMatch(literal);
+        if (match != null && (match[1] != null || (!(match[3] ?? '').contains(r'$') && !(match[3] ?? '').contains(r'\')))) {
+          genderValue = match[3];
+        }
+      } else if (gender != null) {
+        hasGender = false;
       }
       usages.add(_Usage(key, method == 'plural', hasGender, genderValue));
     }
@@ -117,7 +121,7 @@ class AuditCommand {
           final receiverExpression = match[1] ?? '';
           final isKeyReceiver =
               pattern == receiver &&
-              (RegExp(r'^Q+$').hasMatch(receiverExpression) || RegExp(r'^LocaleKeys\s*\.\s*\w+$').hasMatch(receiverExpression));
+              (RegExp(r'^r?Q+$').hasMatch(receiverExpression) || RegExp(r'^LocaleKeys\s*\.\s*\w+$').hasMatch(receiverExpression));
           if (pattern == function || (pattern == receiver && !isKeyReceiver)) {
             var nesting = 0;
             var separator = maskedArgs.length;

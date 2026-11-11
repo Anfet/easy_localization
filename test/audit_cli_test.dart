@@ -68,6 +68,14 @@ void main() {
     expectSuccess(strict, 2);
     expect(strict.stdout, contains('absent'));
   });
+  test('raw literal keys and receivers report missing keys in strict mode', () async {
+    for (final expression in ["tr(r'missing');", "r'missing'.tr();"]) {
+      writeSource(expression);
+      final result = await audit(strict: true);
+      expectSuccess(result, 2);
+      expect(result.stdout, contains('missing'));
+    }
+  });
 
   test('interpolated and dynamic keys are not confirmed missing', () async {
     writeSource(r"tr('item.$name'); tr(variable);");
@@ -159,6 +167,13 @@ void main() {
     final missing = await audit(strict: true);
     expectSuccess(missing, 2);
     expect(missing.stdout, contains('person.female'));
+  });
+  test('null gender uses the ordinary translation key', () async {
+    for (final file in translations.listSync().whereType<File>()) {
+      file.writeAsStringSync('{"greet":"Hello"}');
+    }
+    writeSource("tr('greet', gender: null);");
+    expectSuccess(await audit(strict: true), 0);
   });
 
   test('generated receivers and translator chains resolve static keys', () async {
