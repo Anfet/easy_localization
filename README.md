@@ -262,7 +262,7 @@ The key `other` is required.
 
 ```dart
 // Text widget with a number format
-Text('money'.plural(1000000, format: NumberFormat.compact(locale: localization.presentationLocale.toString()))); // You have 1M dollars
+Text('money'.plural(1000000, format: NumberFormat.compact(locale: EasyLocalization.instance.presentationLocale.toString()))); // You have 1M dollars
 
 // String
 print('day'.plural(21)); // 21 день
@@ -890,7 +890,7 @@ goldenTest(
 );
 ```
 
-Register this inside `main()`. The [complete Windows example](example/test/localization_golden_test.dart) loads Roboto, checks English and Russian plurals, and compares readable platform goldens. From `example`, run `flutter pub get`, then `flutter test --no-pub test/localization_golden_test.dart`. Add `--update-goldens` to regenerate the baselines.
+Register this inside `main()`. The [Windows golden test](example/test/localization_golden_test.dart) in the example app loads Roboto, checks English and Russian plurals, and compares readable platform goldens. From `example`, run `flutter pub get`, then `flutter test --no-pub test/localization_golden_test.dart`. Add `--update-goldens` to regenerate the baselines.
 
 ## Platform support and limitations
 
