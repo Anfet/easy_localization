@@ -1,10 +1,13 @@
 name: PR Check
 
+# Manual only: runs on the owner's self-hosted runner, never on pull_request,
+# so code from forks or other people's PRs is not executed on it.
 on:
   workflow_dispatch:
-  pull_request:
 
 jobs:
   test:
     name: Test
     uses: ./.github/workflows/test.yml
+    with:
+      use_self_hosted: true

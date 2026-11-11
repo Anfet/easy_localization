@@ -2,11 +2,16 @@ name: Test
 
 on:
   workflow_call:
+    inputs:
+      use_self_hosted:
+        description: Run on the owner's self-hosted macOS runner instead of GitHub-hosted Ubuntu.
+        type: boolean
+        default: false
 
 jobs:
   test:
     name: Test
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.use_self_hosted && fromJSON('["self-hosted","macOS","X64"]') || 'ubuntu-latest' }}
     steps:
     - uses: actions/checkout@v4
 
