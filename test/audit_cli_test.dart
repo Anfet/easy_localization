@@ -60,6 +60,31 @@ void main() {
     expectSuccess(await audit(strict: true), 0);
   });
 
+  test('named parameter mismatches warn without failing and compare reachable strings', () async {
+    File(path.join(translations.path, 'en.json')).writeAsStringSync(
+      '{"greet":"Hello {name}","ordered":"{name}, {city}","linked":"@:linked_text","linked_text":"{name}",'
+      '"count":{"one":"{name}","other":"{city}"},"person":{"male":"{name}","female":"{given}"}}',
+    );
+    File(path.join(translations.path, 'fr.json')).writeAsStringSync(
+      '{"greet":"Bonjour {naem}","ordered":"{city}, {name}","linked":"@:linked_text","linked_text":"{appel}",'
+      '"count":{"one":"{name}","other":"{city}"},"person":{"male":"{name}","female":"{given}"}}',
+    );
+    writeSource("tr('greet'); tr('ordered'); tr('linked'); plural('count', 2); tr('person', gender: 'male');");
+
+    for (final strict in [false, true]) {
+      final result = await audit(strict: strict);
+      expectSuccess(result, 0);
+      expect(result.stdout, contains('Named parameter mismatches'));
+      expect(result.stdout, contains('greet'));
+      expect(result.stdout, contains('{name}'));
+      expect(result.stdout, contains('{naem}'));
+      expect(result.stdout, contains('linked'));
+      expect(result.stdout, isNot(contains('ordered:')));
+      expect(result.stdout, isNot(contains('count.one:')));
+      expect(result.stdout, isNot(contains('person.male:')));
+    }
+  });
+
   test('audit resolves links in script and region locale directories', () async {
     File(path.join(translations.path, 'en.json')).deleteSync();
     File(path.join(translations.path, 'fr.json')).deleteSync();

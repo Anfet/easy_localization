@@ -235,19 +235,26 @@ class AuditCommand {
     var hasMissing = false;
     stdout.writeln('=== Keys Audit ===');
     const forms = ['zero', 'one', 'two', 'few', 'many', 'other'];
+    final parameterSetsByLocale = <String, Map<String, Map<String, Set<String>>>>{};
     for (final entry in translations.entries) {
       final missing = <String>{};
       final unverified = <String>{};
       final incomplete = <String>{};
 
       var remainingLinks = 4096;
-      void checkLinks(String key, List<String> path) {
+      void checkLinks(String key, List<String> path, String variant) {
         if (path.length == 1) remainingLinks = 4096;
         final value = _lookup(entry.value, key);
         if (value is! String) {
           missing.add(path.length == 1 ? key : '$key (${path.join(' -> ')})');
           return;
         }
+        final parameters = RegExp(r'\{([^{}]+)\}').allMatches(value).map((match) => match[1]!).toSet();
+        parameterSetsByLocale
+            .putIfAbsent(entry.key, () => <String, Map<String, Set<String>>>{})
+            .putIfAbsent(variant, () => <String, Set<String>>{})
+            .putIfAbsent(key, () => <String>{})
+            .addAll(parameters);
         for (final match in linkedKeyMatcher.allMatches(value)) {
           if (--remainingLinks < 0) throw StateError('Maximum linked translation transitions (4096) exceeded for [${path.first}] in ${entry.key}.');
           final target = (match[0] ?? '').replaceFirst(linkedKeyPrefixMatcher, '').replaceAll(RegExp(r'[()]'), '');
@@ -255,7 +262,7 @@ class AuditCommand {
           if (path.contains(target)) {
             unverified.add('cycle: ${next.join(' -> ')}');
           } else {
-            checkLinks(target, next);
+            checkLinks(target, next, variant);
           }
         }
       }
@@ -275,9 +282,13 @@ class AuditCommand {
             };
             if (!candidates.any((name) => _lookup(entry.value, '$key.$name') is String)) missing.add(key);
             unverified.add('$key gender');
+            for (final name in candidates) {
+              final formKey = '$key.$name';
+              if (_lookup(entry.value, formKey) is String) checkLinks(formKey, [formKey], formKey);
+            }
           } else {
             final formKey = '$key.${usage.genderValue}';
-            checkLinks(formKey, [formKey]);
+            checkLinks(formKey, [formKey], formKey);
           }
         } else if (usage.plural) {
           if (!forms.any((form) => _lookup(entry.value, '$key.$form') is String)) {
@@ -286,11 +297,11 @@ class AuditCommand {
             if (_lookup(entry.value, '$key.other') is! String) incomplete.add(key);
             for (final form in forms) {
               final formKey = '$key.$form';
-              if (_lookup(entry.value, formKey) is String) checkLinks(formKey, [formKey]);
+              if (_lookup(entry.value, formKey) is String) checkLinks(formKey, [formKey], formKey);
             }
           }
         } else {
-          checkLinks(key, [key]);
+          checkLinks(key, [key], key);
         }
       }
       stdout.writeln('\nLanguage: ${entry.key}');
@@ -311,6 +322,33 @@ class AuditCommand {
       if (incomplete.isNotEmpty) {
         stdout.writeln('  🟡 Plural groups without other: ${incomplete.join(', ')}');
         if (strict) hasMissing = true;
+      }
+    }
+
+    final variants = parameterSetsByLocale.values.expand((sets) => sets.keys).toSet().toList()..sort();
+    final mismatches = <String>[];
+    for (final variant in variants) {
+      final locales = parameterSetsByLocale.entries.where((entry) => entry.value.containsKey(variant)).toList();
+      for (var first = 0; first < locales.length; first++) {
+        for (var second = first + 1; second < locales.length; second++) {
+          final firstStrings = locales[first].value[variant]!;
+          final secondStrings = locales[second].value[variant]!;
+          final commonStrings = firstStrings.keys.toSet().intersection(secondStrings.keys.toSet());
+          if (commonStrings.isEmpty) continue;
+          final firstParameters = commonStrings.expand((key) => firstStrings[key]!).toSet();
+          final secondParameters = commonStrings.expand((key) => secondStrings[key]!).toSet();
+          if (firstParameters.length == secondParameters.length && firstParameters.containsAll(secondParameters)) continue;
+          mismatches.add(
+            '  ⚠️ $variant: ${locales[first].key} {${(firstParameters.toList()..sort()).join(', ')}}; '
+            '${locales[second].key} {${(secondParameters.toList()..sort()).join(', ')}}',
+          );
+        }
+      }
+    }
+    if (mismatches.isNotEmpty) {
+      stdout.writeln('\n⚠️ Named parameter mismatches (${mismatches.length}):');
+      for (final mismatch in mismatches) {
+        stdout.writeln(mismatch);
       }
     }
     return hasMissing;

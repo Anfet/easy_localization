@@ -822,6 +822,8 @@ The audit uses a limited pattern scanner for literal keys in `tr` and `plural` c
 
 Each JSON locale is checked independently, without app configuration or fallback. A translation must be a string; plural calls need at least one string plural form, and a missing `other` is reported as a warning and fails strict mode. A top-level literal gender checks that form, while a dynamic gender remains unverified; named arguments inside nested helpers do not affect the outer call. The audit does not determine which plural form a particular locale and value will select. For static calls, it follows links reachable from the selected string, literal gender form, and available string plural forms, reporting missing or non-string targets with their paths. Cycles and dynamic calls remain unverified; this does not verify the entire application.
 
+The audit also warns when corresponding resolved strings in different locales use different named parameters such as `{name}` and `{naem}`. It includes reachable linked strings and compares only matching plural or gender forms that resolve in both locales. Parameter mismatches remain warnings and do not change either exit code.
+
 
 ## Diagnostic callbacks
 
