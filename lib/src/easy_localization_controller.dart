@@ -378,7 +378,7 @@ class EasyLocalizationController extends ChangeNotifier {
         _request++;
         _loading = false;
       }
-      if (saveLocale && _savedLocale != locale) await _saveLocale(locale);
+      await _saveLocale(locale, skipIfSaved: true);
       return;
     }
     final userTransition = Object();
@@ -465,9 +465,10 @@ class EasyLocalizationController extends ChangeNotifier {
     return result;
   }
 
-  Future<void> _saveLocale(Locale locale) async {
+  Future<void> _saveLocale(Locale locale, {bool skipIfSaved = false}) async {
     if (!saveLocale) return;
     await _enqueueStorage(() async {
+      if (skipIfSaved && _savedLocale == locale) return;
       SharedPreferences? preferences;
       try {
         preferences = await SharedPreferences.getInstance();

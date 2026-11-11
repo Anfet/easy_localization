@@ -39,6 +39,8 @@ class InstanceStore extends SharedPreferencesStorePlatform {
   bool failRemove = false;
   Completer<bool>? writeGate;
   Completer<void>? writeStarted;
+  Completer<bool>? removeGate;
+  Completer<void>? removeStarted;
 
   @override
   Future<Map<String, Object>> getAll() async {
@@ -64,6 +66,12 @@ class InstanceStore extends SharedPreferencesStorePlatform {
   @override
   Future<bool> remove(String key) async {
     operations.add('remove');
+    final started = removeStarted;
+    removeStarted = null;
+    started?.complete();
+    final gate = removeGate;
+    removeGate = null;
+    if (gate != null && !await gate.future) return false;
     if (failRemove) return false;
     data.remove(key);
     return true;
@@ -755,6 +763,45 @@ void main() {
     expect(owner.config.extraAssetLoaders, isEmpty);
     expect(owner.config.additionalDelegates, isEmpty);
     expect(() => owner.config.supportedLocales.clear(), throwsUnsupportedError);
+  });
+
+  test('repeated selection survives deletion with or without an earlier pending write', () async {
+    for (final pendingWrite in [false, true]) {
+      binding.platformDispatcher.localesTestValue = [const Locale('ru')];
+      var owner = await EasyLocalization.initialize(config(start: const Locale('en'), supported: const [Locale('en'), Locale('ru')]));
+      Future<void>? first;
+      Completer<bool>? writeGate;
+      if (pendingWrite) {
+        await owner.deleteSaveLocale();
+        writeGate = Completer<bool>();
+        final started = Completer<void>();
+        store.writeGate = writeGate;
+        store.writeStarted = started;
+        first = owner.setLocale(const Locale('en'));
+        await started.future;
+      }
+      final removeGate = Completer<bool>();
+      final removeStarted = Completer<void>();
+      store.removeGate = removeGate;
+      store.removeStarted = removeStarted;
+      final deletion = owner.deleteSaveLocale();
+      if (writeGate == null) await removeStarted.future;
+      final calls = loader.calls.length;
+      final selection = owner.setLocale(const Locale('en'));
+      if (writeGate != null) writeGate.complete(true);
+      await removeStarted.future;
+      removeGate.complete(true);
+      await Future.wait([?first, deletion, selection]);
+      expect(store.data['flutter.locale'], 'en');
+      expect(loader.calls.length, calls);
+      owner.dispose();
+      owner = await EasyLocalization.initialize(config(supported: const [Locale('en'), Locale('ru')]));
+      expect(owner.locale, const Locale('en'));
+      expect(owner.isSystemMode, isFalse);
+      owner.dispose();
+      store.data.clear();
+      SharedPreferences.resetStatic();
+    }
   });
 
   test('repeated locale selection shares the pending load and persistence', () async {

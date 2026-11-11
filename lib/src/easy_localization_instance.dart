@@ -147,7 +147,7 @@ class EasyLocalizationInstance with WidgetsBindingObserver {
     _checkLive();
     if (!_config.supportedLocales.contains(locale)) throw ArgumentError.value(locale, 'locale', 'Must be supported');
     final active = _active;
-    if (active != null && !active.ready.isCompleted && active.target == locale) return active.ready.future;
+    if (active != null && !active.ready.isCompleted && active.canShare && active.target == locale) return active.ready.future;
     return _change(() => _controller.setLocale(locale), target: locale, committed: locale == this.locale && _data != null && !isSystemMode);
   }
 
@@ -176,6 +176,7 @@ class EasyLocalizationInstance with WidgetsBindingObserver {
   /// Deletes the saved choice without changing mode. Disabled storage does no I/O.
   Future<void> deleteSaveLocale() {
     _checkLive();
+    if (_config.saveLocale) _active?.canShare = false;
     return _controller.deleteSaveLocale();
   }
 
@@ -540,6 +541,7 @@ class _LocalizationPending {
   final Completer<void> ready = Completer();
   final Completer<LocalizationApplyOutcome> applied = Completer();
   bool committed = false;
+  bool canShare = true;
 
   _LocalizationPending(this.revision, {this.target});
 
