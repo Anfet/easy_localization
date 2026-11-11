@@ -24,6 +24,14 @@ void main() {
     const hansTw = Locale.fromSubtags(languageCode: 'zh', scriptCode: 'Hans', countryCode: 'TW');
     const exact = Locale.fromSubtags(languageCode: 'sr', scriptCode: 'Latn', countryCode: 'RS');
     Locale select(List<Locale> supported, List<Locale> preferred) => EasyLocalizationController.selectPreferredLocale(supported, preferred, ru);
+    const hantHk = Locale.fromSubtags(languageCode: 'zh', scriptCode: 'Hant', countryCode: 'HK');
+    const hantTw = Locale.fromSubtags(languageCode: 'zh', scriptCode: 'Hant', countryCode: 'TW');
+    const hansCn = Locale.fromSubtags(languageCode: 'zh', scriptCode: 'Hans', countryCode: 'CN');
+    const zhCn = Locale('zh', 'CN');
+    expect(select([hansCn, hantTw], [hantHk, hansCn]), hantTw);
+    expect(select([zhCn, hantTw], [hantHk, zhCn]), hantTw);
+    expect(select([hansCn], [hantHk, hansCn]), hansCn);
+    expect(select([hantTw, hansCn], [hantHk, hansCn, hantTw]), hantTw);
     expect(select([ru, de], [const Locale('fr', 'FR'), const Locale('de', 'DE')]), de);
     expect(select([ru, de], []), ru);
     expect(select([], [const Locale('de', 'DE')]), ru);

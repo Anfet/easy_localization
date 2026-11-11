@@ -314,7 +314,7 @@ fallback. Start and fallback must exactly belong to `supportedLocales`. A suppli
 start is saved after loading; reset follows the system and deletes the explicit
 choice, and a subsequent startup with start applies and saves it again. System and
 fallback choices are never saved as explicit choices. The instance follows the engine’s ordered preferred locale list at startup, on locale events,
-and on resume. For each preferred locale it first selects an exact supported match. If that region is unsupported, it checks later preferred locales for the first exact supported region of the same language before applying the existing script, country, or first-supported match. The engine may supply a default `en_US`; the library adds no English default.
+and on resume. For each preferred locale it first selects an exact supported match. If that region is unsupported, it checks later preferred locales for the first exact supported region of the same language before applying the existing script, country, or first-supported match. When the first preference specifies a script, later exact matches must specify that same script; otherwise the preferred script is searched first. If it is unavailable, the usual country or first-supported fallback applies. The engine may supply a default `en_US`; the library adds no English default.
 Resume reads the engine list and does not force a browser language refresh or guarantee iOS per-app events.
 
 Invalid, unsupported, or unreadable saved data is ignored with a warning, without deleting it.

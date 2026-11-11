@@ -55,13 +55,18 @@ void main() {
   late BuildContext appContext;
   late LocaleLoader loader;
 
-  Future<void> start(WidgetTester tester, {Locale? startLocale, Map<String, Object> saved = const {}}) async {
+  Future<void> start(
+    WidgetTester tester, {
+    Locale? startLocale,
+    Map<String, Object> saved = const {},
+    List<Locale> supported = const [Locale('en'), Locale('fr'), Locale('de')],
+  }) async {
     SharedPreferences.setMockInitialValues(saved);
     await EasyLocalization.ensureInitialized();
     loader = LocaleLoader();
     await tester.pumpWidget(
       EasyLocalization(
-        supportedLocales: const [Locale('en'), Locale('fr'), Locale('de')],
+        supportedLocales: supported,
         fallbackLocale: const Locale('en'),
         startLocale: startLocale,
         path: 'unused',
@@ -96,6 +101,25 @@ void main() {
   tearDown(() {
     TestWidgetsFlutterBinding.ensureInitialized().platformDispatcher.clearLocalesTestValue();
     EasyLocalization.onError = null;
+  });
+
+  testWidgets('startup, reset and system changes preserve preferred script', (tester) async {
+    const hantHk = Locale.fromSubtags(languageCode: 'zh', scriptCode: 'Hant', countryCode: 'HK');
+    const hantTw = Locale.fromSubtags(languageCode: 'zh', scriptCode: 'Hant', countryCode: 'TW');
+    const hansCn = Locale.fromSubtags(languageCode: 'zh', scriptCode: 'Hans', countryCode: 'CN');
+    tester.binding.platformDispatcher.localesTestValue = [hantHk, hansCn];
+    await start(tester, supported: const [Locale('en'), hansCn, hantTw]);
+    expect(appContext.locale, hantTw);
+    await appContext.setLocale(hansCn);
+    await appContext.resetLocale();
+    await tester.pumpAndSettle();
+    expect(appContext.locale, hantTw);
+    tester.binding.platformDispatcher.localesTestValue = [hansCn];
+    await tester.pumpAndSettle();
+    expect(appContext.locale, hansCn);
+    tester.binding.platformDispatcher.localesTestValue = [hantHk, hansCn];
+    await tester.pumpAndSettle();
+    expect(appContext.locale, hantTw);
   });
 
   testWidgets('system changes update translations and use supported fallback', (tester) async {

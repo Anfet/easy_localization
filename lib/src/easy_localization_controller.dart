@@ -107,7 +107,7 @@ class EasyLocalizationController extends ChangeNotifier {
         if (locale == candidate) return locale;
       }
       for (final later in preferred.skip(index + 1)) {
-        if (later.languageCode != candidate.languageCode) continue;
+        if (later.languageCode != candidate.languageCode || (candidate.scriptCode != null && later.scriptCode != candidate.scriptCode)) continue;
         for (final locale in sameLanguage) {
           if (locale == later) return locale;
         }
