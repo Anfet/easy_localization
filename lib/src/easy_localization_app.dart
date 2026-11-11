@@ -364,16 +364,28 @@ class _EasyLocalizationState extends State<EasyLocalization> {
         GlobalCupertinoLocalizations.delegate,
       ];
       final selected = <Type>{Localization};
-      final adapters = <LocalizationsDelegate<dynamic>>[_PreparedDelegate(type: Localization, value: snapshot, revision: revision, locale: locale)];
+      final selectedDelegates = <bool>[];
       for (final delegate in delegates) {
-        if (!selected.contains(delegate.type) && delegate.isSupported(locale)) {
-          selected.add(delegate.type);
-          final value = await delegate.load(locale);
-          adapters.add(_PreparedDelegate(type: delegate.type, value: value, revision: revision, locale: locale, original: delegate));
-        } else {
-          adapters.add(delegate);
-        }
+        final useDelegate = !selected.contains(delegate.type) && delegate.isSupported(locale);
+        selectedDelegates.add(useDelegate);
+        if (useDelegate) selected.add(delegate.type);
       }
+      // Normalize SynchronousFuture before Future.wait, whose callbacks expect asynchronous completion.
+      final loads = <Future<LocalizationsDelegate<dynamic>>>[];
+      for (var i = 0; i < delegates.length; i++) {
+        final delegate = delegates[i];
+        loads.add(
+          selectedDelegates[i]
+              ? Future.sync(
+                  () async => await delegate.load(locale),
+                ).then((value) => _PreparedDelegate(type: delegate.type, value: value, revision: revision, locale: locale, original: delegate))
+              : Future.value(delegate),
+        );
+      }
+      final adapters = <LocalizationsDelegate<dynamic>>[
+        _PreparedDelegate(type: Localization, value: snapshot, revision: revision, locale: locale),
+        ...await Future.wait(loads, eagerError: true),
+      ];
       if (!mounted || generation != _preparationGeneration || !_owner._canPresent(revision)) {
         if (generation == _preparationGeneration && _preparingRevision == revision) _preparingRevision = -1;
         return;

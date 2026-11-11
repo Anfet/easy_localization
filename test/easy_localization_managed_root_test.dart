@@ -529,6 +529,53 @@ void main() {
     });
   }
 
+  testWidgets('early delegate failure on first mount permits retry and ignores a late failure', (tester) async {
+    final first = _Delegate();
+    final gate = Completer<_Resource>();
+    first.gates['en'] = gate;
+    final second = _FailingDelegate();
+    final instance = await EasyLocalization.initialize(
+      EasyLocalizationConfig(
+        supportedLocales: const [Locale('en')],
+        fallbackLocale: const Locale('en'),
+        startLocale: const Locale('en'),
+        path: 'unused',
+        saveLocale: false,
+        assetLoader: _Loader(),
+        additionalDelegates: [first, second],
+      ),
+    );
+    try {
+      await tester.pumpWidget(
+        EasyLocalization.withInstance(
+          instance: instance,
+          child: const _App(home: _Leaf(label: 'home')),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(await instance.waitForPresentation(), LocalizationApplyOutcome.failed);
+      expect(instance.state.value.errorStage, LocalizationErrorStage.flutterDelegates);
+      expect(instance.state.value.error.toString(), contains('second delegate failed'));
+      expect(find.byType(_App), findsNothing);
+
+      first.gates.clear();
+      second.fail = false;
+      await instance.setLocale(const Locale('en'));
+      final retry = instance.waitForPresentation();
+      await tester.pumpAndSettle();
+      expect(await retry, LocalizationApplyOutcome.applied);
+      expect(find.text('en-1 home'), findsOneWidget);
+      gate.completeError(StateError('late delegate failure'));
+      await tester.pumpAndSettle();
+      expect(instance.state.value.error, isNull);
+      expect(find.text('en-1 home'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    } finally {
+      await tester.pumpWidget(const SizedBox());
+      instance.dispose();
+    }
+  });
+
   testWidgets('first mount waits for all delegates and recovers from preflight failure without changing data', (tester) async {
     final delegate = _Delegate()..fail = true;
     final instance = await owner(_Loader(), delegate);
@@ -804,6 +851,26 @@ class _Delegate extends LocalizationsDelegate<_Resource> {
 
   @override
   bool shouldReload(_Delegate old) => false;
+}
+
+class _FailingDelegate extends LocalizationsDelegate<_OtherResource> {
+  bool fail = true;
+
+  @override
+  bool isSupported(Locale locale) => true;
+
+  @override
+  Future<_OtherResource> load(Locale locale) {
+    if (fail) throw StateError('second delegate failed');
+    return SynchronousFuture(const _OtherResource());
+  }
+
+  @override
+  bool shouldReload(_FailingDelegate old) => false;
+}
+
+class _OtherResource {
+  const _OtherResource();
 }
 
 class _DuplicateDelegate extends LocalizationsDelegate<_Resource> {
