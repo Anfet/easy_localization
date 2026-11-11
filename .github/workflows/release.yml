@@ -30,5 +30,15 @@ jobs:
       - name: Install dependencies
         run: dart pub get
 
+      - name: Check tag matches version
+        shell: bash
+        run: |
+          version=$(sed -n 's/^version: *//p' pubspec.yaml | head -n 1)
+          expected_tag="v${version}"
+          if [[ "$GITHUB_REF_NAME" != "$expected_tag" ]]; then
+            echo "Tag $GITHUB_REF_NAME does not match pubspec version $version (expected $expected_tag)."
+            exit 1
+          fi
+
       - name: Publish
         run: dart pub publish --force
