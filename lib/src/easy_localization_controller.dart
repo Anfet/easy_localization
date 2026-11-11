@@ -171,6 +171,7 @@ class EasyLocalizationController extends ChangeNotifier {
     bool systemEvent = false,
     Future<void> Function()? prepareCommit,
     void Function()? commitPrepared,
+    Map<Locale, Future<Map<String, dynamic>?>>? reloadLoads,
   }) async {
     final supersededInitial = initial && _loading && _activeTransition != null;
     final request = supersededInitial ? _request - 1 : ++_request;
@@ -185,7 +186,7 @@ class EasyLocalizationController extends ChangeNotifier {
       late _LocaleResources resources;
       try {
         await Future.wait<void>([
-          _loadResources(target).then((value) => resources = value),
+          _loadResources(target, reloadLoads).then((value) => resources = value),
           if (prepareCommit != null) prepareCommit(),
         ], eagerError: true);
         if (prepareCommit != null) onReloadPreparedForTesting?.call();
@@ -227,8 +228,12 @@ class EasyLocalizationController extends ChangeNotifier {
   }
 
   /// Loads an independent snapshot without changing controller state.
-  Future<Localization> loadSnapshot(Locale locale, {required bool useFallbackForEmpty}) async {
-    final resources = await _loadResources(locale);
+  Future<Localization> loadSnapshot(
+    Locale locale, {
+    required bool useFallbackForEmpty,
+    Map<Locale, Future<Map<String, dynamic>?>>? reloadLoads,
+  }) async {
+    final resources = await _loadResources(locale, reloadLoads);
     return Localization.snapshot(
       locale,
       translations: resources.translations,
@@ -240,8 +245,8 @@ class EasyLocalizationController extends ChangeNotifier {
     );
   }
 
-  Future<_LocaleResources> _loadResources(Locale target) async {
-    final loads = <Locale, Future<Map<String, dynamic>?>>{};
+  Future<_LocaleResources> _loadResources(Locale target, [Map<Locale, Future<Map<String, dynamic>?>>? reloadLoads]) async {
+    final loads = reloadLoads ?? <Locale, Future<Map<String, dynamic>?>>{};
     Locale normalized(Locale locale) =>
         useOnlyLangCode ? Locale.fromSubtags(languageCode: locale.languageCode, scriptCode: locale.scriptCode) : locale;
     Future<Map<String, dynamic>?> load(Locale locale) => loads.putIfAbsent(
@@ -394,7 +399,12 @@ class EasyLocalizationController extends ChangeNotifier {
   /// The future completes after acceptance, or with an error if the current
   /// load fails. An active language load finishes first; a later request can
   /// supersede the refresh. Widgets update next frame.
-  Future<void> reloadTranslations({bool supersede = false, Future<void> Function()? prepareCommit, void Function()? commitPrepared}) async {
+  Future<void> reloadTranslations({
+    bool supersede = false,
+    Future<void> Function()? prepareCommit,
+    void Function()? commitPrepared,
+    Map<Locale, Future<Map<String, dynamic>?>>? reloadLoads,
+  }) async {
     if (_disposed) return;
     final active = _activeTransition;
     if (supersede && _loading && active != null) {
@@ -407,6 +417,7 @@ class EasyLocalizationController extends ChangeNotifier {
         reset: _requestedReset,
         prepareCommit: prepareCommit,
         commitPrepared: commitPrepared,
+        reloadLoads: reloadLoads,
       );
       _refreshRequest = _request;
       _activeTransition = transition;
@@ -435,7 +446,7 @@ class EasyLocalizationController extends ChangeNotifier {
       }
       return;
     }
-    final transition = _loadLocale(_locale, refresh: true, prepareCommit: prepareCommit, commitPrepared: commitPrepared);
+    final transition = _loadLocale(_locale, refresh: true, prepareCommit: prepareCommit, commitPrepared: commitPrepared, reloadLoads: reloadLoads);
     _refreshRequest = _request;
     _activeTransition = transition;
     try {

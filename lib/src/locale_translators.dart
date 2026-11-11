@@ -85,7 +85,7 @@ class LocaleTranslators {
     return pending.future;
   }
 
-  Future<_TranslatorReload> _stageReload() async {
+  Future<_TranslatorReload> _stageReload(Map<Locale, Future<Map<String, dynamic>?>> loads) async {
     _loadEpoch++;
     for (final pending in _pending.values) {
       pending.cancel();
@@ -93,7 +93,13 @@ class LocaleTranslators {
     _pending.clear();
     final locales = _ready.keys.toList();
     final generations = {for (final locale in locales) locale: _generation[locale] ?? 0};
-    final snapshots = await Future.wait(locales.map(_snapshot), eagerError: true);
+    final snapshots = await Future.wait(
+      locales.map(
+        (locale) =>
+            _owner._controller.loadSnapshot(locale, useFallbackForEmpty: _owner.config.useFallbackTranslationsForEmptyResources, reloadLoads: loads),
+      ),
+      eagerError: true,
+    );
     _owner._checkLive();
     for (final locale in locales) {
       if ((_generation[locale] ?? 0) != generations[locale]) throw const LocalizationOperationSupersededException();

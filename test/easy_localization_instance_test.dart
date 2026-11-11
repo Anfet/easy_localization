@@ -993,6 +993,30 @@ void main() {
 
     gate.complete({'value': 'late'});
   });
+  test('reload shares the active locale read with its cached snapshot', () async {
+    final owner = await EasyLocalization.initialize(
+      EasyLocalizationConfig(
+        supportedLocales: const [Locale('en')],
+        fallbackLocale: const Locale('en'),
+        startLocale: const Locale('en'),
+        preloadLocales: const [Locale('en')],
+        path: 'unused',
+        assetLoader: loader,
+        saveLocale: false,
+      ),
+    );
+    final old = owner.translators[const Locale('en')];
+    loader.calls.clear();
+    final first = Completer<Map<String, dynamic>?>()..complete({'value': 'new'});
+    final second = Completer<Map<String, dynamic>?>()..complete({'value': 'different'});
+    loader.gates['en'] = [first, second];
+    await owner.reloadTranslations();
+    expect(loader.calls, [const Locale('en')]);
+    expect(owner.dataTranslator.tr('value'), 'new');
+    expect(owner.translators[const Locale('en')]?.tr('value'), 'new');
+    expect(old?.tr('value'), 'en');
+  });
+
   test('preload waits for ready and reload replaces cached set atomically', () async {
     final gate = Completer<Map<String, dynamic>?>();
     loader.gates['de'] = [gate];

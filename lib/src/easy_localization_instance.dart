@@ -162,10 +162,12 @@ class EasyLocalizationInstance with WidgetsBindingObserver {
   Future<void> reloadTranslations() {
     _checkLive();
     return _change(() {
-      final staged = translators._stageReload();
+      final loads = <Locale, Future<Map<String, dynamic>?>>{};
+      final staged = translators._stageReload(loads);
       late _TranslatorReload prepared;
       return _controller.reloadTranslations(
         supersede: true,
+        reloadLoads: loads,
         prepareCommit: () async => prepared = await staged,
         commitPrepared: () => translators._publishReload(prepared),
       );
