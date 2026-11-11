@@ -276,7 +276,7 @@ this version came with many updates, here are the main ones:
 - optimized and clean code more stability
 - fixed many issues
 - added Unite test
-- Customization AssetLoader localizations `assetLoader` for more details see [custom assetLoader](https://github.com/aissat/easy_localization/blob/dev/example/lib/custom_asset_loader.dart)
+- Customization AssetLoader localizations `assetLoader` for more details see custom assetLoader
 - added `fallbackLocale` as optional
 - Hiding `EasyLocalizationProvider`
 - refactor and update approach localization for more details see [example:](https://github.com/aissat/easy_localization/tree/master/example)

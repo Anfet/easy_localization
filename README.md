@@ -558,7 +558,7 @@ Generate a loader from JSON files:
 
 1. Open a terminal in your project folder.
 2. Run `dart run easy_localization_continued:generate`.
-3. Use the generated loader:
+3. Use the generated loader in a minimal app:
 
 ```dart
 import 'package:flutter/material.dart';
@@ -573,6 +573,21 @@ void main() async {
     assetLoader: CodegenLoader(),
   ));
   runApp(EasyLocalization.withInstance(instance: owner, child: const MyApp()));
+}
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final owner = EasyLocalization.instance;
+    return MaterialApp(
+      locale: owner.presentationLocale,
+      supportedLocales: owner.supportedLocales,
+      localizationsDelegates: owner.delegates,
+      home: Scaffold(body: Text('title'.tr())),
+    );
+  }
 }
 ```
 
