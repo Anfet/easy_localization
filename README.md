@@ -42,7 +42,7 @@ class MyApp extends StatelessWidget {
 }
 ```
 
-Coming from `easy_localization` 3.x? The package and import names change, and the upstream loaders need porting. See [Migrating from 3.x](#migrating-from-3x).
+Coming from `easy_localization` 3.x? The package and import names change, and the upstream loaders need porting. See [Migrating from 3.x](#migrating-from-3x--upstream-easy_localization).
 
 ## Contents
 
@@ -56,7 +56,7 @@ Coming from `easy_localization` 3.x? The package and import names change, and th
 - [Testing](#testing)
 - [Platform support and limitations](#platform-support-and-limitations)
 - [FAQ](#faq)
-- [Migrating from 3.x](#migrating-from-3x)
+- [Migrating from 3.x](#migrating-from-3x--upstream-easy_localization)
 - [Legacy widget root](#legacy-widget-root)
 - [About this fork](#about-this-fork)
 
@@ -594,7 +594,7 @@ void main() async {
 }
 ```
 
-The upstream `easy_localization_loader` package depends on `easy_localization` 3.x. Changing its dependency key or an override does not make its `AssetLoader` a type of this package. Port each such loader to the new import and to the contract above. See [Migrating from 3.x](#migrating-from-3x).
+The upstream `easy_localization_loader` package depends on `easy_localization` 3.x. Changing its dependency key or an override does not make its `AssetLoader` a type of this package. Port each such loader to the new import and to the contract above. See [Migrating from 3.x](#migrating-from-3x--upstream-easy_localization).
 
 ## Tooling (CLI)
 
@@ -699,7 +699,7 @@ await EasyLocalization.ensureInitialized(config);
 
 Each callback runs synchronously in the current zone. Resource errors include their original stack trace. Set a callback to `null` to disable its category. The application controls filtering, formatting and output. Exceptions thrown by a callback are passed to `FlutterError.reportError`; they do not affect localization work. The application remains responsible for handling those reported errors.
 
-The removed `EasyLocalization.logger` API is migrated in [Migrating from 3.x](#migrating-from-3x).
+The removed `EasyLocalization.logger` API is migrated in [Migrating from 3.x](#migrating-from-3x--upstream-easy_localization).
 
 ### Startup retry
 
@@ -914,7 +914,7 @@ Await `setLocale(...)`, then await `waitForPresentation()`. The change is visibl
 Use `translators.once(locale)` for an independent snapshot. See [Translating a document in another language](#translating-a-document-in-another-language).
 
 **What about upstream loaders from `easy_localization_loader`?**
-They depend on `easy_localization` 3.x and must be ported to `AssetLoader`. See [Migrating from 3.x](#migrating-from-3x).
+They depend on `easy_localization` 3.x and must be ported to `AssetLoader`. See [Migrating from 3.x](#migrating-from-3x--upstream-easy_localization).
 
 **How do I run the translations in tests?**
 Use an in-memory `AssetLoader`, initialize a fresh owner, and follow [Testing](#testing).
@@ -925,21 +925,177 @@ With `true`, files are named by language code only (`en.json`). With `false`, th
 **Why does `generate` fail on `bad-key` or `class`?**
 Generated identifiers must be public Dart identifiers that are not reserved words, and they must not collide. The command reports an error and keeps the existing output. See [Generated keys](#generated-keys).
 
-## Migrating from 3.x
+## Migrating from 3.x / upstream easy_localization
 
 <a id="compatibility-and-migration-to-400"></a>
 
-Checklist for an app that uses `easy_localization` 3.x:
+This section is for apps that use upstream `easy_localization` 3.x. Start with the minimum checklist, use the table to find each replacement, then review the behavior changes. Behavior rules are described once, in the linked sections.
 
-1. Replace the dependency `easy_localization: ^3.x` with `easy_localization_continued: ^4.0.0`. A constraint such as `^3.0.8` does not select 4.0.0.
-2. Change the import from `package:easy_localization/easy_localization.dart` to `package:easy_localization_continued/easy_localization.dart`, or to `easy_localization_continued.dart`.
-3. Replace the `easy_localization:generate` and `easy_localization:audit` commands in scripts with `easy_localization_continued:generate` and `easy_localization_continued:audit`, and regenerate the loaders and keys.
-4. Use Dart 3.12 and Flutter 3.44. Remove the `ignorePluralRules` argument; all constructors use the plural rules described in [Plurals with plural()](#plurals-with-plural).
-5. Port upstream loaders to `AssetLoader`. Its constructor takes no arguments. Its `null`, `{}`, and `throw` contract is described in [Custom loaders and multiple modules](#custom-loaders-and-multiple-modules).
-6. In 3.x, a saved locale took precedence over `startLocale`. In 4.0, `startLocale` is applied and saved on every launch. Omit it to keep the user's saved choice.
-7. Replace the deprecated `context.locale = locale` setter with `await context.setLocale(locale)`, and handle its errors.
-8. Replace the `EasyLocalization.logger` configuration with the diagnostic callbacks in [Diagnostic callbacks](#diagnostic-callbacks).
-9. Replace the scoped `context` forms of `tr`, `plural` and `trExists` with the forms without `context`. The scoped forms are deprecated until 5.0.
+### Minimum checklist
+
+1. Replace `easy_localization: ^3.x` with `easy_localization_continued: ^4.0.0`. A constraint such as `^3.0.8` does not select 4.0.0.
+2. Change the import to `package:easy_localization_continued/easy_localization.dart`.
+3. Use Dart 3.12 and Flutter 3.44 or later.
+4. In scripts, replace `easy_localization:generate` and `easy_localization:audit` with `dart run easy_localization_continued:generate` and `dart run easy_localization_continued:audit`. Then regenerate the keys and loaders.
+5. Remove `ignorePluralRules`, the `EasyLocalization.logger` configuration and any `easy_logger` setup.
+6. Port every upstream loader to `AssetLoader`. See [Porting a custom or upstream loader](#porting-a-custom-or-upstream-loader).
+
+### Replacement table
+
+| 3.x (`easy_localization` 3.0.9) | 4.0.0 |
+| --- | --- |
+| `easy_localization: ^3.x` | `easy_localization_continued: ^4.0.0` |
+| `import 'package:easy_localization/easy_localization.dart';` | `import 'package:easy_localization_continued/easy_localization.dart';` |
+| Dart `>=2.12 <4.0`, `intl >=0.17 <0.21`, `shared_preferences >=2.0 <3.0`, `easy_logger` | Dart `>=3.12`, Flutter `>=3.44`, `intl ^0.20.2`, `shared_preferences >=2.5.6`; `easy_logger` is removed |
+| `flutter pub run easy_localization:generate` / `:audit` | `dart run easy_localization_continued:generate` / `:audit` |
+| `await EasyLocalization.ensureInitialized();` and `runApp(EasyLocalization(...))` | `final owner = await EasyLocalization.initialize(EasyLocalizationConfig(...));` and `runApp(EasyLocalization.withInstance(instance: owner, child: ...))`. The `EasyLocalization(...)` widget still works. `ensureInitialized()` without a config only prepares Flutter. |
+| `fallbackLocale` is optional | `fallbackLocale` is required in `EasyLocalizationConfig`; it must belong to `supportedLocales`. The legacy widget uses the first supported locale when it is omitted. |
+| `startLocale` loses to a saved locale | `startLocale` is applied and saved on every launch. Omit it to keep the user's saved choice. |
+| `context.locale = locale` | `await context.setLocale(locale)` or `await owner.setLocale(locale)`. Handle the returned future. |
+| `context.tr('key')`, `context.plural(...)`, `context.trExists('key')` | `tr('key')`, `plural(...)`, `trExists('key')` without `context`. The scoped forms are deprecated until 5.0. |
+| `tr('key', context: context)` | `tr('key')`. The `context:` parameter is deprecated until 5.0. |
+| `EasyLocalization.logger` | `EasyLocalization.onVerbose`, `onWarning` and `onError` callbacks. Diagnostics are silent by default. |
+| `ignorePluralRules: true / false` | Removed. Plural lookups use explicit 0, 1 and 2 forms, then the locale rules from `intl`. |
+| `AssetLoader({required super.fileLoader, required super.linkedFileResolver})`, base getters | `const AssetLoader()` takes no arguments. `RootBundleAssetLoader` keeps its `fileLoader` and `linkedFileResolver`. `load(String path, Locale locale)` keeps its signature. |
+| Loaders from `easy_localization_loader` (CSV, YAML, XML) | Not compatible. Port them to `AssetLoader`. The built-in format is JSON. |
+| `Localization()` constructor | Removed. Use `Localization.snapshot(...)` for an independent snapshot. |
+| `localeFromString`, `localeToString` | Removed. Use `'en_US'.toLocale()` and `locale.toStringWithSeparator()`, which already exist in 3.x. |
+| `Localization.instance` returns an empty instance before any load | Throws `StateError` until `EasyLocalization.initialize` completes and after the owner is disposed. Keep the owner returned by `initialize`. |
+| `getLinkedLocalePath(basePath, filePath, languageCode, {countryCode})` | Adds a named `scriptCode` parameter. `resolveLinkedFilesForLocale` is removed. |
+| A loader exception for a base-language resource is logged and skipped | A loader exception fails loading. A `null` optional base resource is skipped. Primary and configured fallback resources are required. |
+| Missing scope: top-level `tr(..., context:)` or `plural(..., context:)` fails with a null-check error | `LocalizationNotFoundException`. |
+
+### Owner setup: before and after
+
+Before, in 3.x (text only, not compiled):
+
+```dart
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await EasyLocalization.ensureInitialized();
+  runApp(
+    EasyLocalization(
+      supportedLocales: const [Locale('en', 'US'), Locale('de', 'DE')],
+      path: 'assets/translations',
+      fallbackLocale: const Locale('en', 'US'),
+      child: const MyApp(),
+    ),
+  );
+}
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      localizationsDelegates: context.localizationDelegates,
+      supportedLocales: context.supportedLocales,
+      locale: context.locale,
+      home: const Scaffold(body: Center(child: Text('title'))),
+    );
+  }
+}
+```
+
+After, in 4.0 (this code is compiled against the package):
+
+```dart
+import 'package:easy_localization_continued/easy_localization.dart';
+import 'package:flutter/material.dart';
+
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  final owner = await EasyLocalization.initialize(
+    EasyLocalizationConfig(
+      supportedLocales: const [Locale('en', 'US'), Locale('de', 'DE')],
+      fallbackLocale: const Locale('en', 'US'),
+      path: 'assets/translations',
+    ),
+  );
+  runApp(EasyLocalization.withInstance(instance: owner, child: MyApp(owner: owner)));
+}
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key, required this.owner});
+
+  final EasyLocalizationInstance owner;
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      locale: owner.presentationLocale,
+      supportedLocales: owner.supportedLocales,
+      localizationsDelegates: owner.delegates,
+      home: const Scaffold(body: Center(child: Text('title'))),
+    );
+  }
+}
+```
+
+The owner provides the locale, the supported locales and the delegates. Pass it to `MaterialApp` as shown. See [Initialize before runApp](#initialize-before-runapp) for `waitForPresentation()`. The legacy widget root is described in [Legacy widget root](#legacy-widget-root).
+
+### Behavior changes that compile
+
+Review these items in the app. Each one changes behavior without a compile error.
+
+- **Start locale and saved choice.** In 3.x a saved locale won over `startLocale`. In 4.0 `startLocale` is applied and saved on every launch. See [Startup locale](#startup-locale) and [Saved and explicit choices](#saved-and-explicit-choices).
+- **Fallback.** The owner requires a supported `fallbackLocale`. Translations do not fall back key by key unless you enable `useFallbackTranslations`. Base-language fallback is off by default (`useBaseLanguageFallback`). See [Configuration](#configuration) and [Fallback behavior](#fallback-behavior).
+- **Plurals.** `ignorePluralRules` is removed. All `plural()` calls use the same rules. See [Plurals with plural()](#plurals-with-plural).
+- **Loader errors.** A loader exception fails loading. Only a `null` optional base resource is skipped. See [Custom loaders and multiple modules](#custom-loaders-and-multiple-modules).
+- **Instance access.** `Localization.instance` throws `StateError` before initialization completes and after the owner is disposed. See [Initialize before runApp](#initialize-before-runapp).
+- **Presentation after `setLocale`.** Call `waitForPresentation()` when code must read translations right after a locale change. See [Initialize before runApp](#initialize-before-runapp).
+- **Diagnostics.** Diagnostics are silent by default. Set `onVerbose`, `onWarning` or `onError` to receive them. See [Diagnostic callbacks](#diagnostic-callbacks).
+- **Missing scope.** The owner and the scoped `context` forms report missing scope with `LocalizationNotFoundException`. See [Exceptions](#exceptions).
+
+### Porting a custom or upstream loader
+
+The loader contract is the same as in [Custom loaders and multiple modules](#custom-loaders-and-multiple-modules). Only the constructor changes: the base class takes no arguments, and the loader owns its dependencies.
+
+Before, in 3.x (text only, not compiled):
+
+```dart
+class MyLoader extends AssetLoader {
+  const MyLoader({required super.fileLoader, required super.linkedFileResolver});
+
+  @override
+  Future<Map<String, dynamic>?> load(String path, Locale locale) async {
+    // Read the resource through the base class fileLoader.
+  }
+}
+```
+
+After, in 4.0 (compiled against the package):
+
+```dart
+import 'dart:convert';
+
+import 'package:easy_localization_continued/easy_localization.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+
+class JsonStringAssetLoader extends AssetLoader {
+  const JsonStringAssetLoader();
+
+  @override
+  Future<Map<String, dynamic>?> load(String path, Locale locale) async {
+    final text = await rootBundle.loadString(path);
+    return jsonDecode(text) as Map<String, dynamic>;
+  }
+}
+```
+
+Pass the loader as `assetLoader:` in `EasyLocalizationConfig`. The same parameter name is used by the legacy widget.
+
+Return values follow the contract: return `null` only for a resource you have confirmed is missing, return `{}` for an empty resource, and let read or parse errors throw. A missing primary or configured fallback resource fails loading. A missing optional base-language resource is skipped only when the loader returns `null`.
+
+### What remains from 3.x
+
+- A `path` that ends with `/` does not find assets. This was already true in 3.x. See [Platform support and limitations](#platform-support-and-limitations).
+- Loaders and delegates have no timeout. A hanging loader keeps the app waiting. See [Platform support and limitations](#platform-support-and-limitations).
+- The scoped `context` forms of `tr`, `plural` and `trExists` are deprecated until 5.0. See [BuildContext API](#buildcontext-api).
+- The `EasyLocalization(...)` widget root is supported. It is not deprecated. See [Legacy widget root](#legacy-widget-root).
+- The `easy_localization_loader` plugin is not used by 4.0. Port its loaders as described above.
 
 ## Legacy widget root
 
