@@ -27,8 +27,6 @@ dependencies:
   easy_localization_continued:
     path: ../
 
-  # Upstream easy_localization_loader requires porting to the new AssetLoader type.
-
 dev_dependencies:
   alchemist: ^0.14.1
   shared_preferences: ^2.0.0
