@@ -121,7 +121,6 @@ extension StringTranslateExtension on String {
 /// Example :
 ///
 /// ```dart
-/// context.locale = Locale('en', 'US');
 /// print(context.locale.toString());
 ///
 /// context.deleteSaveLocale();

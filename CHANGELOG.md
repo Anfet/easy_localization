@@ -4,11 +4,12 @@ Entries through 3.0.9 preserve the history of the original project. Version 4.0.
 
 ### [4.0.0] - Unreleased
 
-- Startup continues with translations when language storage is unavailable; read failures warn and start locale write failures appear in state.
-
 #### Breaking changes
 
-- Published package namespace is `easy_localization_continued`: replace the dependency and package imports, use `easy_localization_continued:generate` / `easy_localization_continued:audit`, and regenerate keys and loaders. Existing 3.x constraints do not upgrade automatically. Upstream loaders require porting to the new `AssetLoader` type and error contract. Remove `fileLoader` and `linkedFileResolver` super arguments and base getter access; custom file loaders own their dependencies, while `RootBundleAssetLoader` retains its fields and constructor; see the migration guide.
+- The published package namespace is `easy_localization_continued`: replace the dependency and package imports, and use `easy_localization_continued:generate` / `easy_localization_continued:audit`.
+- Regenerate keys and loaders. Existing 3.x constraints do not upgrade automatically.
+- Upstream loaders must be ported to the new `AssetLoader` type and error contract. Remove the `fileLoader` and `linkedFileResolver` super arguments and base getter access. Custom file loaders own their dependencies; `RootBundleAssetLoader` keeps its fields and constructor.
+- See [Migrating from 3.x](README.md#migrating-from-3x--upstream-easy_localization) for the step-by-step guide.
 
 - Generated keys re-export the translation extensions and are now Flutter-facing artifacts, rather than standalone Dart libraries.
 - Custom linked file resolvers must accept `scriptCode` in `resolveLinkedFiles` and `getLinkedLocalePath`; `resolveLinkedFilesForLocale` was removed.
@@ -35,6 +36,8 @@ Entries through 3.0.9 preserve the history of the original project. Version 4.0.
 - Added independent translator snapshots and a managed cache for supported locales; held snapshots survive reload, eviction and owner disposal.
 
 #### Improved
+
+- Startup continues with translations when language storage is unavailable: read failures are reported as warnings, and locale write failures appear in the command state.
 - Raised the minimum `shared_preferences` version to 2.5.6 so WASM builds resolve a compatible web implementation.
 
 - Code generation resolves linked JSON and fails with exit code 1 on invalid input without replacing existing output.
@@ -46,9 +49,9 @@ Entries through 3.0.9 preserve the history of the original project. Version 4.0.
 - Code generation handles escaped JSON strings and produces deterministic locale source ordering.
 - `Text.tr` and `Text.plural` preserve the original `Text` properties.
 
-In this fork the work covers upstream issue scenarios #788, #603, #715, #531, #705, #553, #466, #573, #583, #745, #359, #693 and #780; it does not automatically close upstream issues.
+In this fork the work covers upstream issue scenarios [#788](https://github.com/aissat/easy_localization/issues/788), [#603](https://github.com/aissat/easy_localization/issues/603), [#715](https://github.com/aissat/easy_localization/issues/715), [#531](https://github.com/aissat/easy_localization/issues/531), [#705](https://github.com/aissat/easy_localization/issues/705), [#553](https://github.com/aissat/easy_localization/issues/553), [#466](https://github.com/aissat/easy_localization/issues/466), [#573](https://github.com/aissat/easy_localization/issues/573), [#583](https://github.com/aissat/easy_localization/issues/583), [#745](https://github.com/aissat/easy_localization/issues/745), [#359](https://github.com/aissat/easy_localization/issues/359), [#693](https://github.com/aissat/easy_localization/issues/693) and [#780](https://github.com/aissat/easy_localization/issues/780); it does not automatically close upstream issues.
 
-See [Compatibility and migration](README.md#compatibility-and-migration-to-400) for SDK requirements, changed defaults, loader contracts, and migration steps.
+See [Migrating from 3.x / upstream easy_localization](README.md#migrating-from-3x--upstream-easy_localization) for SDK requirements, changed defaults, loader contracts, and migration steps.
 
 
 ### [3.0.9]

@@ -1,7 +1,16 @@
 part of 'easy_localization_app.dart';
 
+/// Result of waiting for a locale command to reach the presentation.
+///
+/// `applied`: the root published the presentation. `superseded`: a newer command replaced it.
+/// `detached`: no localization root is attached. `failed`: loading failed before the data was committed.
+/// `disposed`: the owner was disposed. Only `applied` is a visible success.
 enum LocalizationApplyOutcome { applied, superseded, detached, failed, disposed }
 
+/// Stage at which the last localization error occurred.
+///
+/// `resources`: loading translation resources. `persistence`: saving the chosen locale.
+/// `flutterDelegates`: loading the Flutter localization delegates.
 enum LocalizationErrorStage { resources, persistence, flutterDelegates }
 
 /// Immutable inputs for localization before runApp.
@@ -12,18 +21,43 @@ enum LocalizationErrorStage { resources, persistence, flutterDelegates }
 /// Translation defaults follow language plural rules and disable base fallback.
 @immutable
 class EasyLocalizationConfig {
+  /// Locales the app can show. Must not be empty; the list is copied.
   final List<Locale> supportedLocales;
+
+  /// Folder with the translation files. Must not be empty.
   final String path;
+
+  /// Locales loaded during initialization. Each must be in [supportedLocales].
   final List<Locale> preloadLocales;
+
+  /// Startup locale when no start, saved or system choice applies. Must be in [supportedLocales].
   final Locale fallbackLocale;
+
+  /// Explicit start locale. Must be in [supportedLocales].
   final Locale? startLocale;
+
+  /// Loader for the translation files.
   final AssetLoader assetLoader;
+
+  /// Loaders for translations from other modules or packages.
   final List<AssetLoader> extraAssetLoaders;
+
+  /// Custom Flutter localization delegates, prepared with the presentation.
   final List<LocalizationsDelegate<dynamic>> additionalDelegates;
+
+  /// When `true`, translation files are named by language code only (`en.json`).
   final bool useOnlyLangCode;
+
+  /// Reads a missing key from the fallback locale.
   final bool useFallbackTranslations;
+
+  /// Loads the base language before the fallback when fallback translations are enabled.
   final bool useBaseLanguageFallback;
+
+  /// Treats empty strings as missing, trying any loaded base and fallback resources.
   final bool useFallbackTranslationsForEmptyResources;
+
+  /// Saves the selected locale in device storage.
   final bool saveLocale;
 
   EasyLocalizationConfig({

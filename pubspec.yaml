@@ -1,6 +1,5 @@
 name: easy_localization_continued
-description: Fast and easy internationalization and localization for Flutter apps.
-# author: AISSAT abdelwahab <mr.aissat@gmail.com>
+description: "Maintained fork of easy_localization 3.0.9: fast JSON translations, plurals, linked keys, codegen and a single awaitable localization owner for Flutter."
 homepage: https://github.com/Anfet/easy_localization
 repository: https://github.com/Anfet/easy_localization
 issue_tracker: https://github.com/Anfet/easy_localization/issues

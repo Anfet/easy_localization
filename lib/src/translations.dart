@@ -1,3 +1,4 @@
+/// Immutable translation data for one locale resource, with nested key lookup.
 class Translations {
   final Map<String, dynamic>? _translations;
   final Map<String?, dynamic> _nestedKeysCache;

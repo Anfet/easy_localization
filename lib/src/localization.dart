@@ -5,6 +5,9 @@ import 'package:meta/meta.dart';
 import 'package:easy_localization_continued/src/diagnostics.dart';
 import 'package:easy_localization_continued/src/linked_key_parser.dart';
 
+/// An independent translator snapshot for one locale, held by the caller.
+///
+/// Snapshots you hold survive reload, cache eviction and owner disposal.
 class Localization {
   final Translations? _translations, _baseTranslations, _fallbackTranslations;
   final Locale? _baseLocale, _fallbackLocale;

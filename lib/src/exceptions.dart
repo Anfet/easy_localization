@@ -1,3 +1,4 @@
+/// Thrown when no localization root is found for the given context, or when a missing scope is accessed.
 class LocalizationNotFoundException implements Exception {
   const LocalizationNotFoundException();
 

@@ -12,5 +12,13 @@
    The current workflow still attempts to publish on every matching tag, so the owner must account for that job when
    choosing manual publishing for later versions.
 4. When using the automated path, after the owner has confirmed pub.dev authorization, create a GitHub release with a
-   tag of `v<version>` (for example, `v3.7.5`). The release workflow runs its test job first, then attempts to publish
+   tag of `v<version>` (for example, `v4.0.0`). The release workflow runs its test job first, then attempts to publish
    using OIDC. It publishes only when the package and automated publishing authorization are already in place.
+
+## Development
+
+Run the checks from `.github/workflows/test.yml` before opening a pull request:
+
+1. In the package root: `flutter pub get`, `flutter analyze lib bin test`, `dart format --output=none --set-exit-if-changed --line-length 150 lib bin`, and `flutter test`.
+2. In `example/`: `flutter pub get`, `flutter analyze lib test`, then run `flutter test` on `test/widget_test.dart`, `test/localization_layout_test.dart` and `test/linked_assets_test.dart`.
+3. In the package root: `flutter pub publish --dry-run`.
