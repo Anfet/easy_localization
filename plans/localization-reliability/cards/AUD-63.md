@@ -70,7 +70,7 @@ Pool review 11.11.2026, reviewed head `05dd5ffbf89f263fb1373276ac508fb7f4d1b2bf`
 
 Executor R1 closure: direct `delegate.load(locale)` call now leaves synchronous throws on the existing outer catch path. Regression test verifies the later delegate is not invoked. The asynchronous early-error regression and complete requested validation pass.
 
-Executor R2 closure (`Missed in review 1`): поздний делегат теперь возвращает `_CountedResource`, отдельный тип от `_OtherResource` падающего делегата, поэтому он остаётся выбранным и тест проверяет `loads == 0` именно из-за синхронного отказа. Managed-root, полный пакет и smoke прошли повторно. Code SHA remains `0883c612949e33e78aec96638ad4ff02b3ed41a8`.
+Executor R2 closure (`Missed in review 1`): поздний делегат теперь возвращает `_CountedResource`, отдельный тип от `_OtherResource` падающего делегата, поэтому он остаётся выбранным и тест проверяет `loads == 0` именно из-за синхронного отказа. Managed-root, полный пакет и smoke прошли повторно. Final implementation SHA: `cb03108322139a34eaabbcde32616ea6e4a02268`.
 
 Pool review recheck of AUD-63 at `0883c612949e33e78aec96638ad4ff02b3ed41a8`: finding closed; the direct call preserves the synchronous throw, the regression test covers the later delegate, and full package/smoke validation passes.
 
