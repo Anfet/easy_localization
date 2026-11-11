@@ -35,6 +35,7 @@ Entries through 3.0.9 preserve the history of the original project. Version 4.0.
 - Added independent translator snapshots and a managed cache for supported locales; held snapshots survive reload, eviction and owner disposal.
 
 #### Improved
+- Raised the minimum `shared_preferences` version to 2.5.6 so WASM builds resolve a compatible web implementation.
 
 - Code generation resolves linked JSON and fails with exit code 1 on invalid input without replacing existing output.
 
